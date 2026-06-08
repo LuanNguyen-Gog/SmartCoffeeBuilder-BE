@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="SmartCoffeeBuilder.API/SmartCoffeeBuilder.API.csproj" Id="e668dec5-cb6d-43ef-acef-c1dc011ba0d7" />
+  <Project Path="SmartCoffeeBuilder.Repository/SmartCoffeeBuilder.Repository.csproj" Id="069268d8-7fd0-478e-9c45-e08ff459c79f" />
+  <Project Path="SmartCoffeeBuilder.Service/SmartCoffeeBuilder.Service.csproj" Id="2007f467-0fd3-4178-a459-6371640cdd55" />
+</Solution>
