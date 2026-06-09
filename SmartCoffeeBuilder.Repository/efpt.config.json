@@ -1,0 +1,218 @@
+﻿{
+   "CodeGenerationMode": 4,
+   "ContextClassName": "SmartCafeBuilderContext",
+   "ContextNamespace": null,
+   "FilterSchemas": false,
+   "IncludeConnectionString": false,
+   "IrregularWords": null,
+   "MinimumProductVersion": "2.6.1604",
+   "ModelNamespace": null,
+   "OutputContextPath": null,
+   "OutputPath": "Models",
+   "PluralRules": null,
+   "PreserveCasingWithRegex": true,
+   "ProjectRootNamespace": "SmartCoffeeBuilder.Repository",
+   "Schemas": null,
+   "SelectedHandlebarsLanguage": 2,
+   "SelectedToBeGenerated": 0,
+   "SingularRules": null,
+   "T4TemplatePath": null,
+   "Tables": [
+      {
+         "Name": "public.ai_recommendations",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.approval_history",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.approvals",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.attachments",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.bid_requests",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.bids",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.budget_items",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.constructor_profiles",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.contracts",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.conversation_members",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.conversations",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.design_briefs",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.design_versions",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.designer_profiles",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.designs",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.handovers",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.help_contents",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.inspection_items",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.inspections",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.issues",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.messages",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.notifications",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.owner_profiles",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.permissions",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.platform_fees",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.portfolio_items",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.progress_updates",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.project_hires",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.projects",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.provider_services",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.quotation_items",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.quotations",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.review_scores",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.reviews",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.role_permissions",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.roles",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.service_providers",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.service_types",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.surveys",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.user_roles",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.users",
+         "ObjectType": 0
+      },
+      {
+         "Name": "public.warranties",
+         "ObjectType": 0
+      }
+   ],
+   "UiHint": null,
+   "UncountableWords": null,
+   "UseAsyncStoredProcedureCalls": true,
+   "UseBoolPropertiesWithoutDefaultSql": false,
+   "UseDatabaseNames": false,
+   "UseDatabaseNamesForRoutines": true,
+   "UseDateOnlyTimeOnly": true,
+   "UseDbContextSplitting": false,
+   "UseDecimalDataAnnotationForSprocResult": true,
+   "UseFluentApiOnly": true,
+   "UseHandleBars": false,
+   "UseHierarchyId": false,
+   "UseInflector": true,
+   "UseInternalAccessModifiersForSprocsAndFunctions": false,
+   "UseLegacyPluralizer": false,
+   "UseManyToManyEntity": false,
+   "UseNoDefaultConstructor": false,
+   "UseNoNavigations": false,
+   "UseNoObjectFilter": false,
+   "UseNodaTime": false,
+   "UseNullableReferences": false,
+   "UsePrefixNavigationNaming": false,
+   "UseSchemaFolders": false,
+   "UseSchemaNamespaces": false,
+   "UseSpatial": false,
+   "UseT4": false,
+   "UseT4Split": false,
+   "UseTypedTvpParameters": true
+}
