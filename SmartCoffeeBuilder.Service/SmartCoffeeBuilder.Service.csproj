@@ -10,4 +10,10 @@
     <ProjectReference Include="..\SmartCoffeeBuilder.Repository\SmartCoffeeBuilder.Repository.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="BCrypt.Net-Next" Version="4.2.1" />
+    <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.19.1" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.19.1" />
+  </ItemGroup>
+
 </Project>

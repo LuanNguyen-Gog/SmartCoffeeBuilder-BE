@@ -277,3 +277,6 @@ __pycache__/
 **/appsettings.json
 **/appsettings.*.json
 !**/appsettings.Example.json
+
+# Claude Code
+CLAUDE.md
