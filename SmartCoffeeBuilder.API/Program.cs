@@ -2,6 +2,7 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Scalar.AspNetCore;
 using SmartCoffeeBuilder.API.Middlewares;
 using SmartCoffeeBuilder.Repository.Implementations;
 using SmartCoffeeBuilder.Repository.Interfaces;
@@ -44,17 +45,33 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
 builder.Services.AddControllers();
+
+// OpenAPI + Swagger (available in both Development and Production)
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+// Swagger UI available in both environments
+app.MapOpenApi();
+app.MapScalarApiReference(options =>
 {
-    app.MapOpenApi();
-}
+    options.Title = "SmartCoffeeBuilder API";
+    options.Theme = ScalarTheme.Default;
+    options.DefaultHttpClient = new(ScalarTarget.Http, ScalarClient.Http11);
+    options.Authentication = new ScalarAuthenticationOptions
+    {
+        PreferredSecuritySchemes = ["Bearer"]
+    };
+});
 
 app.UseExceptionHandler();
-app.UseHttpsRedirection();
+
+// Bỏ UseHttpsRedirection — Cloud Run xử lý HTTPS ở load balancer
+if (app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
