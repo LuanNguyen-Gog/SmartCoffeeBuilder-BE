@@ -84,37 +84,6 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class
             ? await _dbSet.CountAsync(predicate)
             : await _dbSet.CountAsync();
 
-    public virtual Task<PaginatedResult<T>> GetPagingListAsync(
-        Expression<Func<T, bool>>? predicate = null,
-        Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null,
-        Func<IQueryable<T>, IIncludableQueryable<T, object>>? include = null,
-        int page = 1,
-        int size = 10)
-    {
-        IQueryable<T> query = _dbSet;
-        if (include != null) query = include(query);
-        if (predicate != null) query = query.Where(predicate);
-        if (orderBy != null) query = orderBy(query);
-
-        return query.AsNoTracking().ToPaginatedResultAsync(page, size);
-    }
-
-    public virtual Task<PaginatedResult<TResult>> GetPagingListAsync<TResult>(
-        Expression<Func<T, TResult>> selector,
-        Expression<Func<T, bool>>? predicate = null,
-        Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null,
-        Func<IQueryable<T>, IIncludableQueryable<T, object>>? include = null,
-        int page = 1,
-        int size = 10)
-    {
-        IQueryable<T> query = _dbSet;
-        if (include != null) query = include(query);
-        if (predicate != null) query = query.Where(predicate);
-        if (orderBy != null) query = orderBy(query);
-
-        return query.AsNoTracking().Select(selector).ToPaginatedResultAsync(page, size);
-    }
-
     public IQueryable<T> GetQueryable(
         Expression<Func<T, bool>>? predicate = null,
         Func<IQueryable<T>, IIncludableQueryable<T, object>>? include = null)
