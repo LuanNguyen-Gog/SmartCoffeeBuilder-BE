@@ -8,6 +8,8 @@ using SmartCoffeeBuilder.Repository.DBContext;
 using SmartCoffeeBuilder.Repository.Implementations;
 using SmartCoffeeBuilder.Repository.Interfaces;
 using SmartCoffeeBuilder.Repository.Models;
+using SmartCoffeeBuilder.Repository.UnitOfWork;
+using SmartCoffeeBuilder.Repository.Utils;
 using SmartCoffeeBuilder.Service.Implementations;
 using SmartCoffeeBuilder.Service.Interfaces;
 
@@ -19,6 +21,8 @@ builder.Services.AddDbContext<SmartCafeBuilderContext>(options =>
            .UseSnakeCaseNamingConvention());
 
 // DI
+builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
+builder.Services.AddScoped(typeof(IUnitOfWork<>), typeof(UnitOfWork<>));
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
