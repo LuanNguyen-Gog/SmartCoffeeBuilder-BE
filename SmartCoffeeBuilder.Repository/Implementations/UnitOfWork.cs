@@ -3,9 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using SmartCoffeeBuilder.Repository.DBContext;
 using SmartCoffeeBuilder.Repository.Interfaces;
-using SmartCoffeeBuilder.Repository.Utils;
 
-namespace SmartCoffeeBuilder.Repository.UnitOfWork;
+namespace SmartCoffeeBuilder.Repository.Implementations;
 
 public class UnitOfWork<TContext> : IUnitOfWork<TContext> where TContext : SmartCafeBuilderContext
 {

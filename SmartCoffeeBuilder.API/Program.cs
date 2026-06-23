@@ -8,8 +8,6 @@ using SmartCoffeeBuilder.Repository.DBContext;
 using SmartCoffeeBuilder.Repository.Implementations;
 using SmartCoffeeBuilder.Repository.Interfaces;
 using SmartCoffeeBuilder.Repository.Models;
-using SmartCoffeeBuilder.Repository.UnitOfWork;
-using SmartCoffeeBuilder.Repository.Utils;
 using SmartCoffeeBuilder.Service.Implementations;
 using SmartCoffeeBuilder.Service.Interfaces;
 
@@ -25,6 +23,10 @@ builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepositor
 builder.Services.AddScoped(typeof(IUnitOfWork<>), typeof(UnitOfWork<>));
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddScoped<IShopOwnerService, ShopOwnerService>();
+builder.Services.AddScoped<IServiceProviderService, ServiceProviderService>();
+builder.Services.AddScoped<IProjectService, ProjectService>();
 
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"]

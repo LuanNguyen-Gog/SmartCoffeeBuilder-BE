@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Query;
 using SmartCoffeeBuilder.Repository.DBContext;
 using SmartCoffeeBuilder.Repository.Interfaces;
 
-namespace SmartCoffeeBuilder.Repository.Utils;
+namespace SmartCoffeeBuilder.Repository.Implementations;
 
 /// <summary>
 /// Repository tổng quát cho mọi entity. Không tự gọi SaveChanges —
