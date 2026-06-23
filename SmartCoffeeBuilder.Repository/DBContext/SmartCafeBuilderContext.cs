@@ -1,7 +1,8 @@
 using Microsoft.EntityFrameworkCore;
+using SmartCoffeeBuilder.Repository.Models;
 using SmartCoffeeBuilder.Repository.Models.Enums;
 
-namespace SmartCoffeeBuilder.Repository.Models;
+namespace SmartCoffeeBuilder.Repository.DBContext;
 
 public class SmartCafeBuilderContext : DbContext
 {

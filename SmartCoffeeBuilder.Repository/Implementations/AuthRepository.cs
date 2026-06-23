@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SmartCoffeeBuilder.Repository.DBContext;
 using SmartCoffeeBuilder.Repository.Interfaces;
 using SmartCoffeeBuilder.Repository.Models;
 

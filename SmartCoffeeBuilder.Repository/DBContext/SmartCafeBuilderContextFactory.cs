@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
-namespace SmartCoffeeBuilder.Repository.Models;
+namespace SmartCoffeeBuilder.Repository.DBContext;
 
 /// <summary>
 /// Design-time factory cho dotnet-ef (vì appsettings.json bị gitignore).

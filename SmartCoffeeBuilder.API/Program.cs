@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using SmartCoffeeBuilder.API.Middlewares;
+using SmartCoffeeBuilder.Repository.DBContext;
 using SmartCoffeeBuilder.Repository.Implementations;
 using SmartCoffeeBuilder.Repository.Interfaces;
 using SmartCoffeeBuilder.Repository.Models;
