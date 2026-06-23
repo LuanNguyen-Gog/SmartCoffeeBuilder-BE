@@ -15,7 +15,7 @@ public class RegisterRequest
     [Phone]
     public string? Phone { get; set; }
 
-    /// <summary>owner | designer | constructor</summary>
+    /// <summary>owner | provider | admin</summary>
     [Required]
     public string Role { get; set; } = null!;
 }
