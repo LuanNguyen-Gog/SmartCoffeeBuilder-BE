@@ -8,7 +8,6 @@ public class ProjectApplication
     public long PostId { get; set; }
     public long ProviderId { get; set; }
     public string Proposal { get; set; } = null!;
-    public decimal? BidAmount { get; set; }
     public int? EstimatedDurationDays { get; set; }
     public ApplicationStatus Status { get; set; } = ApplicationStatus.pending;
     public DateTime? SubmittedAt { get; set; }

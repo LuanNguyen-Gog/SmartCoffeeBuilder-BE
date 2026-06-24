@@ -11,7 +11,6 @@ public class ProjectPost
     public string Description { get; set; } = null!;
     public PostStatus Status { get; set; } = PostStatus.open;
     public DateTime? SubmissionDeadline { get; set; }
-    public decimal? EstimatedBudget { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

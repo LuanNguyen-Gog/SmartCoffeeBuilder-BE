@@ -20,5 +20,4 @@ public class Project
     public ICollection<BudgetItem> BudgetItems { get; set; } = new List<BudgetItem>();
     public ICollection<ProjectPost> ProjectPosts { get; set; } = new List<ProjectPost>();
     public ICollection<ProjectProvider> ProjectProviders { get; set; } = new List<ProjectProvider>();
-    public ICollection<Review> Reviews { get; set; } = new List<Review>();
 }

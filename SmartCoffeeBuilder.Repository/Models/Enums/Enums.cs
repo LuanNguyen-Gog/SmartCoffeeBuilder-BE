@@ -37,6 +37,4 @@ public enum ItemStatus { pending, in_progress, completed }
 public enum IssueStatus { open, in_progress, resolved, closed }
 
 public enum ContractStatus { drafted, pending_otp, confirmed, cancelled }
-
-public enum DocType { technical_drawing, reference, other }
 #pragma warning restore CS8981

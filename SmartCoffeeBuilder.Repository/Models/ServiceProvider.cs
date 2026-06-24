@@ -24,5 +24,4 @@ public class ServiceProvider
     public ConstructorProfile? ConstructorProfile { get; set; }
     public ICollection<ProjectApplication> ProjectApplications { get; set; } = new List<ProjectApplication>();
     public ICollection<ProjectProvider> ProjectProviders { get; set; } = new List<ProjectProvider>();
-    public ICollection<Review> Reviews { get; set; } = new List<Review>();
 }

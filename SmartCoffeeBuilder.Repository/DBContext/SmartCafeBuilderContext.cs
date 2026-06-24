@@ -44,6 +44,7 @@ public class SmartCafeBuilderContext : DbContext
     // Nhóm 7 — Hợp đồng & File
     public DbSet<Contract> Contracts => Set<Contract>();
     public DbSet<Doc> Docs => Set<Doc>();
+    public DbSet<DocType> DocTypes => Set<DocType>();
 
     // Nhóm 8 — Giao tiếp
     public DbSet<Conversation> Conversations => Set<Conversation>();
@@ -74,7 +75,6 @@ public class SmartCafeBuilderContext : DbContext
         configurationBuilder.Properties<ItemStatus>().HaveConversion<string>().HaveMaxLength(30);
         configurationBuilder.Properties<IssueStatus>().HaveConversion<string>().HaveMaxLength(30);
         configurationBuilder.Properties<ContractStatus>().HaveConversion<string>().HaveMaxLength(30);
-        configurationBuilder.Properties<DocType>().HaveConversion<string>().HaveMaxLength(30);
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -159,7 +159,6 @@ public class SmartCafeBuilderContext : DbContext
         modelBuilder.Entity<ProjectPost>(e =>
         {
             e.HasIndex(x => x.ProjectId);
-            e.Property(x => x.EstimatedBudget).HasPrecision(15, 2);
             e.HasOne(x => x.Project).WithMany(p => p.ProjectPosts)
                 .HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
         });
@@ -168,7 +167,6 @@ public class SmartCafeBuilderContext : DbContext
         {
             e.HasIndex(x => x.PostId);
             e.HasIndex(x => x.ProviderId);
-            e.Property(x => x.BidAmount).HasPrecision(15, 2);
             e.HasOne(x => x.Post).WithMany(p => p.ProjectApplications)
                 .HasForeignKey(x => x.PostId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Provider).WithMany(p => p.ProjectApplications)
@@ -269,10 +267,20 @@ public class SmartCafeBuilderContext : DbContext
         modelBuilder.Entity<Doc>(e =>
         {
             e.HasIndex(x => x.ProjectProviderId);
+            e.HasIndex(x => x.DocTypeId);
             e.HasOne(x => x.ProjectProvider).WithMany(p => p.Docs)
                 .HasForeignKey(x => x.ProjectProviderId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.DocType).WithMany(t => t.Docs)
+                .HasForeignKey(x => x.DocTypeId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.UploadedByAccount).WithMany()
                 .HasForeignKey(x => x.UploadedBy).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<DocType>(e =>
+        {
+            e.HasIndex(x => x.Code).IsUnique();
+            e.Property(x => x.Code).HasMaxLength(50);
+            e.Property(x => x.Name).HasMaxLength(150);
         });
 
         // ───────── Nhóm 8 — Giao tiếp ─────────
@@ -306,13 +314,10 @@ public class SmartCafeBuilderContext : DbContext
         // ───────── Nhóm 9 — Đánh giá ─────────
         modelBuilder.Entity<Review>(e =>
         {
-            e.HasIndex(x => x.ProviderId);
-            e.HasIndex(x => x.ProjectId);
+            e.HasIndex(x => x.ProjectProviderId);
             e.Property(x => x.OverallRating).HasPrecision(3, 2);
-            e.HasOne(x => x.Provider).WithMany(p => p.Reviews)
-                .HasForeignKey(x => x.ProviderId).OnDelete(DeleteBehavior.Restrict);
-            e.HasOne(x => x.Project).WithMany(p => p.Reviews)
-                .HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.ProjectProvider).WithMany(p => p.Reviews)
+                .HasForeignKey(x => x.ProjectProviderId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<ReviewScore>(e =>

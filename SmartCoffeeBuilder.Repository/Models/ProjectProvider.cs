@@ -28,4 +28,5 @@ public class ProjectProvider
     public ICollection<Contract> Contracts { get; set; } = new List<Contract>();
     public ICollection<Doc> Docs { get; set; } = new List<Doc>();
     public ICollection<Conversation> Conversations { get; set; } = new List<Conversation>();
+    public ICollection<Review> Reviews { get; set; } = new List<Review>();
 }
