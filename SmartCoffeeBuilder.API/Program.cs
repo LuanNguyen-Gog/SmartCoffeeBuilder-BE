@@ -79,10 +79,20 @@ builder.Services.AddSwaggerGen(options =>
 var app = builder.Build();
 
 // Seed dữ liệu mẫu (idempotent — bỏ qua nếu DB đã có dữ liệu).
+// Không để lỗi seeding chặn việc app lắng nghe port 8080 (Cloud Run startup probe).
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<SmartCafeBuilderContext>();
-    await DbSeeder.SeedAsync(db);
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    try
+    {
+        await db.Database.MigrateAsync();
+        await DbSeeder.SeedAsync(db);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Database migrate/seed failed at startup; continuing so the server can start.");
+    }
 }
 
 app.UseSwagger();
