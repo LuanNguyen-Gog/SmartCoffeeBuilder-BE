@@ -8,6 +8,7 @@ using SmartCoffeeBuilder.Repository.DBContext;
 using SmartCoffeeBuilder.Repository.Implementations;
 using SmartCoffeeBuilder.Repository.Interfaces;
 using SmartCoffeeBuilder.Repository.Models;
+using SmartCoffeeBuilder.Repository.SeedData;
 using SmartCoffeeBuilder.Service.Implementations;
 using SmartCoffeeBuilder.Service.Interfaces;
 
@@ -76,6 +77,13 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 var app = builder.Build();
+
+// Seed dữ liệu mẫu (idempotent — bỏ qua nếu DB đã có dữ liệu).
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<SmartCafeBuilderContext>();
+    await DbSeeder.SeedAsync(db);
+}
 
 app.UseSwagger();
 app.UseSwaggerUI(options =>
