@@ -8,12 +8,10 @@ namespace SmartCoffeeBuilder.API.Middlewares;
 public class GlobalExceptionHandler : IExceptionHandler
 {
     private readonly ILogger<GlobalExceptionHandler> _logger;
-    private readonly IHostEnvironment _env;
 
-    public GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger, IHostEnvironment env)
+    public GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger)
     {
         _logger = logger;
-        _env = env;
     }
 
     public async ValueTask<bool> TryHandleAsync(
@@ -54,14 +52,10 @@ public class GlobalExceptionHandler : IExceptionHandler
             Instance = $"{httpContext.Request.Method} {httpContext.Request.Path}"
         };
         problem.Extensions["traceId"] = traceId;
-
-        // Chỉ lộ chi tiết nội bộ (stack trace, inner exception) khi ở môi trường dev.
-        if (_env.IsDevelopment())
-        {
-            problem.Extensions["exceptionType"] = exception.GetType().FullName;
-            problem.Extensions["innerException"] = exception.InnerException?.Message;
-            problem.Extensions["stackTrace"] = exception.StackTrace;
-        }
+        problem.Extensions["exceptionType"] = exception.GetType().FullName;
+        problem.Extensions["innerException"] = exception.InnerException?.Message;
+        problem.Extensions["innerChain"] = BuildInnerChain(exception);
+        problem.Extensions["stackTrace"] = exception.StackTrace;
 
         await httpContext.Response.WriteAsJsonAsync(problem, cancellationToken);
         return true;
