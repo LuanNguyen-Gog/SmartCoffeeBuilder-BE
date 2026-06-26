@@ -70,15 +70,23 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 // Ngăn ASP.NET ghi response 401 rỗng mặc định.
                 context.HandleResponse();
 
+                // Lý do thật nằm ở AuthenticateFailure (token hết hạn, sai chữ ký,
+                // sai issuer/audience...). ErrorDescription thường rỗng nên đọc thêm.
+                var reason = context.AuthenticateFailure?.Message
+                    ?? (context.HttpContext.Request.Headers.ContainsKey("Authorization")
+                        ? "Authorization header present but token could not be validated."
+                        : "No Authorization header was sent.");
+
                 var logger = context.HttpContext.RequestServices
                     .GetRequiredService<ILoggerFactory>()
                     .CreateLogger("JwtBearer");
                 logger.LogWarning(
-                    "JWT challenge on {Method} {Path}: error={Error}, description={Description}",
+                    "JWT challenge on {Method} {Path}: error={Error}, reason={Reason}, failure={Failure}",
                     context.HttpContext.Request.Method,
                     context.HttpContext.Request.Path,
                     context.Error,
-                    context.ErrorDescription);
+                    reason,
+                    context.AuthenticateFailure?.GetType().Name);
 
                 context.Response.StatusCode = StatusCodes.Status401Unauthorized;
                 context.Response.ContentType = "application/problem+json";
@@ -86,9 +94,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 {
                     Status = StatusCodes.Status401Unauthorized,
                     Title = "Unauthorized",
-                    Detail = string.IsNullOrEmpty(context.ErrorDescription)
-                        ? "Authentication token is missing or invalid."
-                        : context.ErrorDescription,
+                    Detail = reason,
                     Instance = $"{context.HttpContext.Request.Method} {context.HttpContext.Request.Path}"
                 });
             }
