@@ -123,9 +123,9 @@ builder.Services.AddSwaggerGen(options =>
         In = ParameterLocation.Header,
         Description = "Nhập JWT token. Ví dụ: eyJhbGci..."
     });
-    options.AddSecurityRequirement(_ => new OpenApiSecurityRequirement
+    options.AddSecurityRequirement(doc => new OpenApiSecurityRequirement
     {
-        { new OpenApiSecuritySchemeReference("Bearer"), [] }
+        { new OpenApiSecuritySchemeReference("Bearer", doc), [] }
     });
 });
 
