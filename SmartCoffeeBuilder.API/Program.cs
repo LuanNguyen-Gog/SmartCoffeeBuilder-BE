@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
@@ -45,6 +46,52 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
             ClockSkew = TimeSpan.Zero
+        };
+
+        // Auth middleware không throw exception nên GlobalExceptionHandler không bắt được 401.
+        // Log lý do thất bại + trả về body JSON thay vì 401 rỗng.
+        options.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = context =>
+            {
+                var logger = context.HttpContext.RequestServices
+                    .GetRequiredService<ILoggerFactory>()
+                    .CreateLogger("JwtBearer");
+                logger.LogWarning(
+                    context.Exception,
+                    "JWT authentication failed on {Method} {Path}: {Message}",
+                    context.HttpContext.Request.Method,
+                    context.HttpContext.Request.Path,
+                    context.Exception.Message);
+                return Task.CompletedTask;
+            },
+            OnChallenge = async context =>
+            {
+                // Ngăn ASP.NET ghi response 401 rỗng mặc định.
+                context.HandleResponse();
+
+                var logger = context.HttpContext.RequestServices
+                    .GetRequiredService<ILoggerFactory>()
+                    .CreateLogger("JwtBearer");
+                logger.LogWarning(
+                    "JWT challenge on {Method} {Path}: error={Error}, description={Description}",
+                    context.HttpContext.Request.Method,
+                    context.HttpContext.Request.Path,
+                    context.Error,
+                    context.ErrorDescription);
+
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                context.Response.ContentType = "application/problem+json";
+                await context.Response.WriteAsJsonAsync(new ProblemDetails
+                {
+                    Status = StatusCodes.Status401Unauthorized,
+                    Title = "Unauthorized",
+                    Detail = string.IsNullOrEmpty(context.ErrorDescription)
+                        ? "Authentication token is missing or invalid."
+                        : context.ErrorDescription,
+                    Instance = $"{context.HttpContext.Request.Method} {context.HttpContext.Request.Path}"
+                });
+            }
         };
     });
 
