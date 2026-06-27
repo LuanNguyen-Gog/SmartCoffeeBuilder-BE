@@ -1,4 +1,4 @@
-namespace SmartCoffeeBuilder.Service.DTOs.Requests;
+namespace SmartCoffeeBuilder.Service.DTOs.Requests.ShopOwner;
 
 public class UpdateShopOwnerRequest
 {

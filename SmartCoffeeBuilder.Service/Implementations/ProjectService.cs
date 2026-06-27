@@ -3,8 +3,8 @@ using SmartCoffeeBuilder.Repository.Interfaces;
 using SmartCoffeeBuilder.Repository.Models;
 using SmartCoffeeBuilder.Repository.Models.Enums;
 using SmartCoffeeBuilder.Service.ApiResponse;
-using SmartCoffeeBuilder.Service.DTOs.Requests;
-using SmartCoffeeBuilder.Service.DTOs.Responses;
+using SmartCoffeeBuilder.Service.DTOs.Requests.Project;
+using SmartCoffeeBuilder.Service.DTOs.Responses.Project;
 using SmartCoffeeBuilder.Service.Interfaces;
 
 namespace SmartCoffeeBuilder.Service.Implementations;
