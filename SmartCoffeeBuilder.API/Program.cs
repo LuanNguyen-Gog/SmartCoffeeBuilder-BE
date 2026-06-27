@@ -29,6 +29,8 @@ builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IShopOwnerService, ShopOwnerService>();
 builder.Services.AddScoped<IServiceProviderService, ServiceProviderService>();
 builder.Services.AddScoped<IProjectService, ProjectService>();
+builder.Services.AddScoped<IDesignBriefService, DesignBriefService>();
+builder.Services.AddScoped<IAiRecommendationService, AiRecommendationService>();
 
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"]

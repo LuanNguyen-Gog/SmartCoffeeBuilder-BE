@@ -1,6 +1,6 @@
 using SmartCoffeeBuilder.Repository.Models;
 
-namespace SmartCoffeeBuilder.Service.DTOs.Responses;
+namespace SmartCoffeeBuilder.Service.DTOs.Responses.Account;
 
 public class AccountResponse
 {
@@ -13,7 +13,7 @@ public class AccountResponse
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
-    public static AccountResponse From(Account a) => new()
+    public static AccountResponse From(SmartCoffeeBuilder.Repository.Models.Account a) => new()
     {
         Id = a.Id,
         Email = a.Email,

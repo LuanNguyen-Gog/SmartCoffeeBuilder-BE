@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SmartCoffeeBuilder.Service.DTOs.Requests;
+using SmartCoffeeBuilder.Service.DTOs.Requests.Account;
 using SmartCoffeeBuilder.Service.Interfaces;
 
 namespace SmartCoffeeBuilder.API.Controllers;

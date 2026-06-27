@@ -1,6 +1,6 @@
 using SmartCoffeeBuilder.Repository.Models;
 
-namespace SmartCoffeeBuilder.Service.DTOs.Responses;
+namespace SmartCoffeeBuilder.Service.DTOs.Responses.ShopOwner;
 
 public class ShopOwnerResponse
 {
@@ -13,7 +13,7 @@ public class ShopOwnerResponse
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
-    public static ShopOwnerResponse From(ShopOwner s) => new()
+    public static ShopOwnerResponse From(SmartCoffeeBuilder.Repository.Models.ShopOwner s) => new()
     {
         Id = s.Id,
         AccountId = s.AccountId,

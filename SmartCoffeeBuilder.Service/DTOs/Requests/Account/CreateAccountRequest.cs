@@ -1,8 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace SmartCoffeeBuilder.Service.DTOs.Requests;
+namespace SmartCoffeeBuilder.Service.DTOs.Requests.Account;
 
-public class RegisterRequest
+public class CreateAccountRequest
 {
     [Required]
     [EmailAddress]
@@ -18,4 +18,7 @@ public class RegisterRequest
     /// <summary>owner | provider | admin</summary>
     [Required]
     public string Role { get; set; } = null!;
+
+    /// <summary>active | inactive | banned | pending — mặc định active.</summary>
+    public string? Status { get; set; }
 }
