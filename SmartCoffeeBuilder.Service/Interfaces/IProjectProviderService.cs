@@ -12,8 +12,8 @@ public interface IProjectProviderService
 
     Task<ProjectProviderResponse> GetByIdAsync(long id);
 
-    /// <summary>Owner thuê trực tiếp — engagement tạo với status=requested (application_id=null).</summary>
-    Task<ProjectProviderResponse> CreateAsync(CreateProjectProviderRequest request);
+    /// <summary>Owner gửi lời mời thuê trực tiếp — engagement tạo với status=requested (application_id=null).</summary>
+    Task<ProjectProviderResponse> CreateDirectRequestAsync(CreateProjectProviderRequest request);
 
     /// <summary>
     /// Chuyển trạng thái engagement theo máy trạng thái:

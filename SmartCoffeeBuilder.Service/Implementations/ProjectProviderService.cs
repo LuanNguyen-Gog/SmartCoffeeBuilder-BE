@@ -66,7 +66,7 @@ public class ProjectProviderService : IProjectProviderService
         return ProjectProviderResponse.From(engagement);
     }
 
-    public async Task<ProjectProviderResponse> CreateAsync(CreateProjectProviderRequest request)
+    public async Task<ProjectProviderResponse> CreateDirectRequestAsync(CreateProjectProviderRequest request)
     {
         var project = await _unitOfWork.GetRepository<Project>()
             .SingleOrDefaultAsync(predicate: p => p.Id == request.ProjectId && p.DeletedAt == null)
