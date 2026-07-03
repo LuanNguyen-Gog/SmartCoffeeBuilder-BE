@@ -17,7 +17,10 @@ public class ProjectPostController : ControllerBase
         _projectPostService = projectPostService;
     }
 
-    /// <summary>Tìm/duyệt bài đăng (provider lọc status=open, serviceKind theo capability).</summary>
+    /// <summary>
+    /// [TÌM BÀI] Provider tìm bài đăng. serviceKind: design | construction | both.
+    /// status: open | closed | cancelled (lọc open tự ẩn bài quá hạn nộp). search: theo title.
+    /// </summary>
     [HttpGet]
     public async Task<IActionResult> GetAll(
         [FromQuery] int pageNumber = 1,
@@ -39,7 +42,10 @@ public class ProjectPostController : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Owner đăng bài tuyển provider cho project.</summary>
+    /// <summary>
+    /// [ĐĂNG BÀI] Owner đăng bài tuyển provider. serviceKind: design | construction | both.
+    /// Bài tạo với status=open; submissionDeadline (nếu có) phải ở tương lai.
+    /// </summary>
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateProjectPostRequest request)
     {
