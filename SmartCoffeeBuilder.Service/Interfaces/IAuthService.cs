@@ -1,5 +1,5 @@
-using SmartCoffeeBuilder.Service.DTOs.Requests;
-using SmartCoffeeBuilder.Service.DTOs.Responses;
+using SmartCoffeeBuilder.Service.DTOs.Requests.Auth;
+using SmartCoffeeBuilder.Service.DTOs.Responses.Auth;
 
 namespace SmartCoffeeBuilder.Service.Interfaces;
 

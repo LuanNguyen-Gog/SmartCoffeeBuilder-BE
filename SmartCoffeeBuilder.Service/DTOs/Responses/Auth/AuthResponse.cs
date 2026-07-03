@@ -1,4 +1,4 @@
-namespace SmartCoffeeBuilder.Service.DTOs.Responses;
+namespace SmartCoffeeBuilder.Service.DTOs.Responses.Auth;
 
 public class AuthResponse
 {

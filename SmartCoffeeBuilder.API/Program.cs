@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
@@ -28,6 +29,8 @@ builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IShopOwnerService, ShopOwnerService>();
 builder.Services.AddScoped<IServiceProviderService, ServiceProviderService>();
 builder.Services.AddScoped<IProjectService, ProjectService>();
+builder.Services.AddScoped<IDesignBriefService, DesignBriefService>();
+builder.Services.AddScoped<IAiRecommendationService, AiRecommendationService>();
 builder.Services.AddScoped<IProjectPostService, ProjectPostService>();
 
 // JWT Authentication
@@ -46,6 +49,58 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
             ClockSkew = TimeSpan.Zero
+        };
+
+        // Auth middleware không throw exception nên GlobalExceptionHandler không bắt được 401.
+        // Log lý do thất bại + trả về body JSON thay vì 401 rỗng.
+        options.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = context =>
+            {
+                var logger = context.HttpContext.RequestServices
+                    .GetRequiredService<ILoggerFactory>()
+                    .CreateLogger("JwtBearer");
+                logger.LogWarning(
+                    context.Exception,
+                    "JWT authentication failed on {Method} {Path}: {Message}",
+                    context.HttpContext.Request.Method,
+                    context.HttpContext.Request.Path,
+                    context.Exception.Message);
+                return Task.CompletedTask;
+            },
+            OnChallenge = async context =>
+            {
+                // Ngăn ASP.NET ghi response 401 rỗng mặc định.
+                context.HandleResponse();
+
+                // Lý do thật nằm ở AuthenticateFailure (token hết hạn, sai chữ ký,
+                // sai issuer/audience...). ErrorDescription thường rỗng nên đọc thêm.
+                var reason = context.AuthenticateFailure?.Message
+                    ?? (context.HttpContext.Request.Headers.ContainsKey("Authorization")
+                        ? "Authorization header present but token could not be validated."
+                        : "No Authorization header was sent.");
+
+                var logger = context.HttpContext.RequestServices
+                    .GetRequiredService<ILoggerFactory>()
+                    .CreateLogger("JwtBearer");
+                logger.LogWarning(
+                    "JWT challenge on {Method} {Path}: error={Error}, reason={Reason}, failure={Failure}",
+                    context.HttpContext.Request.Method,
+                    context.HttpContext.Request.Path,
+                    context.Error,
+                    reason,
+                    context.AuthenticateFailure?.GetType().Name);
+
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                context.Response.ContentType = "application/problem+json";
+                await context.Response.WriteAsJsonAsync(new ProblemDetails
+                {
+                    Status = StatusCodes.Status401Unauthorized,
+                    Title = "Unauthorized",
+                    Detail = reason,
+                    Instance = $"{context.HttpContext.Request.Method} {context.HttpContext.Request.Path}"
+                });
+            }
         };
     });
 
@@ -71,9 +126,9 @@ builder.Services.AddSwaggerGen(options =>
         In = ParameterLocation.Header,
         Description = "Nhập JWT token. Ví dụ: eyJhbGci..."
     });
-    options.AddSecurityRequirement(_ => new OpenApiSecurityRequirement
+    options.AddSecurityRequirement(doc => new OpenApiSecurityRequirement
     {
-        { new OpenApiSecuritySchemeReference("Bearer"), [] }
+        { new OpenApiSecuritySchemeReference("Bearer", doc), [] }
     });
 });
 

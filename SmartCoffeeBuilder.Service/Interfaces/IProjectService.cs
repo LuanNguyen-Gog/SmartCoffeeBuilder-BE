@@ -1,6 +1,6 @@
 using SmartCoffeeBuilder.Service.ApiResponse;
-using SmartCoffeeBuilder.Service.DTOs.Requests;
-using SmartCoffeeBuilder.Service.DTOs.Responses;
+using SmartCoffeeBuilder.Service.DTOs.Requests.Project;
+using SmartCoffeeBuilder.Service.DTOs.Responses.Project;
 
 namespace SmartCoffeeBuilder.Service.Interfaces;
 

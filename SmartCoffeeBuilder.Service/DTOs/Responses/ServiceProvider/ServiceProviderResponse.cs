@@ -1,6 +1,6 @@
 using SmartCoffeeBuilder.Repository.Models;
 
-namespace SmartCoffeeBuilder.Service.DTOs.Responses;
+namespace SmartCoffeeBuilder.Service.DTOs.Responses.ServiceProvider;
 
 public class ServiceProviderResponse
 {
@@ -18,7 +18,7 @@ public class ServiceProviderResponse
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
-    public static ServiceProviderResponse From(ServiceProvider p) => new()
+    public static ServiceProviderResponse From(SmartCoffeeBuilder.Repository.Models.ServiceProvider p) => new()
     {
         Id = p.Id,
         AccountId = p.AccountId,

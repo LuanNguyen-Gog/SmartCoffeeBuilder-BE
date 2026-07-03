@@ -7,8 +7,8 @@ using Microsoft.IdentityModel.Tokens;
 using SmartCoffeeBuilder.Repository.Interfaces;
 using SmartCoffeeBuilder.Repository.Models;
 using SmartCoffeeBuilder.Repository.Models.Enums;
-using SmartCoffeeBuilder.Service.DTOs.Requests;
-using SmartCoffeeBuilder.Service.DTOs.Responses;
+using SmartCoffeeBuilder.Service.DTOs.Requests.Auth;
+using SmartCoffeeBuilder.Service.DTOs.Responses.Auth;
 using SmartCoffeeBuilder.Service.Interfaces;
 
 namespace SmartCoffeeBuilder.Service.Implementations;
