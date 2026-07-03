@@ -1,6 +1,4 @@
-using SmartCoffeeBuilder.Repository.Models;
-
-namespace SmartCoffeeBuilder.Service.DTOs.Responses;
+namespace SmartCoffeeBuilder.Service.DTOs.Responses.ProjectPost;
 
 public class ProjectPostResponse
 {
@@ -18,7 +16,7 @@ public class ProjectPostResponse
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
-    public static ProjectPostResponse From(ProjectPost p) => new()
+    public static ProjectPostResponse From(SmartCoffeeBuilder.Repository.Models.ProjectPost p) => new()
     {
         Id = p.Id,
         ProjectId = p.ProjectId,

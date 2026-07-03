@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace SmartCoffeeBuilder.Service.DTOs.Requests;
+namespace SmartCoffeeBuilder.Service.DTOs.Requests.ProjectPost;
 
 public class UpdateProjectPostRequest
 {

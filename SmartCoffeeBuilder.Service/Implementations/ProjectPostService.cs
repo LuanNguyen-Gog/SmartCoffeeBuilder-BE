@@ -4,8 +4,8 @@ using SmartCoffeeBuilder.Repository.Interfaces;
 using SmartCoffeeBuilder.Repository.Models;
 using SmartCoffeeBuilder.Repository.Models.Enums;
 using SmartCoffeeBuilder.Service.ApiResponse;
-using SmartCoffeeBuilder.Service.DTOs.Requests;
-using SmartCoffeeBuilder.Service.DTOs.Responses;
+using SmartCoffeeBuilder.Service.DTOs.Requests.ProjectPost;
+using SmartCoffeeBuilder.Service.DTOs.Responses.ProjectPost;
 using SmartCoffeeBuilder.Service.Interfaces;
 
 namespace SmartCoffeeBuilder.Service.Implementations;
@@ -33,12 +33,15 @@ public class ProjectPostService : IProjectPostService
         PostStatus? st = ParseStatus(status);
         var term = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
 
+        // Khi provider tìm bài đang mở, loại bài đã quá hạn nộp hồ sơ.
+        var now = DateTime.UtcNow;
         var query = _repository
             .GetQueryable(
                 p => (projectId == null || p.ProjectId == projectId)
                      && (kind == null || p.ServiceKind == kind)
                      && (st == null || p.Status == st)
-                     && (term == null || p.Title.Contains(term)),
+                     && (st != PostStatus.open || p.SubmissionDeadline == null || p.SubmissionDeadline > now)
+                     && (term == null || EF.Functions.ILike(p.Title, $"%{term}%")),
                 include: q => q.Include(p => p.Project))
             .OrderByDescending(p => p.CreatedAt);
 
