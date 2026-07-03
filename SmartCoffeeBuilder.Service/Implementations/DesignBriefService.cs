@@ -46,6 +46,10 @@ public class DesignBriefService : IDesignBriefService
             .SingleOrDefaultAsync(predicate: p => p.Id == request.ProjectId && p.DeletedAt == null)
             ?? throw new KeyNotFoundException($"Không tìm thấy project với id {request.ProjectId}.");
 
+        // DB có unique index trên project_id — check trước để trả 409 thay vì 500.
+        if (await _repository.CountAsync(b => b.ProjectId == request.ProjectId) > 0)
+            throw new InvalidOperationException($"Project {request.ProjectId} đã có design brief.");
+
         var brief = new DesignBrief
         {
             ProjectId = request.ProjectId,
