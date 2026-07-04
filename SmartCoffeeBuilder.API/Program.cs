@@ -1,4 +1,6 @@
 using System.Text;
+using Hangfire;
+using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -34,6 +36,18 @@ builder.Services.AddScoped<IAiRecommendationService, AiRecommendationService>();
 builder.Services.AddScoped<IProjectPostService, ProjectPostService>();
 builder.Services.AddScoped<IProjectApplicationService, ProjectApplicationService>();
 builder.Services.AddScoped<IProjectProviderService, ProjectProviderService>();
+builder.Services.AddScoped<IOtpRepository, OtpRepository>();
+builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IOtpService, OtpService>();
+
+// Hangfire — job nền chạy trên cùng Postgres (schema "hangfire" tự tạo).
+builder.Services.AddHangfire(config => config
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UsePostgreSqlStorage(options =>
+        options.UseNpgsqlConnection(builder.Configuration.GetConnectionString("DefaultConnection"))));
+builder.Services.AddHangfireServer();
 
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"]
@@ -163,6 +177,17 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+// Job refresh OTP mỗi phút: xoay CurrentCode/PreviousCode theo chu kỳ TOTP
+// và dọn các OTP đã dùng / hết hạn.
+using (var scope = app.Services.CreateScope())
+{
+    var recurringJobs = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
+    recurringJobs.AddOrUpdate<IOtpService>(
+        "refresh-otps",
+        service => service.RefreshOtpsAsync(),
+        Cron.Minutely());
+}
+
 app.UseSwagger();
 app.UseSwaggerUI(options =>
 {
@@ -176,6 +201,9 @@ app.UseExceptionHandler();
 if (app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
+
+    // Dashboard theo dõi job (http://localhost:xxxx/hangfire) — chỉ mở ở môi trường dev.
+    app.UseHangfireDashboard("/hangfire");
 }
 
 app.UseCors("AllowAll");

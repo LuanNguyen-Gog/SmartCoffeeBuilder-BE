@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mã xác thực OTP</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f4f1ee; font-family:'Segoe UI', Arial, sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f1ee; padding:32px 16px;">
+        <tr>
+            <td align="center">
+                <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                    <!-- Header -->
+                    <tr>
+                        <td style="background-color:#6f4e37; padding:24px 32px; text-align:center;">
+                            <h1 style="margin:0; color:#ffffff; font-size:20px;">☕ Smart Coffee Builder</h1>
+                        </td>
+                    </tr>
+                    <!-- Body -->
+                    <tr>
+                        <td style="padding:32px;">
+                            <p style="margin:0 0 16px; color:#333333; font-size:15px;">Xin chào,</p>
+                            <p style="margin:0 0 24px; color:#333333; font-size:15px; line-height:1.6;">
+                                Mã xác thực (OTP) của bạn là:
+                            </p>
+                            <div style="text-align:center; margin:0 0 24px;">
+                                <span style="display:inline-block; background-color:#f4f1ee; border:1px dashed #6f4e37; border-radius:8px; padding:14px 32px; font-size:32px; font-weight:bold; letter-spacing:8px; color:#6f4e37;">
+                                    {{OtpCode}}
+                                </span>
+                            </div>
+                            <p style="margin:0 0 8px; color:#666666; font-size:14px; line-height:1.6;">
+                                Mã có hiệu lực trong <strong>{{ExpiryMinutes}} phút</strong>. Vui lòng không chia sẻ mã này với bất kỳ ai.
+                            </p>
+                            <p style="margin:0; color:#999999; font-size:13px; line-height:1.6;">
+                                Nếu bạn không yêu cầu mã này, hãy bỏ qua email này.
+                            </p>
+                        </td>
+                    </tr>
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color:#faf8f6; padding:16px 32px; text-align:center; border-top:1px solid #eeeeee;">
+                            <p style="margin:0; color:#999999; font-size:12px;">
+                                © {{Year}} Smart Coffee Builder. Email được gửi tự động, vui lòng không trả lời.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

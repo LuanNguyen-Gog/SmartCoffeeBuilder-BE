@@ -37,6 +37,21 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+    {
+        await _authService.ForgotPasswordAsync(request);
+        // Email không tồn tại → ForgotPasswordAsync ném 404, không tới dòng này.
+        return Ok(new { message = "Mã OTP đặt lại mật khẩu đã được gửi tới email." });
+    }
+
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+    {
+        await _authService.ResetPasswordAsync(request);
+        return Ok(new { message = "Đổi mật khẩu thành công. Vui lòng đăng nhập lại." });
+    }
+
     [HttpPost("logout")]
     [Authorize]
     public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)

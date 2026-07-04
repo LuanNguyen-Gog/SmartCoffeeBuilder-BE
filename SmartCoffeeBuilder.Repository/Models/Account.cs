@@ -18,5 +18,6 @@ public class Account
     public ShopOwner? ShopOwner { get; set; }
     public ServiceProvider? ServiceProvider { get; set; }
     public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
+    public ICollection<Otp> Otps { get; set; } = new List<Otp>();
     public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
 }
