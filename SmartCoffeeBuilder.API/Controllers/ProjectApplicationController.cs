@@ -17,6 +17,7 @@ public class ProjectApplicationController : ControllerBase
         _projectApplicationService = projectApplicationService;
     }
 
+    /// <summary>Danh sách hồ sơ ứng tuyển. status: pending | accepted | rejected.</summary>
     [HttpGet]
     public async Task<IActionResult> GetAll(
         [FromQuery] int pageNumber = 1,
@@ -36,7 +37,10 @@ public class ProjectApplicationController : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Provider nộp hồ sơ ứng tuyển.</summary>
+    /// <summary>
+    /// [ỨNG TUYỂN] Provider nộp hồ sơ vào bài đang open, còn hạn.
+    /// Capability của provider phải khớp serviceKind của bài (designer↔design, constructor↔construction, both↔mọi loại).
+    /// </summary>
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateProjectApplicationRequest request)
     {

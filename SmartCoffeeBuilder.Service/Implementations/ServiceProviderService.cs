@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using SmartCoffeeBuilder.Repository.DBContext;
 using SmartCoffeeBuilder.Repository.Interfaces;
 using SmartCoffeeBuilder.Repository.Models.Enums;
@@ -21,11 +22,28 @@ public class ServiceProviderService : IServiceProviderService
         _repository = unitOfWork.GetRepository<ServiceProviderEntity>();
     }
 
-    public async Task<PaginationResponse<ServiceProviderResponse>> GetAllAsync(int pageNumber = 1, int pageSize = 10)
+    public async Task<PaginationResponse<ServiceProviderResponse>> GetAllAsync(
+        int pageNumber = 1, int pageSize = 10,
+        string? capability = null, bool? isVerified = null, string? search = null)
     {
+        Capability? cap = null;
+        if (!string.IsNullOrWhiteSpace(capability))
+        {
+            if (!Enum.TryParse<Capability>(capability, ignoreCase: true, out var parsed))
+                throw new ArgumentException($"Capability '{capability}' không hợp lệ. Cho phép: designer, constructor, both.");
+            cap = parsed;
+        }
+
+        var term = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
+
         var paged = await _repository
-            .GetQueryable(p => p.DeletedAt == null)
-            .OrderByDescending(p => p.CreatedAt)
+            .GetQueryable(p => p.DeletedAt == null
+                // Lọc designer/constructor luôn gồm cả provider làm được cả hai.
+                && (cap == null || p.Capability == cap || p.Capability == Capability.both)
+                && (isVerified == null || p.IsVerified == isVerified)
+                && (term == null || EF.Functions.ILike(p.DisplayName, $"%{term}%")))
+            .OrderByDescending(p => p.AvgRating)
+            .ThenByDescending(p => p.CreatedAt)
             .ToPaginationResponseAsync(pageNumber, pageSize);
 
         return new PaginationResponse<ServiceProviderResponse>(

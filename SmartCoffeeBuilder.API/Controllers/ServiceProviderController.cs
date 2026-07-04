@@ -17,10 +17,20 @@ public class ServiceProviderController : ControllerBase
         _serviceProviderService = serviceProviderService;
     }
 
+    /// <summary>
+    /// [TÌM NGƯỜI] Owner tìm provider để thuê trực tiếp.
+    /// capability: designer | constructor | both (lọc designer/constructor tự gồm cả "both").
+    /// Kết quả xếp theo rating giảm dần.
+    /// </summary>
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+    public async Task<IActionResult> GetAll(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? capability = null,
+        [FromQuery] bool? isVerified = null,
+        [FromQuery] string? search = null)
     {
-        var result = await _serviceProviderService.GetAllAsync(pageNumber, pageSize);
+        var result = await _serviceProviderService.GetAllAsync(pageNumber, pageSize, capability, isVerified, search);
         return Ok(result);
     }
 
