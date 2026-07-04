@@ -57,6 +57,7 @@ public class SmartCafeBuilderContext : DbContext
 
     // Auth
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<Otp> Otps => Set<Otp>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -334,6 +335,16 @@ public class SmartCafeBuilderContext : DbContext
             e.HasIndex(x => x.Token).IsUnique();
             e.Property(x => x.Token).HasMaxLength(500);
             e.HasOne(x => x.Account).WithMany(a => a.RefreshTokens)
+                .HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
+            e.Ignore(x => x.IsActive);
+        });
+
+        modelBuilder.Entity<Otp>(e =>
+        {
+            e.HasIndex(x => x.AccountId);
+            e.Property(x => x.CurrentCode).HasMaxLength(10);
+            e.Property(x => x.PreviousCode).HasMaxLength(10);
+            e.HasOne(x => x.Account).WithMany(a => a.Otps)
                 .HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
             e.Ignore(x => x.IsActive);
         });

@@ -25,6 +25,12 @@ public class AuthRepository : IAuthRepository
         return account;
     }
 
+    public async Task UpdateAccountAsync(Account account)
+    {
+        _context.Accounts.Update(account);
+        await _context.SaveChangesAsync();
+    }
+
     public async Task<RefreshToken?> GetRefreshTokenAsync(string token)
         => await _context.RefreshTokens
             .Include(rt => rt.Account)
