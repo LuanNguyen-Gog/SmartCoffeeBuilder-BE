@@ -1,5 +1,5 @@
-using SmartCoffeeBuilder.Service.DTOs.Requests.Auth;
-using SmartCoffeeBuilder.Service.DTOs.Responses.Auth;
+using SmartCoffeeBuilder.Service.DTOs.Requests;
+using SmartCoffeeBuilder.Service.DTOs.Responses;
 
 namespace SmartCoffeeBuilder.Service.Interfaces;
 
@@ -9,10 +9,4 @@ public interface IAuthService
     Task<AuthResponse> LoginAsync(LoginRequest request);
     Task<AuthResponse> RefreshAsync(RefreshTokenRequest request);
     Task LogoutAsync(RefreshTokenRequest request);
-
-    /// <summary>Gửi OTP reset mật khẩu tới email (im lặng bỏ qua nếu email không tồn tại).</summary>
-    Task ForgotPasswordAsync(ForgotPasswordRequest request);
-
-    /// <summary>Verify OTP rồi đổi mật khẩu; thu hồi toàn bộ refresh token của tài khoản.</summary>
-    Task ResetPasswordAsync(ResetPasswordRequest request);
 }

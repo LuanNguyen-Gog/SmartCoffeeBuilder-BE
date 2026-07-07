@@ -5,23 +5,15 @@ using System.Collections.Generic;
 
 namespace SmartCoffeeBuilder.Repository.Models;
 
-public partial class DesignerProfile
+public partial class ProviderService
 {
-    public long Id { get; set; }
-
     public long ProviderId { get; set; }
 
-    public string DesignSpecialties { get; set; }
-
-    public string SoftwareSkills { get; set; }
-
-    public string DesignStyle { get; set; }
-
-    public decimal? MinProjectBudget { get; set; }
+    public long ServiceTypeId { get; set; }
 
     public DateTime CreatedAt { get; set; }
 
-    public DateTime UpdatedAt { get; set; }
-
     public virtual ServiceProvider Provider { get; set; }
+
+    public virtual ServiceType ServiceType { get; set; }
 }

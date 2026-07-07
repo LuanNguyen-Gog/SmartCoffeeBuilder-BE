@@ -5,21 +5,17 @@ using System.Collections.Generic;
 
 namespace SmartCoffeeBuilder.Repository.Models;
 
-public partial class Survey
+public partial class Role
 {
     public long Id { get; set; }
 
-    public long HireId { get; set; }
+    public string Name { get; set; }
 
-    public int Version { get; set; }
-
-    public string ConditionNote { get; set; }
-
-    public string ReportUrl { get; set; }
+    public string Description { get; set; }
 
     public DateTime CreatedAt { get; set; }
 
-    public DateTime UpdatedAt { get; set; }
+    public virtual ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
 
-    public virtual ProjectHire Hire { get; set; }
+    public virtual ICollection<Permission> Permissions { get; set; } = new List<Permission>();
 }
