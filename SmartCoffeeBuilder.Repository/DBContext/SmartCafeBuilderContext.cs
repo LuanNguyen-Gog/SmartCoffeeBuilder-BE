@@ -143,6 +143,20 @@ public class SmartCafeBuilderContext : DbContext
             e.Property(x => x.Payload).HasColumnType("jsonb");
             e.Property(x => x.EstimatedDesignCost).HasPrecision(15, 2);
             e.Property(x => x.EstimatedConstructionCost).HasPrecision(15, 2);
+            // JSONB columns for plan fields
+            e.Property(x => x.LayoutZones).HasColumnType("jsonb");
+            e.Property(x => x.LayoutAdjacencyRules).HasColumnType("jsonb");
+            e.Property(x => x.CustomerFlow).HasColumnType("jsonb");
+            e.Property(x => x.Recommendations).HasColumnType("jsonb");
+            e.Property(x => x.RiskNotes).HasColumnType("jsonb");
+            e.Property(x => x.ImageReferenceUrls).HasColumnType("jsonb");
+            e.Property(x => x.PlanJson).HasColumnType("text");
+            // Numeric precision for costs
+            e.Property(x => x.FitoutMinVnd).HasPrecision(18, 2);
+            e.Property(x => x.FitoutMaxVnd).HasPrecision(18, 2);
+            e.Property(x => x.EquipmentMinVnd).HasPrecision(18, 2);
+            e.Property(x => x.EquipmentMaxVnd).HasPrecision(18, 2);
+            e.Property(x => x.ContingencyPercent).HasPrecision(5, 2);
             e.HasOne(x => x.Brief).WithMany(b => b.AiRecommendations)
                 .HasForeignKey(x => x.BriefId).OnDelete(DeleteBehavior.Cascade);
         });
