@@ -179,13 +179,19 @@ using (var scope = app.Services.CreateScope())
 
 // Job refresh OTP mỗi phút: xoay CurrentCode/PreviousCode theo chu kỳ TOTP
 // và dọn các OTP đã dùng / hết hạn.
-using (var scope = app.Services.CreateScope())
+
+try
 {
+    using var scope = app.Services.CreateScope();
     var recurringJobs = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
     recurringJobs.AddOrUpdate<IOtpService>(
         "refresh-otps",
         service => service.RefreshOtpsAsync(),
         Cron.Minutely());
+}
+catch (Exception ex)
+{
+    app.Logger.LogError(ex, "Hangfire recurring job registration failed at startup; continuing so the server can start.");
 }
 
 app.UseSwagger();
