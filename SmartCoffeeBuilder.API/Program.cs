@@ -7,13 +7,16 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using SmartCoffeeBuilder.API.Middlewares;
+using SmartCoffeeBuilder.API.Services;
 using SmartCoffeeBuilder.Repository.DBContext;
 using SmartCoffeeBuilder.Repository.Implementations;
 using SmartCoffeeBuilder.Repository.Interfaces;
 using SmartCoffeeBuilder.Repository.Models;
 using SmartCoffeeBuilder.Repository.SeedData;
+using SmartCoffeeBuilder.Service;
 using SmartCoffeeBuilder.Service.Implementations;
 using SmartCoffeeBuilder.Service.Interfaces;
+using SmartCoffeeBuilder.Service.Messaging;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,7 +35,12 @@ builder.Services.AddScoped<IShopOwnerService, ShopOwnerService>();
 builder.Services.AddScoped<IServiceProviderService, ServiceProviderService>();
 builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<IDesignBriefService, DesignBriefService>();
+
+// AI Design Client & Service
+builder.Services.AddHttpClient<IAiDesignClient, AiDesignClient>();
+builder.Services.AddSingleton<IMessageBusService, RabbitMqService>();
 builder.Services.AddScoped<IAiRecommendationService, AiRecommendationService>();
+builder.Services.AddHostedService<AiDesignResultConsumer>();
 builder.Services.AddScoped<IProjectPostService, ProjectPostService>();
 builder.Services.AddScoped<IProjectApplicationService, ProjectApplicationService>();
 builder.Services.AddScoped<IProjectProviderService, ProjectProviderService>();
