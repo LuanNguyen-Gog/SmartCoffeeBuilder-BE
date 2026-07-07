@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SmartCoffeeBuilder.Service.DTOs.Requests;
+using SmartCoffeeBuilder.Service.DTOs.Requests.Auth;
 using SmartCoffeeBuilder.Service.Interfaces;
 
 namespace SmartCoffeeBuilder.API.Controllers;
@@ -35,6 +35,21 @@ public class AuthController : ControllerBase
     {
         var result = await _authService.RefreshAsync(request);
         return Ok(result);
+    }
+
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+    {
+        await _authService.ForgotPasswordAsync(request);
+        // Email không tồn tại → ForgotPasswordAsync ném 404, không tới dòng này.
+        return Ok(new { message = "Mã OTP đặt lại mật khẩu đã được gửi tới email." });
+    }
+
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+    {
+        await _authService.ResetPasswordAsync(request);
+        return Ok(new { message = "Đổi mật khẩu thành công. Vui lòng đăng nhập lại." });
     }
 
     [HttpPost("logout")]
