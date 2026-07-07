@@ -5,23 +5,29 @@ using System.Collections.Generic;
 
 namespace SmartCoffeeBuilder.Repository.Models;
 
-public partial class DesignerProfile
+public partial class Bid
 {
     public long Id { get; set; }
 
+    public long BidRequestId { get; set; }
+
     public long ProviderId { get; set; }
 
-    public string DesignSpecialties { get; set; }
+    public decimal BidAmount { get; set; }
 
-    public string SoftwareSkills { get; set; }
+    public string Proposal { get; set; }
 
-    public string DesignStyle { get; set; }
+    public int? EstimatedDurationDays { get; set; }
 
-    public decimal? MinProjectBudget { get; set; }
+    public DateTime? SubmittedAt { get; set; }
 
     public DateTime CreatedAt { get; set; }
 
     public DateTime UpdatedAt { get; set; }
+
+    public virtual BidRequest BidRequest { get; set; }
+
+    public virtual ICollection<ProjectHire> ProjectHires { get; set; } = new List<ProjectHire>();
 
     public virtual ServiceProvider Provider { get; set; }
 }

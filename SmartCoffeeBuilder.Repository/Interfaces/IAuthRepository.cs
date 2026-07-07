@@ -4,11 +4,11 @@ namespace SmartCoffeeBuilder.Repository.Interfaces;
 
 public interface IAuthRepository
 {
-    Task<Account?> GetByEmailAsync(string email);
-    Task<Account> CreateAccountAsync(Account account);
-    Task UpdateAccountAsync(Account account);
+    Task<User?> GetByEmailAsync(string email);
+    Task<Role?> GetRoleByNameAsync(string name);
+    Task<User> CreateUserAsync(User user, long roleId);
     Task<RefreshToken?> GetRefreshTokenAsync(string token);
     Task AddRefreshTokenAsync(RefreshToken refreshToken);
     Task RevokeRefreshTokenAsync(RefreshToken refreshToken);
-    Task RevokeAllAccountRefreshTokensAsync(long accountId);
+    Task RevokeAllUserRefreshTokensAsync(long userId);
 }

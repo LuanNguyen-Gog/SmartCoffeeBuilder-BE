@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using SmartCoffeeBuilder.Repository.DBContext;
 using SmartCoffeeBuilder.Repository.Interfaces;
 using SmartCoffeeBuilder.Repository.Models;
 
@@ -14,26 +13,28 @@ public class AuthRepository : IAuthRepository
         _context = context;
     }
 
-    public async Task<Account?> GetByEmailAsync(string email)
-        => await _context.Accounts
-            .FirstOrDefaultAsync(a => a.Email == email && a.DeletedAt == null);
+    public async Task<User?> GetByEmailAsync(string email)
+        => await _context.Users
+            .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(u => u.Email == email && u.DeletedAt == null);
 
-    public async Task<Account> CreateAccountAsync(Account account)
-    {
-        _context.Accounts.Add(account);
-        await _context.SaveChangesAsync();
-        return account;
-    }
+    public async Task<Role?> GetRoleByNameAsync(string name)
+        => await _context.Roles.FirstOrDefaultAsync(r => r.Name == name);
 
-    public async Task UpdateAccountAsync(Account account)
+    public async Task<User> CreateUserAsync(User user, long roleId)
     {
-        _context.Accounts.Update(account);
+        _context.Users.Add(user);
         await _context.SaveChangesAsync();
+
+        _context.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = roleId });
+        await _context.SaveChangesAsync();
+
+        return user;
     }
 
     public async Task<RefreshToken?> GetRefreshTokenAsync(string token)
         => await _context.RefreshTokens
-            .Include(rt => rt.Account)
+            .Include(rt => rt.User).ThenInclude(u => u.UserRoles).ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(rt => rt.Token == token);
 
     public async Task AddRefreshTokenAsync(RefreshToken refreshToken)
@@ -48,10 +49,10 @@ public class AuthRepository : IAuthRepository
         await _context.SaveChangesAsync();
     }
 
-    public async Task RevokeAllAccountRefreshTokensAsync(long accountId)
+    public async Task RevokeAllUserRefreshTokensAsync(long userId)
     {
         var tokens = await _context.RefreshTokens
-            .Where(rt => rt.AccountId == accountId && rt.RevokedAt == null)
+            .Where(rt => rt.UserId == userId && rt.RevokedAt == null)
             .ToListAsync();
 
         foreach (var t in tokens)

@@ -5,19 +5,15 @@ using System.Collections.Generic;
 
 namespace SmartCoffeeBuilder.Repository.Models;
 
-public partial class Message
+public partial class ConversationMember
 {
-    public long Id { get; set; }
-
     public long ConversationId { get; set; }
 
-    public long SenderId { get; set; }
+    public long UserId { get; set; }
 
-    public string Body { get; set; }
-
-    public DateTime SentAt { get; set; }
+    public DateTime JoinedAt { get; set; }
 
     public virtual Conversation Conversation { get; set; }
 
-    public virtual User Sender { get; set; }
+    public virtual User User { get; set; }
 }

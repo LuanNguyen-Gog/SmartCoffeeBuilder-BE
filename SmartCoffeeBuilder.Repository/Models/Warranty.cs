@@ -5,21 +5,19 @@ using System.Collections.Generic;
 
 namespace SmartCoffeeBuilder.Repository.Models;
 
-public partial class BudgetItem
+public partial class Warranty
 {
     public long Id { get; set; }
 
-    public long ProjectId { get; set; }
+    public long HandoverId { get; set; }
 
-    public string Category { get; set; }
+    public string Scope { get; set; }
 
-    public decimal PlannedAmount { get; set; }
+    public DateOnly StartDate { get; set; }
 
-    public decimal? ActualAmount { get; set; }
+    public DateOnly EndDate { get; set; }
 
     public DateTime CreatedAt { get; set; }
 
-    public DateTime UpdatedAt { get; set; }
-
-    public virtual Project Project { get; set; }
+    public virtual Handover Handover { get; set; }
 }

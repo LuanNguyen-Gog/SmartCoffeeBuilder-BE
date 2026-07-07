@@ -12,18 +12,8 @@
 
   <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.2.1" />
-    <PackageReference Include="Google.Apis.Gmail.v1" Version="1.74.0.4162" />
     <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.19.1" />
-    <PackageReference Include="MimeKit" Version="4.17.0" />
-    <PackageReference Include="Otp.NET" Version="1.4.1" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.0" />
-    <PackageReference Include="RabbitMQ.Client" Version="6.8.1" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.19.1" />
-  </ItemGroup>
-
-  <!-- Copy email template ra output để EmailService đọc được lúc runtime -->
-  <ItemGroup>
-    <None Include="EmailTemplates\**\*.html" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

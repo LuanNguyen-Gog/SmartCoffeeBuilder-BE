@@ -5,15 +5,13 @@ using System.Collections.Generic;
 
 namespace SmartCoffeeBuilder.Repository.Models;
 
-public partial class ReviewScore
+public partial class Permission
 {
     public long Id { get; set; }
 
-    public long ReviewId { get; set; }
+    public string Code { get; set; }
 
-    public string Dimension { get; set; }
+    public string Description { get; set; }
 
-    public int Score { get; set; }
-
-    public virtual Review Review { get; set; }
+    public virtual ICollection<Role> Roles { get; set; } = new List<Role>();
 }

@@ -5,21 +5,25 @@ using System.Collections.Generic;
 
 namespace SmartCoffeeBuilder.Repository.Models;
 
-public partial class Survey
+public partial class ProgressUpdate
 {
     public long Id { get; set; }
 
     public long HireId { get; set; }
 
-    public int Version { get; set; }
+    public DateOnly UpdateDate { get; set; }
 
-    public string ConditionNote { get; set; }
+    public int? Percent { get; set; }
 
-    public string ReportUrl { get; set; }
+    public string Note { get; set; }
+
+    public long CreatedBy { get; set; }
 
     public DateTime CreatedAt { get; set; }
 
-    public DateTime UpdatedAt { get; set; }
+    public virtual ICollection<Approval> Approvals { get; set; } = new List<Approval>();
+
+    public virtual User CreatedByNavigation { get; set; }
 
     public virtual ProjectHire Hire { get; set; }
 }

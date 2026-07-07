@@ -5,19 +5,21 @@ using System.Collections.Generic;
 
 namespace SmartCoffeeBuilder.Repository.Models;
 
-public partial class Conversation
+public partial class Inspection
 {
     public long Id { get; set; }
 
-    public long? ProjectId { get; set; }
+    public long ProjectId { get; set; }
 
-    public string Topic { get; set; }
+    public long? HireId { get; set; }
+
+    public DateTime? InspectedAt { get; set; }
 
     public DateTime CreatedAt { get; set; }
 
-    public virtual ICollection<ConversationMember> ConversationMembers { get; set; } = new List<ConversationMember>();
+    public virtual ProjectHire Hire { get; set; }
 
-    public virtual ICollection<Message> Messages { get; set; } = new List<Message>();
+    public virtual ICollection<InspectionItem> InspectionItems { get; set; } = new List<InspectionItem>();
 
     public virtual Project Project { get; set; }
 }

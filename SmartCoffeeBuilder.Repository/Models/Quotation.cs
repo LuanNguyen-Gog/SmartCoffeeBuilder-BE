@@ -5,21 +5,29 @@ using System.Collections.Generic;
 
 namespace SmartCoffeeBuilder.Repository.Models;
 
-public partial class BudgetItem
+public partial class Quotation
 {
     public long Id { get; set; }
 
     public long ProjectId { get; set; }
 
-    public string Category { get; set; }
+    public long? HireId { get; set; }
 
-    public decimal PlannedAmount { get; set; }
+    public long ProviderId { get; set; }
 
-    public decimal? ActualAmount { get; set; }
+    public decimal TotalAmount { get; set; }
+
+    public DateOnly? ValidUntil { get; set; }
 
     public DateTime CreatedAt { get; set; }
 
     public DateTime UpdatedAt { get; set; }
 
+    public virtual ProjectHire Hire { get; set; }
+
     public virtual Project Project { get; set; }
+
+    public virtual ServiceProvider Provider { get; set; }
+
+    public virtual ICollection<QuotationItem> QuotationItems { get; set; } = new List<QuotationItem>();
 }
