@@ -17,11 +17,13 @@ public class AuthService : IAuthService
 {
     private readonly IAuthRepository _authRepository;
     private readonly IConfiguration _configuration;
+    private readonly IOtpService _otpService;
 
-    public AuthService(IAuthRepository authRepository, IConfiguration configuration)
+    public AuthService(IAuthRepository authRepository, IConfiguration configuration, IOtpService otpService)
     {
         _authRepository = authRepository;
         _configuration = configuration;
+        _otpService = otpService;
     }
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
@@ -79,6 +81,28 @@ public class AuthService : IAuthService
         if (stored == null || !stored.IsActive) return;
 
         await _authRepository.RevokeAllAccountRefreshTokensAsync(stored.AccountId);
+    }
+
+    public async Task ForgotPasswordAsync(ForgotPasswordRequest request)
+        // SendOtpAsync tự kiểm tra email: không tồn tại thì ném KeyNotFoundException
+        // (GlobalExceptionHandler map thành 404), tồn tại thì gửi OTP.
+        => await _otpService.SendOtpAsync(request.Email);
+
+    public async Task ResetPasswordAsync(ResetPasswordRequest request)
+    {
+        var valid = await _otpService.VerifyOtpAsync(request.Email, request.Code);
+        if (!valid)
+            throw new ArgumentException("Mã OTP không đúng hoặc đã hết hạn.");
+
+        var account = await _authRepository.GetByEmailAsync(request.Email)
+            ?? throw new KeyNotFoundException("Không tìm thấy tài khoản với email này.");
+
+        account.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        account.UpdatedAt = DateTime.UtcNow;
+        await _authRepository.UpdateAccountAsync(account);
+
+        // Đổi mật khẩu xong thì thu hồi mọi phiên đăng nhập cũ.
+        await _authRepository.RevokeAllAccountRefreshTokensAsync(account.Id);
     }
 
     // ──────────────────────────────────────────────────────────────

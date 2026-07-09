@@ -57,6 +57,7 @@ public class SmartCafeBuilderContext : DbContext
 
     // Auth
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<Otp> Otps => Set<Otp>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -142,6 +143,20 @@ public class SmartCafeBuilderContext : DbContext
             e.Property(x => x.Payload).HasColumnType("jsonb");
             e.Property(x => x.EstimatedDesignCost).HasPrecision(15, 2);
             e.Property(x => x.EstimatedConstructionCost).HasPrecision(15, 2);
+            // JSONB columns for plan fields
+            e.Property(x => x.LayoutZones).HasColumnType("jsonb");
+            e.Property(x => x.LayoutAdjacencyRules).HasColumnType("jsonb");
+            e.Property(x => x.CustomerFlow).HasColumnType("jsonb");
+            e.Property(x => x.Recommendations).HasColumnType("jsonb");
+            e.Property(x => x.RiskNotes).HasColumnType("jsonb");
+            e.Property(x => x.ImageReferenceUrls).HasColumnType("jsonb");
+            e.Property(x => x.PlanJson).HasColumnType("text");
+            // Numeric precision for costs
+            e.Property(x => x.FitoutMinVnd).HasPrecision(18, 2);
+            e.Property(x => x.FitoutMaxVnd).HasPrecision(18, 2);
+            e.Property(x => x.EquipmentMinVnd).HasPrecision(18, 2);
+            e.Property(x => x.EquipmentMaxVnd).HasPrecision(18, 2);
+            e.Property(x => x.ContingencyPercent).HasPrecision(5, 2);
             e.HasOne(x => x.Brief).WithMany(b => b.AiRecommendations)
                 .HasForeignKey(x => x.BriefId).OnDelete(DeleteBehavior.Cascade);
         });
@@ -334,6 +349,16 @@ public class SmartCafeBuilderContext : DbContext
             e.HasIndex(x => x.Token).IsUnique();
             e.Property(x => x.Token).HasMaxLength(500);
             e.HasOne(x => x.Account).WithMany(a => a.RefreshTokens)
+                .HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
+            e.Ignore(x => x.IsActive);
+        });
+
+        modelBuilder.Entity<Otp>(e =>
+        {
+            e.HasIndex(x => x.AccountId);
+            e.Property(x => x.CurrentCode).HasMaxLength(10);
+            e.Property(x => x.PreviousCode).HasMaxLength(10);
+            e.HasOne(x => x.Account).WithMany(a => a.Otps)
                 .HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
             e.Ignore(x => x.IsActive);
         });

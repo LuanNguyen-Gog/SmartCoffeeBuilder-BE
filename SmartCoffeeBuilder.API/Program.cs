@@ -1,17 +1,22 @@
 using System.Text;
+using Hangfire;
+using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using SmartCoffeeBuilder.API.Middlewares;
+using SmartCoffeeBuilder.API.Services;
 using SmartCoffeeBuilder.Repository.DBContext;
 using SmartCoffeeBuilder.Repository.Implementations;
 using SmartCoffeeBuilder.Repository.Interfaces;
 using SmartCoffeeBuilder.Repository.Models;
 using SmartCoffeeBuilder.Repository.SeedData;
+using SmartCoffeeBuilder.Service;
 using SmartCoffeeBuilder.Service.Implementations;
 using SmartCoffeeBuilder.Service.Interfaces;
+using SmartCoffeeBuilder.Service.Messaging;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,10 +35,27 @@ builder.Services.AddScoped<IShopOwnerService, ShopOwnerService>();
 builder.Services.AddScoped<IServiceProviderService, ServiceProviderService>();
 builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<IDesignBriefService, DesignBriefService>();
+
+// AI Design Client & Service
+builder.Services.AddHttpClient<IAiDesignClient, AiDesignClient>();
+builder.Services.AddSingleton<IMessageBusService, RabbitMqService>();
 builder.Services.AddScoped<IAiRecommendationService, AiRecommendationService>();
+builder.Services.AddHostedService<AiDesignResultConsumer>();
 builder.Services.AddScoped<IProjectPostService, ProjectPostService>();
 builder.Services.AddScoped<IProjectApplicationService, ProjectApplicationService>();
 builder.Services.AddScoped<IProjectProviderService, ProjectProviderService>();
+builder.Services.AddScoped<IOtpRepository, OtpRepository>();
+builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IOtpService, OtpService>();
+
+// Hangfire — job nền chạy trên cùng Postgres (schema "hangfire" tự tạo).
+builder.Services.AddHangfire(config => config
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UsePostgreSqlStorage(options =>
+        options.UseNpgsqlConnection(builder.Configuration.GetConnectionString("DefaultConnection"))));
+builder.Services.AddHangfireServer();
 builder.Services.AddScoped<ISurveyService, SurveyService>();
 builder.Services.AddScoped<IDesignService, DesignService>();
 
@@ -165,6 +187,23 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+// Job refresh OTP mỗi phút: xoay CurrentCode/PreviousCode theo chu kỳ TOTP
+// và dọn các OTP đã dùng / hết hạn.
+
+try
+{
+    using var scope = app.Services.CreateScope();
+    var recurringJobs = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
+    recurringJobs.AddOrUpdate<IOtpService>(
+        "refresh-otps",
+        service => service.RefreshOtpsAsync(),
+        Cron.Minutely());
+}
+catch (Exception ex)
+{
+    app.Logger.LogError(ex, "Hangfire recurring job registration failed at startup; continuing so the server can start.");
+}
+
 app.UseSwagger();
 app.UseSwaggerUI(options =>
 {
@@ -178,6 +217,9 @@ app.UseExceptionHandler();
 if (app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
+
+    // Dashboard theo dõi job (http://localhost:xxxx/hangfire) — chỉ mở ở môi trường dev.
+    app.UseHangfireDashboard("/hangfire");
 }
 
 app.UseCors("AllowAll");

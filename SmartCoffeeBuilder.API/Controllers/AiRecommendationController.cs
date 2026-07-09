@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartCoffeeBuilder.Service.DTOs.Requests.AiRecommendation;
@@ -17,13 +18,15 @@ public class AiRecommendationController : ControllerBase
         _aiRecommendationService = aiRecommendationService;
     }
 
+    private string GetUserId() =>
+        User.FindFirstValue(ClaimTypes.NameIdentifier)
+        ?? User.FindFirstValue("sub")
+        ?? throw new UnauthorizedAccessException("User ID not found in token");
+
     [HttpGet]
-    public async Task<IActionResult> GetAll(
-        [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 10,
-        [FromQuery] long? briefId = null)
+    public async Task<IActionResult> GetAllByBriefId([FromQuery] long briefId)
     {
-        var result = await _aiRecommendationService.GetAllAsync(pageNumber, pageSize, briefId);
+        var result = await _aiRecommendationService.GetAllByBriefIdAsync(briefId);
         return Ok(result);
     }
 
@@ -35,23 +38,10 @@ public class AiRecommendationController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] CreateAiRecommendationRequest request)
+    public async Task<IActionResult> GenerateDesign([FromBody] GenerateAiDesignRequest request)
     {
-        var result = await _aiRecommendationService.CreateAsync(request);
-        return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
-    }
-
-    [HttpPut("{id:long}")]
-    public async Task<IActionResult> Update(long id, [FromBody] UpdateAiRecommendationRequest request)
-    {
-        var result = await _aiRecommendationService.UpdateAsync(id, request);
-        return Ok(result);
-    }
-
-    [HttpDelete("{id:long}")]
-    public async Task<IActionResult> Delete(long id)
-    {
-        await _aiRecommendationService.DeleteAsync(id);
-        return NoContent();
+        var userId = GetUserId();
+        var result = await _aiRecommendationService.GenerateDesignAsync(request.BriefId, userId, request);
+        return Accepted(result);
     }
 }

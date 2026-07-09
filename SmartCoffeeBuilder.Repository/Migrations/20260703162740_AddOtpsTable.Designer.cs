@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SmartCoffeeBuilder.Repository.DBContext;
@@ -11,9 +12,11 @@ using SmartCoffeeBuilder.Repository.DBContext;
 namespace SmartCoffeeBuilder.Repository.Migrations
 {
     [DbContext(typeof(SmartCafeBuilderContext))]
-    partial class SmartCafeBuilderContextModelSnapshot : ModelSnapshot
+    [Migration("20260703162740_AddOtpsTable")]
+    partial class AddOtpsTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -99,51 +102,20 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
-                    b.Property<int>("Attempts")
-                        .HasColumnType("integer")
-                        .HasColumnName("attempts");
-
                     b.Property<long>("BriefId")
                         .HasColumnType("bigint")
                         .HasColumnName("brief_id");
-
-                    b.Property<DateTime?>("CompletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("completed_at");
 
                     b.Property<string>("ConceptSummary")
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("concept_summary");
 
-                    b.Property<decimal?>("ContingencyPercent")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("numeric(5,2)")
-                        .HasColumnName("contingency_percent");
-
-                    b.Property<string>("CostNotes")
-                        .HasColumnType("text")
-                        .HasColumnName("cost_notes");
-
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
-
-                    b.Property<string>("CustomerFlow")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("customer_flow");
-
-                    b.Property<decimal?>("EquipmentMaxVnd")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
-                        .HasColumnName("equipment_max_vnd");
-
-                    b.Property<decimal?>("EquipmentMinVnd")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
-                        .HasColumnName("equipment_min_vnd");
 
                     b.Property<decimal?>("EstimatedConstructionCost")
                         .HasPrecision(15, 2)
@@ -155,108 +127,10 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("numeric(15,2)")
                         .HasColumnName("estimated_design_cost");
 
-                    b.Property<decimal?>("FitoutMaxVnd")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
-                        .HasColumnName("fitout_max_vnd");
-
-                    b.Property<decimal?>("FitoutMinVnd")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
-                        .HasColumnName("fitout_min_vnd");
-
-                    b.Property<string>("ImageArtifactUrl")
-                        .HasColumnType("text")
-                        .HasColumnName("image_artifact_url");
-
-                    b.Property<string>("ImageAspectRatio")
-                        .HasColumnType("text")
-                        .HasColumnName("image_aspect_ratio");
-
-                    b.Property<string>("ImageNegativePrompt")
-                        .HasColumnType("text")
-                        .HasColumnName("image_negative_prompt");
-
-                    b.Property<string>("ImagePrompt")
-                        .HasColumnType("text")
-                        .HasColumnName("image_prompt");
-
-                    b.Property<string>("ImageReferenceUrls")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("image_reference_urls");
-
-                    b.Property<string>("ImageView")
-                        .HasColumnType("text")
-                        .HasColumnName("image_view");
-
-                    b.Property<string>("JobId")
-                        .HasColumnType("text")
-                        .HasColumnName("job_id");
-
-                    b.Property<string>("LastError")
-                        .HasColumnType("text")
-                        .HasColumnName("last_error");
-
-                    b.Property<string>("LayoutAdjacencyRules")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("layout_adjacency_rules");
-
-                    b.Property<double?>("LayoutHeight")
-                        .HasColumnType("double precision")
-                        .HasColumnName("layout_height");
-
-                    b.Property<string>("LayoutUnit")
-                        .HasColumnType("text")
-                        .HasColumnName("layout_unit");
-
-                    b.Property<double?>("LayoutWidth")
-                        .HasColumnType("double precision")
-                        .HasColumnName("layout_width");
-
-                    b.Property<string>("LayoutZones")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("layout_zones");
-
-                    b.Property<string>("ParentJobId")
-                        .HasColumnType("text")
-                        .HasColumnName("parent_job_id");
-
                     b.Property<string>("Payload")
                         .IsRequired()
                         .HasColumnType("jsonb")
                         .HasColumnName("payload");
-
-                    b.Property<string>("PlanConceptName")
-                        .HasColumnType("text")
-                        .HasColumnName("plan_concept_name");
-
-                    b.Property<string>("PlanJson")
-                        .HasColumnType("text")
-                        .HasColumnName("plan_json");
-
-                    b.Property<string>("PlanSummary")
-                        .HasColumnType("text")
-                        .HasColumnName("plan_summary");
-
-                    b.Property<string>("Recommendations")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("recommendations");
-
-                    b.Property<string>("RiskNotes")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("risk_notes");
-
-                    b.Property<int?>("SeatCapacityRecommendation")
-                        .HasColumnType("integer")
-                        .HasColumnName("seat_capacity_recommendation");
-
-                    b.Property<DateTime?>("StartedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("started_at");
-
-                    b.Property<string>("State")
-                        .HasColumnType("text")
-                        .HasColumnName("state");
 
                     b.HasKey("Id")
                         .HasName("pk_ai_recommendations");
