@@ -291,7 +291,7 @@ public static class DbSeeder
             Provider = constructorProvider,
             Application = null, // thuê trực tiếp
             ContractType = ServiceKind.construction,
-            Status = ProviderStatus.constructing,
+            Status = ProviderStatus.accepted, // đang thi công = accepted + contract confirmed (derived)
             RequestMessage = "Mời thi công theo bản vẽ đã được duyệt.",
             StartedAt = At(20),
             Contracts =

@@ -34,6 +34,8 @@ builder.Services.AddScoped<IAiRecommendationService, AiRecommendationService>();
 builder.Services.AddScoped<IProjectPostService, ProjectPostService>();
 builder.Services.AddScoped<IProjectApplicationService, ProjectApplicationService>();
 builder.Services.AddScoped<IProjectProviderService, ProjectProviderService>();
+builder.Services.AddScoped<ISurveyService, SurveyService>();
+builder.Services.AddScoped<IDesignService, DesignService>();
 
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"]

@@ -1,0 +1,273 @@
+using Microsoft.EntityFrameworkCore;
+using SmartCoffeeBuilder.Repository.DBContext;
+using SmartCoffeeBuilder.Repository.Interfaces;
+using SmartCoffeeBuilder.Repository.Models;
+using SmartCoffeeBuilder.Repository.Models.Enums;
+using SmartCoffeeBuilder.Service.ApiResponse;
+using SmartCoffeeBuilder.Service.DTOs.Requests.Design;
+using SmartCoffeeBuilder.Service.DTOs.Responses.Design;
+using SmartCoffeeBuilder.Service.Interfaces;
+
+namespace SmartCoffeeBuilder.Service.Implementations;
+
+public class DesignService : IDesignService
+{
+    private readonly IUnitOfWork<SmartCafeBuilderContext> _unitOfWork;
+    private readonly IGenericRepository<Design> _repository;
+
+    public DesignService(IUnitOfWork<SmartCafeBuilderContext> unitOfWork)
+    {
+        _unitOfWork = unitOfWork;
+        _repository = unitOfWork.GetRepository<Design>();
+    }
+
+    public async Task<PaginationResponse<DesignResponse>> GetAllAsync(
+        int pageNumber = 1, int pageSize = 10,
+        long? projectProviderId = null, string? status = null, string? type = null)
+    {
+        DesignStatus? st = null;
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            if (!Enum.TryParse<DesignStatus>(status, ignoreCase: true, out var parsedStatus))
+                throw new ArgumentException($"Status '{status}' không hợp lệ.");
+            st = parsedStatus;
+        }
+
+        DesignType? tp = null;
+        if (!string.IsNullOrWhiteSpace(type))
+        {
+            if (!Enum.TryParse<DesignType>(type, ignoreCase: true, out var parsedType))
+                throw new ArgumentException($"Type '{type}' không hợp lệ.");
+            tp = parsedType;
+        }
+
+        var query = _repository
+            .GetQueryable(
+                d => (projectProviderId == null || d.ProjectProviderId == projectProviderId)
+                     && (st == null || d.Status == st)
+                     && (tp == null || d.Type == tp),
+                include: q => q.Include(d => d.DesignImages))
+            .OrderByDescending(d => d.CreatedAt);
+
+        var paged = await query.ToPaginationResponseAsync(pageNumber, pageSize);
+
+        return new PaginationResponse<DesignResponse>(
+            paged.Items.Select(DesignResponse.From),
+            paged.TotalItems, paged.PageNumber, paged.PageSize);
+    }
+
+    public async Task<DesignResponse> GetByIdAsync(long id)
+    {
+        var design = await GetDesignAsync(id);
+        return DesignResponse.From(design);
+    }
+
+    public async Task<DesignResponse> CreateAsync(CreateDesignRequest request)
+    {
+        var engagement = await _unitOfWork.GetRepository<ProjectProvider>()
+            .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectProviderId)
+            ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {request.ProjectProviderId}.");
+
+        if (engagement.ContractType == ServiceKind.construction)
+            throw new InvalidOperationException(
+                "Engagement có contract type 'construction' — không có giai đoạn thiết kế.");
+
+        if (engagement.Status != ProviderStatus.accepted)
+            throw new InvalidOperationException(
+                $"Engagement đang ở trạng thái '{engagement.Status}' — chỉ tạo design khi engagement 'accepted'.");
+
+        // v5: "đã ký mới được làm" — guard qua contract confirmed, không check provider_status.
+        var hasConfirmedContract = await _unitOfWork.GetRepository<Contract>()
+            .CountAsync(c => c.ProjectProviderId == engagement.Id && c.Status == ContractStatus.confirmed) > 0;
+        if (!hasConfirmedContract)
+            throw new InvalidOperationException(
+                "Engagement chưa có contract 'confirmed' — ký hợp đồng trước khi tạo design.");
+
+        if (!Enum.TryParse<DesignType>(request.Type, ignoreCase: true, out var type))
+            throw new ArgumentException(
+                $"Type '{request.Type}' không hợp lệ. Cho phép: concept, layout_2d, render_3d, technical_drawing.");
+
+        if (request.CreatedBy != null)
+        {
+            _ = await _unitOfWork.GetRepository<Account>()
+                .SingleOrDefaultAsync(predicate: a => a.Id == request.CreatedBy)
+                ?? throw new KeyNotFoundException($"Không tìm thấy account với id {request.CreatedBy}.");
+        }
+
+        var design = new Design
+        {
+            ProjectProviderId = engagement.Id,
+            Title = request.Title,
+            Version = 0.1m, // bản nháp đầu tiên; mỗi vòng revision +0.1
+            Type = type,
+            Status = DesignStatus.in_progress,
+            CreatedBy = request.CreatedBy,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        await _repository.InsertAsync(design);
+        await _unitOfWork.CommitAsync();
+
+        return DesignResponse.From(design);
+    }
+
+    public async Task<DesignResponse> UpdateAsync(long id, UpdateDesignRequest request)
+    {
+        var design = await GetDesignAsync(id);
+
+        if (design.Status is not (DesignStatus.in_progress or DesignStatus.revision))
+            throw new InvalidOperationException(
+                $"Design đang ở trạng thái '{design.Status}' — chỉ chỉnh sửa khi 'in_progress' hoặc 'revision'.");
+
+        if (request.Title != null) design.Title = request.Title;
+        if (request.Type != null)
+        {
+            if (!Enum.TryParse<DesignType>(request.Type, ignoreCase: true, out var type))
+                throw new ArgumentException(
+                    $"Type '{request.Type}' không hợp lệ. Cho phép: concept, layout_2d, render_3d, technical_drawing.");
+            design.Type = type;
+        }
+        design.UpdatedAt = DateTime.UtcNow;
+
+        _repository.Update(design);
+        await _unitOfWork.CommitAsync();
+
+        return DesignResponse.From(design);
+    }
+
+    /// <summary>Provider nộp bản design cho owner duyệt: in_progress → submitted.</summary>
+    public async Task<DesignResponse> SubmitAsync(long id)
+    {
+        var design = await GetDesignAsync(id);
+
+        if (design.Status != DesignStatus.in_progress)
+            throw new InvalidOperationException(
+                $"Chỉ submit được design đang 'in_progress' (hiện tại: '{design.Status}').");
+
+        if (design.DesignImages.Count == 0)
+            throw new InvalidOperationException("Design chưa có ảnh nào — thêm ảnh trước khi submit.");
+
+        design.Status = DesignStatus.submitted;
+        design.UpdatedAt = DateTime.UtcNow;
+
+        _repository.Update(design);
+        await _unitOfWork.CommitAsync();
+
+        return DesignResponse.From(design);
+    }
+
+    /// <summary>
+    /// Owner duyệt bản design: submitted → approved.
+    /// Pha design "xong" là derived từ design approved — không đổi provider_status.
+    /// </summary>
+    public async Task<DesignResponse> ApproveAsync(long id)
+    {
+        var design = await GetDesignAsync(id);
+
+        if (design.Status != DesignStatus.submitted)
+            throw new InvalidOperationException(
+                $"Chỉ approve được design đang 'submitted' (hiện tại: '{design.Status}').");
+
+        design.Status = DesignStatus.approved;
+        design.UpdatedAt = DateTime.UtcNow;
+
+        _repository.Update(design);
+        await _unitOfWork.CommitAsync();
+
+        return DesignResponse.From(design);
+    }
+
+    /// <summary>Owner yêu cầu chỉnh sửa: submitted → revision (kèm lý do).</summary>
+    public async Task<DesignResponse> RequestRevisionAsync(long id, RequestDesignRevisionRequest request)
+    {
+        var design = await GetDesignAsync(id);
+
+        if (design.Status != DesignStatus.submitted)
+            throw new InvalidOperationException(
+                $"Chỉ yêu cầu revision được design đang 'submitted' (hiện tại: '{design.Status}').");
+
+        design.Status = DesignStatus.revision;
+        design.Reason = request.Reason;
+        design.UpdatedAt = DateTime.UtcNow;
+
+        _repository.Update(design);
+        await _unitOfWork.CommitAsync();
+
+        return DesignResponse.From(design);
+    }
+
+    /// <summary>Provider bắt đầu sửa theo yêu cầu: revision → in_progress, version +0.1.</summary>
+    public async Task<DesignResponse> StartRevisionAsync(long id)
+    {
+        var design = await GetDesignAsync(id);
+
+        if (design.Status != DesignStatus.revision)
+            throw new InvalidOperationException(
+                $"Chỉ bắt đầu sửa được design đang 'revision' (hiện tại: '{design.Status}').");
+
+        design.Status = DesignStatus.in_progress;
+        design.Version += 0.1m;
+        design.UpdatedAt = DateTime.UtcNow;
+
+        _repository.Update(design);
+        await _unitOfWork.CommitAsync();
+
+        return DesignResponse.From(design);
+    }
+
+    public async Task<DesignImageResponse> AddImageAsync(long designId, AddDesignImageRequest request)
+    {
+        var design = await GetDesignAsync(designId);
+
+        if (design.Status == DesignStatus.approved)
+            throw new InvalidOperationException("Design đã được approve — không thêm ảnh được nữa.");
+
+        if (request.UploadedBy != null)
+        {
+            _ = await _unitOfWork.GetRepository<Account>()
+                .SingleOrDefaultAsync(predicate: a => a.Id == request.UploadedBy)
+                ?? throw new KeyNotFoundException($"Không tìm thấy account với id {request.UploadedBy}.");
+        }
+
+        var image = new DesignImage
+        {
+            DesignId = design.Id,
+            ImageUrl = request.ImageUrl,
+            Caption = request.Caption,
+            UploadedBy = request.UploadedBy,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _unitOfWork.GetRepository<DesignImage>().InsertAsync(image);
+        design.UpdatedAt = DateTime.UtcNow;
+        _repository.Update(design);
+        await _unitOfWork.CommitAsync();
+
+        return DesignImageResponse.From(image);
+    }
+
+    public async Task RemoveImageAsync(long designId, long imageId)
+    {
+        var design = await GetDesignAsync(designId);
+
+        if (design.Status == DesignStatus.approved)
+            throw new InvalidOperationException("Design đã được approve — không xóa ảnh được nữa.");
+
+        var image = design.DesignImages.FirstOrDefault(i => i.Id == imageId)
+            ?? throw new KeyNotFoundException($"Không tìm thấy ảnh với id {imageId} trong design {designId}.");
+
+        _unitOfWork.GetRepository<DesignImage>().Delete(image);
+        design.UpdatedAt = DateTime.UtcNow;
+        _repository.Update(design);
+        await _unitOfWork.CommitAsync();
+    }
+
+    private async Task<Design> GetDesignAsync(long id)
+    {
+        return await _repository.SingleOrDefaultAsync(
+            predicate: d => d.Id == id,
+            include: q => q.Include(d => d.DesignImages))
+            ?? throw new KeyNotFoundException($"Không tìm thấy design với id {id}.");
+    }
+}
