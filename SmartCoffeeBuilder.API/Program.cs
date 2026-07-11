@@ -56,6 +56,8 @@ builder.Services.AddHangfire(config => config
     .UsePostgreSqlStorage(options =>
         options.UseNpgsqlConnection(builder.Configuration.GetConnectionString("DefaultConnection"))));
 builder.Services.AddHangfireServer();
+builder.Services.AddScoped<ISurveyService, SurveyService>();
+builder.Services.AddScoped<IDesignService, DesignService>();
 
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"]

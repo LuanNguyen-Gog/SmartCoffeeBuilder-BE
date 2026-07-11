@@ -16,10 +16,9 @@ public interface IProjectProviderService
     Task<ProjectProviderResponse> CreateDirectRequestAsync(CreateProjectProviderRequest request);
 
     /// <summary>
-    /// Chuyển trạng thái engagement theo máy trạng thái:
-    /// requested→accepted/rejected; accepted→designing/constructing;
-    /// designing→designed; designed→constructing (contract type both)/completed;
-    /// constructing→constructed; constructed→completed; đang hoạt động→terminated.
+    /// Chuyển trạng thái QUAN HỆ của engagement (v5):
+    /// requested→accepted/rejected; accepted→completed (nghiệm thu, cần contract confirmed)/terminated.
+    /// Tiến độ design/construction là derived, không đi qua đây.
     /// </summary>
     Task<ProjectProviderResponse> UpdateStatusAsync(long id, UpdateProjectProviderStatusRequest request);
 }

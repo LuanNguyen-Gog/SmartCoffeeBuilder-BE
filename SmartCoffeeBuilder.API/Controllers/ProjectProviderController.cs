@@ -22,8 +22,7 @@ public class ProjectProviderController : ControllerBase
     }
 
     /// <summary>
-    /// Danh sách engagement. status: requested | accepted | rejected | designing | designed |
-    /// constructing | constructed | completed | terminated.
+    /// Danh sách engagement. status: requested | accepted | rejected | completed | terminated.
     /// </summary>
     [HttpGet]
     public async Task<IActionResult> GetAll(
@@ -75,11 +74,9 @@ public class ProjectProviderController : ControllerBase
     }
 
     /// <summary>
-    /// [TIẾN ĐỘ] Chuyển trạng thái công việc sau khi đã accepted:
-    /// accepted → designing (design/both) | constructing (construction);
-    /// designing → designed; designed → constructing (both) | completed;
-    /// constructing → constructed; constructed → completed;
-    /// terminated: kết thúc sớm khi đang hoạt động.
+    /// [QUAN HỆ] Chuyển trạng thái engagement (v5 — không phải tiến độ):
+    /// accepted → completed (owner nghiệm thu, cần contract confirmed) | terminated (huỷ ngang).
+    /// Tiến độ design/construction là derived từ design/construction_item — không set ở đây.
     /// </summary>
     [HttpPut("{id:long}/status")]
     public async Task<IActionResult> UpdateStatus(long id, [FromBody] UpdateProjectProviderStatusRequest request)

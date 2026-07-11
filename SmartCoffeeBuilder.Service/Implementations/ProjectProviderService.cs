@@ -18,9 +18,7 @@ public class ProjectProviderService : IProjectProviderService
     // Trạng thái coi là "đang hoạt động" — chặn thuê trùng, cho phép terminate.
     private static readonly ProviderStatus[] ActiveStatuses =
     [
-        ProviderStatus.requested, ProviderStatus.accepted,
-        ProviderStatus.designing, ProviderStatus.designed,
-        ProviderStatus.constructing, ProviderStatus.constructed
+        ProviderStatus.requested, ProviderStatus.accepted
     ];
 
     public ProjectProviderService(IUnitOfWork<SmartCafeBuilderContext> unitOfWork)
@@ -126,21 +124,14 @@ public class ProjectProviderService : IProjectProviderService
 
         ValidateTransition(engagement, target);
 
-        // TODO (chưa quyết định contract/quotation): khi chốt phương án ký kết,
-        // thêm lại gate "phải có hợp đồng/báo giá confirmed" trước khi cho bắt đầu việc.
-        var isStartingWork = engagement.Status == ProviderStatus.accepted
-            && target is ProviderStatus.designing or ProviderStatus.constructing;
-        if (isStartingWork)
+        // Nghiệm thu: engagement phải đã chạy thật (có contract confirmed) mới completed được.
+        if (target == ProviderStatus.completed)
         {
-            engagement.StartedAt = DateTime.UtcNow;
-
-            // Bắt đầu việc đầu tiên của project → project chuyển in_progress.
-            if (engagement.Project.Status == ProjectStatus.briefed)
-            {
-                engagement.Project.Status = ProjectStatus.in_progress;
-                engagement.Project.UpdatedAt = DateTime.UtcNow;
-                _unitOfWork.GetRepository<Project>().Update(engagement.Project);
-            }
+            var hasConfirmedContract = await _unitOfWork.GetRepository<Contract>()
+                .CountAsync(c => c.ProjectProviderId == engagement.Id && c.Status == ContractStatus.confirmed) > 0;
+            if (!hasConfirmedContract)
+                throw new InvalidOperationException(
+                    "Engagement chưa có contract 'confirmed' — chưa bắt đầu thực hiện nên không thể nghiệm thu.");
         }
 
         engagement.Status = target;
@@ -151,32 +142,17 @@ public class ProjectProviderService : IProjectProviderService
         return ProjectProviderResponse.From(engagement);
     }
 
+    // v5 — provider_status là trạng thái QUAN HỆ, không phải tiến độ:
+    // requested → accepted | rejected; accepted → completed | terminated.
+    // Tiến độ (designing/constructing…) là derived từ contract_type + design/construction_item con.
     private static void ValidateTransition(ProjectProvider engagement, ProviderStatus target)
     {
         var current = engagement.Status;
 
-        // Kết thúc sớm: mọi trạng thái đang hoạt động (trừ requested — dùng rejected) đều terminate được.
-        if (target == ProviderStatus.terminated)
-        {
-            if (current is ProviderStatus.rejected or ProviderStatus.completed or ProviderStatus.terminated
-                or ProviderStatus.requested)
-                throw new InvalidOperationException($"Không thể terminate engagement đang ở trạng thái '{current}'.");
-            return;
-        }
-
         var allowed = current switch
         {
             ProviderStatus.requested => target is ProviderStatus.accepted or ProviderStatus.rejected,
-            ProviderStatus.accepted => (target == ProviderStatus.designing
-                                            && engagement.ContractType is ServiceKind.design or ServiceKind.both)
-                                       || (target == ProviderStatus.constructing
-                                            && engagement.ContractType == ServiceKind.construction),
-            ProviderStatus.designing => target == ProviderStatus.designed,
-            ProviderStatus.designed => (target == ProviderStatus.constructing
-                                            && engagement.ContractType == ServiceKind.both)
-                                       || target == ProviderStatus.completed,
-            ProviderStatus.constructing => target == ProviderStatus.constructed,
-            ProviderStatus.constructed => target == ProviderStatus.completed,
+            ProviderStatus.accepted => target is ProviderStatus.completed or ProviderStatus.terminated,
             _ => false
         };
 
