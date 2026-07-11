@@ -25,13 +25,18 @@ public class AiRecommendationService : IAiRecommendationService
         _messageBus = messageBus;
     }
 
-    public async Task<List<AiRecommendationResponse>> GetAllByBriefIdAsync(long briefId)
+    public async Task<PaginationResponse<AiRecommendationResponse>> GetAllByBriefIdAsync(
+        long briefId, int pageNumber = 1, int pageSize = 10)
     {
-        var recommendations = await _repository.GetListAsync(
-            predicate: r => r.BriefId == briefId,
-            orderBy: q => q.OrderByDescending(r => r.CreatedAt));
+        var query = _repository
+            .GetQueryable(r => r.BriefId == briefId)
+            .OrderByDescending(r => r.CreatedAt);
 
-        return recommendations.Select(AiRecommendationResponse.From).ToList();
+        var paged = await query.ToPaginationResponseAsync(pageNumber, pageSize);
+
+        return new PaginationResponse<AiRecommendationResponse>(
+            paged.Items.Select(AiRecommendationResponse.From),
+            paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
     public async Task<AiRecommendationResponse> GetByIdAsync(long id)
