@@ -14,6 +14,8 @@ public class ProjectResponse
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
+    public List<ProjectProviderSummary> Providers { get; set; } = new();
+
     public static ProjectResponse From(SmartCoffeeBuilder.Repository.Models.Project p) => new()
     {
         Id = p.Id,
@@ -24,6 +26,9 @@ public class ProjectResponse
         Budget = p.Budget,
         Status = p.Status.ToString(),
         CreatedAt = p.CreatedAt,
-        UpdatedAt = p.UpdatedAt
+        UpdatedAt = p.UpdatedAt,
+        Providers = p.ProjectProviders?
+            .Select(ProjectProviderSummary.From)
+            .ToList() ?? new()
     };
 }
