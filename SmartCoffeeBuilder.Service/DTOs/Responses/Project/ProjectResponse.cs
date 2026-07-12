@@ -15,6 +15,7 @@ public class ProjectResponse
     public DateTime UpdatedAt { get; set; }
 
     public List<ProjectProviderSummary> Providers { get; set; } = new();
+    public ShopOwnerSummary? Owner { get; set; }
 
     public static ProjectResponse From(SmartCoffeeBuilder.Repository.Models.Project p) => new()
     {
@@ -29,6 +30,7 @@ public class ProjectResponse
         UpdatedAt = p.UpdatedAt,
         Providers = p.ProjectProviders?
             .Select(ProjectProviderSummary.From)
-            .ToList() ?? new()
+            .ToList() ?? new(),
+        Owner = p.Owner != null ? ShopOwnerSummary.From(p.Owner) : null
     };
 }

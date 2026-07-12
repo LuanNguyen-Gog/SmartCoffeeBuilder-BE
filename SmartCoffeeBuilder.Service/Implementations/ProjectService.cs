@@ -26,7 +26,8 @@ public class ProjectService : IProjectService
         var query = _repository
             .GetQueryable(
                 p => p.DeletedAt == null && (ownerId == null || p.OwnerId == ownerId),
-                include: q => q.Include(p => p.ProjectProviders).ThenInclude(pp => pp.Provider))
+                include: q => q.Include(p => p.ProjectProviders).ThenInclude(pp => pp.Provider)
+                                .Include(p => p.Owner))
             .OrderByDescending(p => p.CreatedAt);
 
         var paged = await query.ToPaginationResponseAsync(pageNumber, pageSize);
@@ -40,7 +41,8 @@ public class ProjectService : IProjectService
     {
         var project = await _repository.SingleOrDefaultAsync(
                 predicate: p => p.Id == id && p.DeletedAt == null,
-                include: q => q.Include(p => p.ProjectProviders).ThenInclude(pp => pp.Provider))
+                include: q => q.Include(p => p.ProjectProviders).ThenInclude(pp => pp.Provider)
+                                .Include(p => p.Owner))
             ?? throw new KeyNotFoundException($"Không tìm thấy project với id {id}.");
 
         return ProjectResponse.From(project);
