@@ -7,8 +7,9 @@ namespace SmartCoffeeBuilder.Service.Interfaces;
 
 public interface IAiRecommendationService
 {
-    // GET all by briefId
-    Task<List<AiRecommendationResponse>> GetAllByBriefIdAsync(long briefId);
+    // GET all by briefId (paginated)
+    Task<PaginationResponse<AiRecommendationResponse>> GetAllByBriefIdAsync(
+        long briefId, int pageNumber = 1, int pageSize = 10);
     Task<AiRecommendationResponse> GetByIdAsync(long id);
 
     // POST - generate AI design

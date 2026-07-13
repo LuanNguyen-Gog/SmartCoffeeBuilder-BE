@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using SmartCoffeeBuilder.Repository.DBContext;
 using SmartCoffeeBuilder.Repository.Interfaces;
 using SmartCoffeeBuilder.Repository.Models;
@@ -23,7 +24,11 @@ public class ProjectService : IProjectService
     public async Task<PaginationResponse<ProjectResponse>> GetAllAsync(int pageNumber = 1, int pageSize = 10, long? ownerId = null)
     {
         var query = _repository
-            .GetQueryable(p => p.DeletedAt == null && (ownerId == null || p.OwnerId == ownerId))
+            .GetQueryable(
+                p => p.DeletedAt == null && (ownerId == null || p.OwnerId == ownerId),
+                include: q => q.Include(p => p.ProjectProviders).ThenInclude(pp => pp.Provider)
+                                .Include(p => p.Owner)
+                                .Include(p => p.ProjectPosts))
             .OrderByDescending(p => p.CreatedAt);
 
         var paged = await query.ToPaginationResponseAsync(pageNumber, pageSize);
@@ -35,7 +40,11 @@ public class ProjectService : IProjectService
 
     public async Task<ProjectResponse> GetByIdAsync(long id)
     {
-        var project = await _repository.SingleOrDefaultAsync(predicate: p => p.Id == id && p.DeletedAt == null)
+        var project = await _repository.SingleOrDefaultAsync(
+                predicate: p => p.Id == id && p.DeletedAt == null,
+                include: q => q.Include(p => p.ProjectProviders).ThenInclude(pp => pp.Provider)
+                                .Include(p => p.Owner)
+                                .Include(p => p.ProjectPosts))
             ?? throw new KeyNotFoundException($"Không tìm thấy project với id {id}.");
 
         return ProjectResponse.From(project);

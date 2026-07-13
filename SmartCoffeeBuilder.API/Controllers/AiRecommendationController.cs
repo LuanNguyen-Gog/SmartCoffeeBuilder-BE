@@ -24,9 +24,12 @@ public class AiRecommendationController : ControllerBase
         ?? throw new UnauthorizedAccessException("User ID not found in token");
 
     [HttpGet]
-    public async Task<IActionResult> GetAllByBriefId([FromQuery] long briefId)
+    public async Task<IActionResult> GetAllByBriefId(
+        [FromQuery] long briefId,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
     {
-        var result = await _aiRecommendationService.GetAllByBriefIdAsync(briefId);
+        var result = await _aiRecommendationService.GetAllByBriefIdAsync(briefId, pageNumber, pageSize);
         return Ok(result);
     }
 
