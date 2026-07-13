@@ -58,6 +58,10 @@ builder.Services.AddHangfire(config => config
 builder.Services.AddHangfireServer();
 builder.Services.AddScoped<ISurveyService, SurveyService>();
 builder.Services.AddScoped<IDesignService, DesignService>();
+builder.Services.AddScoped<IConstructionItemService, ConstructionItemService>();
+builder.Services.AddScoped<IConstructionTaskService, ConstructionTaskService>();
+builder.Services.AddScoped<IIssueService, IssueService>();
+builder.Services.AddScoped<IIssueTypeService, IssueTypeService>();
 
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"]

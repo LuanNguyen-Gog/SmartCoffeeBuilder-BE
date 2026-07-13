@@ -319,7 +319,6 @@ public static class DbSeeder
             Category = "Kết cấu",
             EstimateAt = DateOnly.FromDateTime(At(5)),
             ActualAt = DateOnly.FromDateTime(At(3)),
-            IsDone = true,
             Status = ItemStatus.completed,
             CreatedByAccount = constructorAcc,
         };
@@ -332,7 +331,6 @@ public static class DbSeeder
             Category = "M&E",
             EstimateAt = DateOnly.FromDateTime(At(8)),
             ActualAt = DateOnly.FromDateTime(At(6)),
-            IsDone = true,
             Status = ItemStatus.completed,
             CreatedByAccount = constructorAcc,
         };
@@ -343,7 +341,29 @@ public static class DbSeeder
             Description = "Quầy bar, kệ trang trí, bàn ghế gỗ.",
             Category = "Nội thất",
             EstimateAt = DateOnly.FromDateTime(At(-7)), // dự kiến trong tương lai
-            IsDone = false,
+            Status = ItemStatus.in_progress,
+            CreatedByAccount = constructorAcc,
+        };
+
+        // Task nhỏ trong milestone (ảnh hiện trường)
+        var taskWaterproof = new ConstructionTask
+        {
+            ConstructionItem = itemRough,
+            Name = "Chống thấm tường mặt tiền",
+            Description = "Xử lý 2 lớp chống thấm trước khi tô.",
+            ImageUrl = "https://files.scb.com/tasks/p1-waterproof.jpg",
+            EstimateAt = DateOnly.FromDateTime(At(5)),
+            ActualAt = DateOnly.FromDateTime(At(4)),
+            Status = ItemStatus.completed,
+            CreatedByAccount = constructorAcc,
+        };
+        var taskWiring = new ConstructionTask
+        {
+            ConstructionItem = itemElectric,
+            Name = "Đi dây điện âm tường khu bar",
+            Description = "Kéo dây, đặt ống luồn, đấu ổ cắm.",
+            ImageUrl = "https://files.scb.com/tasks/p1-wiring.jpg",
+            EstimateAt = DateOnly.FromDateTime(At(7)),
             Status = ItemStatus.in_progress,
             CreatedByAccount = constructorAcc,
         };
@@ -466,6 +486,7 @@ public static class DbSeeder
         db.Projects.AddRange(project1, project2);
         db.ProjectProviders.AddRange(ppDesign, ppBuild);
         db.ConstructionItems.AddRange(itemRough, itemElectric, itemFurniture);
+        db.ConstructionTasks.AddRange(taskWaterproof, taskWiring);
         db.Issues.Add(issue1);
         db.Docs.AddRange(docQuote, docDrawing);
         db.Conversations.Add(convo);
