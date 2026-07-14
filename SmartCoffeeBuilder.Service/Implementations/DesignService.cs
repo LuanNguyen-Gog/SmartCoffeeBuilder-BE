@@ -14,11 +14,13 @@ public class DesignService : IDesignService
 {
     private readonly IUnitOfWork<SmartCafeBuilderContext> _unitOfWork;
     private readonly IGenericRepository<Design> _repository;
+    private readonly IFileStorageService _fileStorage;
 
-    public DesignService(IUnitOfWork<SmartCafeBuilderContext> unitOfWork)
+    public DesignService(IUnitOfWork<SmartCafeBuilderContext> unitOfWork, IFileStorageService fileStorage)
     {
         _unitOfWork = unitOfWork;
         _repository = unitOfWork.GetRepository<Design>();
+        _fileStorage = fileStorage;
     }
 
     public async Task<PaginationResponse<DesignResponse>> GetAllAsync(
@@ -216,26 +218,31 @@ public class DesignService : IDesignService
         return DesignResponse.From(design);
     }
 
-    public async Task<DesignImageResponse> AddImageAsync(long designId, AddDesignImageRequest request)
+    public async Task<DesignImageResponse> UploadFileAsync(
+        long designId, Stream content, string fileName, string? contentType, long sizeBytes,
+        string? caption = null, long? uploadedBy = null)
     {
         var design = await GetDesignAsync(designId);
 
         if (design.Status == DesignStatus.approved)
-            throw new InvalidOperationException("Design đã được approve — không thêm ảnh được nữa.");
+            throw new InvalidOperationException("Design đã được approve — không thêm file được nữa.");
 
-        if (request.UploadedBy != null)
+        if (uploadedBy != null)
         {
             _ = await _unitOfWork.GetRepository<Account>()
-                .SingleOrDefaultAsync(predicate: a => a.Id == request.UploadedBy)
-                ?? throw new KeyNotFoundException($"Không tìm thấy account với id {request.UploadedBy}.");
+                .SingleOrDefaultAsync(predicate: a => a.Id == uploadedBy)
+                ?? throw new KeyNotFoundException($"Không tìm thấy account với id {uploadedBy}.");
         }
+
+        // Nhận cả ảnh render lẫn file bản vẽ (pdf/office) — lưu vào folder "designs" trên bucket.
+        var uploaded = await _fileStorage.UploadAsync(content, fileName, contentType, sizeBytes, folder: "designs");
 
         var image = new DesignImage
         {
             DesignId = design.Id,
-            ImageUrl = request.ImageUrl,
-            Caption = request.Caption,
-            UploadedBy = request.UploadedBy,
+            ImageUrl = uploaded.ObjectName,
+            Caption = caption,
+            UploadedBy = uploadedBy,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -244,23 +251,29 @@ public class DesignService : IDesignService
         _repository.Update(design);
         await _unitOfWork.CommitAsync();
 
-        return DesignImageResponse.From(image);
+        var response = DesignImageResponse.From(image);
+        response.ViewUrl = uploaded.Url; // signed URL xem ngay, có hạn dùng
+        return response;
     }
 
-    public async Task RemoveImageAsync(long designId, long imageId)
+    public async Task RemoveFileAsync(long designId, long imageId)
     {
         var design = await GetDesignAsync(designId);
 
         if (design.Status == DesignStatus.approved)
-            throw new InvalidOperationException("Design đã được approve — không xóa ảnh được nữa.");
+            throw new InvalidOperationException("Design đã được approve — không xóa file được nữa.");
 
         var image = design.DesignImages.FirstOrDefault(i => i.Id == imageId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy ảnh với id {imageId} trong design {designId}.");
+            ?? throw new KeyNotFoundException($"Không tìm thấy file với id {imageId} trong design {designId}.");
 
         _unitOfWork.GetRepository<DesignImage>().Delete(image);
         design.UpdatedAt = DateTime.UtcNow;
         _repository.Update(design);
         await _unitOfWork.CommitAsync();
+
+        // Dọn object trên bucket sau khi DB đã commit; object không còn cũng bỏ qua.
+        try { await _fileStorage.DeleteAsync(image.ImageUrl); }
+        catch (KeyNotFoundException) { }
     }
 
     private async Task<Design> GetDesignAsync(long id)

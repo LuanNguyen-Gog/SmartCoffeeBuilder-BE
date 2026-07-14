@@ -44,6 +44,28 @@ public class ProjectProviderController : ControllerBase
     }
 
     /// <summary>
+    /// Provider xem brief owner tạo để quyết định nhận việc — mở cho cả designer lẫn constructor,
+    /// từ lúc được mời (requested); engagement rejected/terminated bị chặn.
+    /// </summary>
+    [HttpGet("{id:long}/brief")]
+    public async Task<IActionResult> GetBrief(long id)
+    {
+        var result = await _projectProviderService.GetBriefAsync(id);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Tổng quan dự án sau bước AI: engagement có design nhận brief + AI plan (state=completed);
+    /// engagement chỉ construction nhận danh sách bản vẽ 'approved' của bên design.
+    /// </summary>
+    [HttpGet("{id:long}/overview")]
+    public async Task<IActionResult> GetOverview(long id)
+    {
+        var result = await _projectProviderService.GetOverviewAsync(id);
+        return Ok(result);
+    }
+
+    /// <summary>
     /// [REQUEST] Owner gửi lời mời thuê trực tiếp (không qua đăng bài).
     /// contractType: design | construction | both — phải khớp capability của provider.
     /// Engagement tạo với status=requested, chờ provider accept/reject.

@@ -5,6 +5,9 @@ using SmartCoffeeBuilder.Repository.Models;
 using SmartCoffeeBuilder.Repository.Models.Enums;
 using SmartCoffeeBuilder.Service.ApiResponse;
 using SmartCoffeeBuilder.Service.DTOs.Requests.ProjectProvider;
+using SmartCoffeeBuilder.Service.DTOs.Responses.AiRecommendation;
+using SmartCoffeeBuilder.Service.DTOs.Responses.Design;
+using SmartCoffeeBuilder.Service.DTOs.Responses.DesignBrief;
 using SmartCoffeeBuilder.Service.DTOs.Responses.ProjectProvider;
 using SmartCoffeeBuilder.Service.Interfaces;
 
@@ -140,6 +143,74 @@ public class ProjectProviderService : IProjectProviderService
         await _unitOfWork.CommitAsync();
 
         return ProjectProviderResponse.From(engagement);
+    }
+
+    public async Task<DesignBriefResponse> GetBriefAsync(long id)
+    {
+        var engagement = await _repository.SingleOrDefaultAsync(predicate: e => e.Id == id)
+            ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {id}.");
+
+        EnsureEngagementViewable(engagement);
+
+        var brief = await _unitOfWork.GetRepository<DesignBrief>().SingleOrDefaultAsync(
+            predicate: b => b.ProjectId == engagement.ProjectId,
+            orderBy: q => q.OrderByDescending(b => b.CreatedAt))
+            ?? throw new KeyNotFoundException("Project chưa có brief — owner cần tạo brief trước.");
+
+        return DesignBriefResponse.From(brief);
+    }
+
+    public async Task<EngagementOverviewResponse> GetOverviewAsync(long id)
+    {
+        var engagement = await _repository.SingleOrDefaultAsync(
+            predicate: e => e.Id == id,
+            include: q => q.Include(e => e.Project))
+            ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {id}.");
+
+        EnsureEngagementViewable(engagement);
+
+        var overview = new EngagementOverviewResponse
+        {
+            ProjectProviderId = engagement.Id,
+            ContractType = engagement.ContractType.ToString(),
+            Status = engagement.Status.ToString(),
+            Project = OverviewProjectSummary.From(engagement.Project)
+        };
+
+        if (engagement.ContractType is ServiceKind.design or ServiceKind.both)
+        {
+            // Bên design: brief + các kết quả AI đã hoàn tất (bước AI của owner).
+            var brief = await _unitOfWork.GetRepository<DesignBrief>().SingleOrDefaultAsync(
+                predicate: b => b.ProjectId == engagement.ProjectId,
+                orderBy: q => q.OrderByDescending(b => b.CreatedAt));
+            overview.Brief = brief != null ? DesignBriefResponse.From(brief) : null;
+
+            var recommendations = await _unitOfWork.GetRepository<AiRecommendation>().GetListAsync(
+                predicate: r => r.Brief.ProjectId == engagement.ProjectId && r.State == "completed",
+                orderBy: q => q.OrderByDescending(r => r.CreatedAt));
+            overview.AiRecommendations = recommendations.Select(AiRecommendationResponse.From).ToList();
+        }
+        else
+        {
+            // Bên construction (không kiêm design): xem bản vẽ đã 'approved' của bên design.
+            var designs = await _unitOfWork.GetRepository<Design>().GetListAsync(
+                predicate: d => d.ProjectProvider.ProjectId == engagement.ProjectId
+                                && d.Status == DesignStatus.approved,
+                orderBy: q => q.OrderByDescending(d => d.UpdatedAt),
+                include: q => q.Include(d => d.DesignImages));
+            overview.ApprovedDesigns = designs.Select(DesignResponse.From).ToList();
+        }
+
+        return overview;
+    }
+
+    // Brief/overview mở từ lúc được mời (requested) để provider quyết định nhận việc;
+    // engagement đã rejected/terminated thì không còn quyền xem.
+    private static void EnsureEngagementViewable(ProjectProvider engagement)
+    {
+        if (engagement.Status is ProviderStatus.rejected or ProviderStatus.terminated)
+            throw new InvalidOperationException(
+                $"Engagement đang ở trạng thái '{engagement.Status}' — không còn quyền xem thông tin dự án.");
     }
 
     // v5 — provider_status là trạng thái QUAN HỆ, không phải tiến độ:

@@ -62,6 +62,10 @@ builder.Services.AddScoped<IConstructionItemService, ConstructionItemService>();
 builder.Services.AddScoped<IConstructionTaskService, ConstructionTaskService>();
 builder.Services.AddScoped<IIssueService, IssueService>();
 builder.Services.AddScoped<IIssueTypeService, IssueTypeService>();
+builder.Services.AddScoped<IReviewService, ReviewService>();
+
+// File storage — Google Cloud Storage (StorageClient thread-safe nên đăng ký singleton).
+builder.Services.AddSingleton<IFileStorageService, GcsFileStorageService>();
 
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"]

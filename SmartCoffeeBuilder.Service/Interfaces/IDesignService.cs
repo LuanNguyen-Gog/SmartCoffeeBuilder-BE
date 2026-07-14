@@ -19,7 +19,9 @@ public interface IDesignService
     Task<DesignResponse> RequestRevisionAsync(long id, RequestDesignRevisionRequest request);
     Task<DesignResponse> StartRevisionAsync(long id);
 
-    // Ảnh của design
-    Task<DesignImageResponse> AddImageAsync(long designId, AddDesignImageRequest request);
-    Task RemoveImageAsync(long designId, long imageId);
+    // File/ảnh của design — upload thẳng lên GCS (folder "designs"), DB lưu objectName.
+    Task<DesignImageResponse> UploadFileAsync(
+        long designId, Stream content, string fileName, string? contentType, long sizeBytes,
+        string? caption = null, long? uploadedBy = null);
+    Task RemoveFileAsync(long designId, long imageId);
 }
