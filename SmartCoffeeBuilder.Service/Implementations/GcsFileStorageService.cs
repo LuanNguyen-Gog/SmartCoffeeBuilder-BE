@@ -7,12 +7,18 @@ using SmartCoffeeBuilder.Service.Interfaces;
 namespace SmartCoffeeBuilder.Service.Implementations;
 
 /// <summary>
-/// Upload/xoá/đọc file trên Google Cloud Storage — bucket PRIVATE (Public access prevention bật).
-/// Không dùng signed URL: file được BE stream trực tiếp qua GET api/files/view (URL cố định,
-/// không hết hạn); DB lưu objectName. Chỉ cần quyền Storage Object Admin, không cần quyền ký.
+/// Upload/xoá/đọc file trên Google Cloud Storage — bucket PUBLIC-READ: FE dùng thẳng URL
+/// https://storage.googleapis.com/{bucket}/{object} (xem được ẩn danh, không hết hạn, cache qua CDN).
+/// DB lưu objectName; GET api/files/view vẫn giữ để tương thích dữ liệu cũ.
+///
+/// Yêu cầu cấu hình bucket (một lần, bằng gcloud):
+///   gcloud storage buckets update gs://{bucket} --no-public-access-prevention
+///   gcloud storage buckets add-iam-policy-binding gs://{bucket} --member=allUsers --role=roles/storage.objectViewer
 ///
 /// Config (appsettings):
 /// - Gcs:BucketName (bắt buộc)
+/// - Gcs:PublicBaseUrl (tuỳ chọn — mặc định "https://storage.googleapis.com/{BucketName}";
+///   đổi khi gắn CDN/custom domain trước bucket)
 /// - Gcs:CredentialsPath (local dev: file key JSON nếu có; để trống dùng ADC — Cloud Run/gcloud login)
 /// - Gcs:MaxFileSizeMb (mặc định 10)
 /// </summary>
@@ -22,6 +28,7 @@ public class GcsFileStorageService : IFileStorageService
     private static readonly string[] DocumentExtensions = [".pdf", ".doc", ".docx", ".xls", ".xlsx"];
 
     private readonly string _bucketName;
+    private readonly string _publicBaseUrl;
     private readonly long _maxFileSizeBytes;
     private readonly Lazy<StorageClient> _client;
 
@@ -29,6 +36,8 @@ public class GcsFileStorageService : IFileStorageService
     {
         _bucketName = configuration["Gcs:BucketName"]
             ?? throw new ApplicationException("Missing configuration: Gcs:BucketName");
+        _publicBaseUrl = (configuration["Gcs:PublicBaseUrl"]
+            ?? $"https://storage.googleapis.com/{_bucketName}").TrimEnd('/');
         _maxFileSizeBytes = configuration.GetValue("Gcs:MaxFileSizeMb", 10L) * 1024 * 1024;
 
         // Client tạo lazy để app vẫn start được khi thiếu config GCS (chỉ fail lúc gọi api/files).
@@ -42,7 +51,7 @@ public class GcsFileStorageService : IFileStorageService
 
     public async Task<FileUploadResponse> UploadAsync(
         Stream content, string fileName, string? contentType, long sizeBytes,
-        string? folder = null, bool imageOnly = false)
+        string folderPath, bool imageOnly = false)
     {
         if (sizeBytes <= 0)
             throw new ArgumentException("File rỗng.");
@@ -55,9 +64,11 @@ public class GcsFileStorageService : IFileStorageService
             throw new ArgumentException(
                 $"Định dạng '{extension}' không được hỗ trợ. Cho phép: {string.Join(", ", allowed)}.");
 
-        var safeFolder = string.IsNullOrWhiteSpace(folder) ? "uploads" : folder.Trim().ToLowerInvariant();
-        if (!safeFolder.All(c => char.IsLetterOrDigit(c) || c is '-' or '_'))
-            throw new ArgumentException("Folder chỉ được chứa chữ, số, '-' và '_'.");
+        if (string.IsNullOrWhiteSpace(folderPath))
+            throw new ArgumentException("FolderPath không được rỗng.");
+        var safeFolder = folderPath.Trim().Trim('/').ToLowerInvariant();
+        if (!safeFolder.All(c => char.IsLetterOrDigit(c) || c is '-' or '_' or '/'))
+            throw new ArgumentException("FolderPath chỉ được chứa chữ, số, '-', '_' và '/'.");
 
         var objectName = $"{safeFolder}/{DateTime.UtcNow:yyyy/MM}/{Guid.NewGuid():N}{extension}";
 
@@ -70,8 +81,8 @@ public class GcsFileStorageService : IFileStorageService
         return new FileUploadResponse
         {
             ObjectName = objectName,
-            // Đường dẫn tương đối trên chính BE — FE ghép base URL của API vào trước.
-            Url = $"/api/files/view?objectName={Uri.EscapeDataString(objectName)}",
+            // URL public tuyệt đối — FE dùng thẳng (img src, mở tab ẩn danh đều xem được).
+            Url = $"{_publicBaseUrl}/{objectName}",
             ContentType = uploaded.ContentType,
             SizeBytes = sizeBytes
         };

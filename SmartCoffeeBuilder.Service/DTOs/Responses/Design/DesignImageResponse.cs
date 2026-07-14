@@ -4,9 +4,9 @@ public class DesignImageResponse
 {
     public long Id { get; set; }
     public long DesignId { get; set; }
-    /// <summary>ObjectName trên bucket (ví dụ designs/2026/07/abc.png).</summary>
+    /// <summary>ObjectName trên bucket (ví dụ provider/5/2026/07/abc.png).</summary>
     public string ImageUrl { get; set; } = null!;
-    /// <summary>Đường dẫn xem file trên BE ("/api/files/view?objectName=...") — cố định, không hết hạn.</summary>
+    /// <summary>URL public trên GCS ("https://storage.googleapis.com/{bucket}/{objectName}") — cố định, không hết hạn.</summary>
     public string? ViewUrl { get; set; }
     public string? Caption { get; set; }
     public long? UploadedBy { get; set; }
