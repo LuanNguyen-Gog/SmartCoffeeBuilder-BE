@@ -63,6 +63,7 @@ builder.Services.AddScoped<IConstructionTaskService, ConstructionTaskService>();
 builder.Services.AddScoped<IIssueService, IssueService>();
 builder.Services.AddScoped<IIssueTypeService, IssueTypeService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
+builder.Services.AddScoped<IContractService, ContractService>();
 
 // File storage — Google Cloud Storage (StorageClient thread-safe nên đăng ký singleton).
 builder.Services.AddSingleton<IFileStorageService, GcsFileStorageService>();

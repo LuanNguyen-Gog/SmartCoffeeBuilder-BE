@@ -6,8 +6,9 @@ using SmartCoffeeBuilder.Service.Interfaces;
 namespace SmartCoffeeBuilder.API.Controllers;
 
 /// <summary>
-/// Khảo sát mặt bằng — bước đầu giai đoạn DESIGN.
-/// Chỉ tạo được khi engagement (project_provider) 'accepted' và có contract 'confirmed'.
+/// Khảo sát mặt bằng — có thể diễn ra TRƯỚC khi ký hợp đồng.
+/// Chỉ cần engagement (project_provider) 'accepted' và contract_type có pha design;
+/// KHÔNG yêu cầu contract 'confirmed' (khác với design/construction_item).
 /// </summary>
 [ApiController]
 [Route("api/surveys")]

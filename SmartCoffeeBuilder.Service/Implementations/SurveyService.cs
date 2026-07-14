@@ -57,12 +57,9 @@ public class SurveyService : ISurveyService
             throw new InvalidOperationException(
                 $"Engagement đang ở trạng thái '{engagement.Status}' — chỉ tạo survey khi engagement 'accepted'.");
 
-        // v5: "đã ký mới được làm" — guard qua contract confirmed, không check provider_status.
-        var hasConfirmedContract = await _unitOfWork.GetRepository<Contract>()
-            .CountAsync(c => c.ProjectProviderId == engagement.Id && c.Status == ContractStatus.confirmed) > 0;
-        if (!hasConfirmedContract)
-            throw new InvalidOperationException(
-                "Engagement chưa có contract 'confirmed' — ký hợp đồng trước khi tạo survey.");
+        // v5 (cập nhật): survey ĐỘC LẬP với contract — khảo sát được phép làm TRƯỚC khi ký.
+        // Chỉ cần engagement 'accepted' + contract_type có pha design (đã check ở trên).
+        // KHÔNG guard contract 'confirmed' ở đây (khác design/construction_item vẫn yêu cầu đã ký).
 
         if (request.CreatedBy != null)
         {
