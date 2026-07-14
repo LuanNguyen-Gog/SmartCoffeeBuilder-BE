@@ -122,8 +122,11 @@ public class ContractService : IContractService
         var contract = await _repository.SingleOrDefaultAsync(predicate: c => c.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy contract với id {id}.");
 
-        // Chỉ gửi OTP khi đang 'drafted' → chuyển 'pending_otp'.
-        EnsureTransition(contract.Status, ContractStatus.pending_otp);
+        // 'drafted' → gửi lần đầu (chuyển 'pending_otp'); 'pending_otp' → GỬI LẠI khi mã cũ
+        // hết hạn/thất lạc (giữ nguyên trạng thái, cấp mã mới đè mã cũ). Đã confirmed/cancelled thì chặn.
+        if (contract.Status is not (ContractStatus.drafted or ContractStatus.pending_otp))
+            throw new InvalidOperationException(
+                $"Contract đang ở trạng thái '{contract.Status}' — chỉ gửi OTP khi 'drafted' hoặc 'pending_otp'.");
 
         var ownerEmail = await ResolveOwnerEmailAsync(contract.ProjectProviderId);
 

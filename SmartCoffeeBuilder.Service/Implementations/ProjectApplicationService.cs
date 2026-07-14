@@ -59,7 +59,7 @@ public class ProjectApplicationService : IProjectApplicationService
         return ProjectApplicationResponse.From(application);
     }
 
-    public async Task<ProjectApplicationResponse> CreateAsync(CreateProjectApplicationRequest request)
+    public async Task<ProjectApplicationResponse> ApplyAsync(CreateProjectApplicationRequest request)
     {
         var post = await _unitOfWork.GetRepository<ProjectPost>()
             .SingleOrDefaultAsync(predicate: p => p.Id == request.PostId)
@@ -108,7 +108,7 @@ public class ProjectApplicationService : IProjectApplicationService
         return ProjectApplicationResponse.From(application);
     }
 
-    public async Task<ProjectApplicationResponse> UpdateAsync(long id, UpdateProjectApplicationRequest request)
+    public async Task<ProjectApplicationResponse> UpdateProposalAsync(long id, UpdateProjectApplicationRequest request)
     {
         var application = await _repository.SingleOrDefaultAsync(
             predicate: a => a.Id == id,
@@ -204,7 +204,7 @@ public class ProjectApplicationService : IProjectApplicationService
         return ProjectApplicationResponse.From(application);
     }
 
-    public async Task DeleteAsync(long id)
+    public async Task WithdrawAsync(long id)
     {
         var application = await _repository.GetByIdAsync(id)
             ?? throw new KeyNotFoundException($"Không tìm thấy application với id {id}.");

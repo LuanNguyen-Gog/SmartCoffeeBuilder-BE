@@ -41,17 +41,18 @@ public class ProjectApplicationController : ControllerBase
     /// [ỨNG TUYỂN] Provider nộp hồ sơ vào bài đang open, còn hạn.
     /// Capability của provider phải khớp serviceKind của bài (designer↔design, constructor↔construction, both↔mọi loại).
     /// </summary>
-    [HttpPost]
-    public async Task<IActionResult> Create([FromBody] CreateProjectApplicationRequest request)
+    [HttpPost("apply")]
+    public async Task<IActionResult> Apply([FromBody] CreateProjectApplicationRequest request)
     {
-        var result = await _projectApplicationService.CreateAsync(request);
+        var result = await _projectApplicationService.ApplyAsync(request);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
-    [HttpPut("{id:long}")]
-    public async Task<IActionResult> Update(long id, [FromBody] UpdateProjectApplicationRequest request)
+    /// <summary>Provider sửa proposal / thời gian dự kiến — chỉ khi hồ sơ còn pending.</summary>
+    [HttpPut("{id:long}/proposal")]
+    public async Task<IActionResult> UpdateProposal(long id, [FromBody] UpdateProjectApplicationRequest request)
     {
-        var result = await _projectApplicationService.UpdateAsync(id, request);
+        var result = await _projectApplicationService.UpdateProposalAsync(id, request);
         return Ok(result);
     }
 
@@ -71,11 +72,11 @@ public class ProjectApplicationController : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Provider rút hồ sơ khi còn pending.</summary>
-    [HttpDelete("{id:long}")]
-    public async Task<IActionResult> Delete(long id)
+    /// <summary>Provider rút hồ sơ khi còn pending — xoá hẳn bản ghi.</summary>
+    [HttpDelete("{id:long}/withdraw")]
+    public async Task<IActionResult> Withdraw(long id)
     {
-        await _projectApplicationService.DeleteAsync(id);
+        await _projectApplicationService.WithdrawAsync(id);
         return NoContent();
     }
 }

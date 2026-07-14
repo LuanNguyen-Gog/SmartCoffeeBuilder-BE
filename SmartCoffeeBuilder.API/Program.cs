@@ -68,6 +68,13 @@ builder.Services.AddScoped<IContractService, ContractService>();
 // File storage — Google Cloud Storage (StorageClient thread-safe nên đăng ký singleton).
 builder.Services.AddSingleton<IFileStorageService, GcsFileStorageService>();
 
+// Nới giới hạn request body theo Gcs:MaxFileSizeMb (+1MB headroom cho phần multipart boundary/header)
+// — mặc định Kestrel ~28MB sẽ chặn upload trước khi tới service.
+var maxUploadBytes = (builder.Configuration.GetValue("Gcs:MaxFileSizeMb", 10L) + 1) * 1024 * 1024;
+builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = maxUploadBytes);
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+    options.MultipartBodyLengthLimit = maxUploadBytes);
+
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"]
     ?? throw new InvalidOperationException("Missing configuration: Jwt:Key");

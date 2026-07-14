@@ -14,10 +14,10 @@ public interface IProjectApplicationService
     Task<ProjectApplicationResponse> GetByIdAsync(long id);
 
     /// <summary>Provider nộp hồ sơ ứng tuyển vào bài đăng đang mở.</summary>
-    Task<ProjectApplicationResponse> CreateAsync(CreateProjectApplicationRequest request);
+    Task<ProjectApplicationResponse> ApplyAsync(CreateProjectApplicationRequest request);
 
-    /// <summary>Provider sửa hồ sơ khi còn pending.</summary>
-    Task<ProjectApplicationResponse> UpdateAsync(long id, UpdateProjectApplicationRequest request);
+    /// <summary>Provider sửa proposal/thời gian dự kiến khi hồ sơ còn pending.</summary>
+    Task<ProjectApplicationResponse> UpdateProposalAsync(long id, UpdateProjectApplicationRequest request);
 
     /// <summary>
     /// Owner chấp nhận hồ sơ: application→accepted, tạo project_provider (đường marketplace),
@@ -28,6 +28,6 @@ public interface IProjectApplicationService
     /// <summary>Owner từ chối hồ sơ pending.</summary>
     Task<ProjectApplicationResponse> RejectAsync(long id);
 
-    /// <summary>Provider rút hồ sơ khi còn pending.</summary>
-    Task DeleteAsync(long id);
+    /// <summary>Provider rút hồ sơ khi còn pending — xoá hẳn bản ghi.</summary>
+    Task WithdrawAsync(long id);
 }
