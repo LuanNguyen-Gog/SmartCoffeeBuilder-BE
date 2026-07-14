@@ -97,19 +97,31 @@ public class DesignController : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Thêm ảnh vào design (không thêm được khi đã approved).</summary>
-    [HttpPost("{id:long}/images")]
-    public async Task<IActionResult> AddImage(long id, [FromBody] AddDesignImageRequest request)
+    /// <summary>
+    /// Upload ảnh render hoặc file bản vẽ (pdf/office) cho design — lưu thẳng lên GCS (folder "designs").
+    /// Multipart form-data: file (bắt buộc), caption, uploadedBy. Không thêm được khi đã approved.
+    /// </summary>
+    [HttpPost("{id:long}/files")]
+    public async Task<IActionResult> UploadFile(
+        long id, IFormFile file,
+        [FromForm] string? caption = null,
+        [FromForm] long? uploadedBy = null)
     {
-        var result = await _designService.AddImageAsync(id, request);
+        if (file == null || file.Length == 0)
+            throw new ArgumentException("Chưa chọn file hoặc file rỗng.");
+
+        await using var stream = file.OpenReadStream();
+        var result = await _designService.UploadFileAsync(
+            id, stream, file.FileName, file.ContentType, file.Length, caption, uploadedBy);
+
         return CreatedAtAction(nameof(GetById), new { id }, result);
     }
 
-    /// <summary>Xóa ảnh khỏi design (không xóa được khi đã approved).</summary>
-    [HttpDelete("{id:long}/images/{imageId:long}")]
-    public async Task<IActionResult> RemoveImage(long id, long imageId)
+    /// <summary>Xóa file khỏi design (xoá cả object trên bucket) — không xóa được khi đã approved.</summary>
+    [HttpDelete("{id:long}/files/{fileId:long}")]
+    public async Task<IActionResult> RemoveFile(long id, long fileId)
     {
-        await _designService.RemoveImageAsync(id, imageId);
+        await _designService.RemoveFileAsync(id, fileId);
         return NoContent();
     }
 }
