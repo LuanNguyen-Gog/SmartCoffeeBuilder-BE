@@ -38,6 +38,7 @@ public class SmartCafeBuilderContext : DbContext
 
     // Nhóm 6 — Thi công
     public DbSet<ConstructionItem> ConstructionItems => Set<ConstructionItem>();
+    public DbSet<ConstructionTask> ConstructionTasks => Set<ConstructionTask>();
     public DbSet<Issue> Issues => Set<Issue>();
     public DbSet<IssueType> IssueTypes => Set<IssueType>();
 
@@ -241,6 +242,15 @@ public class SmartCafeBuilderContext : DbContext
                 .HasForeignKey(x => x.ProjectProviderId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Parent).WithMany(p => p.Children)
                 .HasForeignKey(x => x.ParentId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.CreatedByAccount).WithMany()
+                .HasForeignKey(x => x.CreatedBy).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<ConstructionTask>(e =>
+        {
+            e.HasIndex(x => x.ConstructionItemId);
+            e.HasOne(x => x.ConstructionItem).WithMany(c => c.Tasks)
+                .HasForeignKey(x => x.ConstructionItemId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.CreatedByAccount).WithMany()
                 .HasForeignKey(x => x.CreatedBy).OnDelete(DeleteBehavior.SetNull);
         });
