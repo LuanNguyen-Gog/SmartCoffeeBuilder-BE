@@ -1,5 +1,3 @@
-using SmartCoffeeBuilder.Repository.Models.Enums;
-
 namespace SmartCoffeeBuilder.Service.DTOs.Responses.Contract;
 
 public class ContractResponse
@@ -14,7 +12,8 @@ public class ContractResponse
     public DateTime? OtpExpiresAt { get; set; }
     public DateTime? ConfirmedAt { get; set; }
     public long? ConfirmedBy { get; set; }
-    public ContractStatus Status { get; set; }
+    /// <summary>drafted | pending_otp | confirmed | cancelled</summary>
+    public string Status { get; set; } = null!;
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
@@ -31,7 +30,7 @@ public class ContractResponse
         OtpExpiresAt = e.OtpExpiresAt,
         ConfirmedAt = e.ConfirmedAt,
         ConfirmedBy = e.ConfirmedBy,
-        Status = e.Status,
+        Status = e.Status.ToString(),
         CreatedAt = e.CreatedAt,
         UpdatedAt = e.UpdatedAt
     };
