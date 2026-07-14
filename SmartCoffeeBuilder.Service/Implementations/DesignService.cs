@@ -227,15 +227,18 @@ public class DesignService : IDesignService
         if (design.Status == DesignStatus.approved)
             throw new InvalidOperationException("Design đã được approve — không thêm file được nữa.");
 
+        Account? uploader = null;
         if (uploadedBy != null)
         {
-            _ = await _unitOfWork.GetRepository<Account>()
+            uploader = await _unitOfWork.GetRepository<Account>()
                 .SingleOrDefaultAsync(predicate: a => a.Id == uploadedBy)
                 ?? throw new KeyNotFoundException($"Không tìm thấy account với id {uploadedBy}.");
         }
 
-        // Nhận cả ảnh render lẫn file bản vẽ (pdf/office) — lưu vào folder "designs" trên bucket.
-        var uploaded = await _fileStorage.UploadAsync(content, fileName, contentType, sizeBytes, folder: "designs");
+        // Nhận cả ảnh render lẫn file bản vẽ (pdf/office). Lưu theo "{role}/{accountId}" của
+        // người upload; không có uploadedBy thì rơi về folder chung "designs".
+        var folderPath = uploader != null ? $"{uploader.Role}/{uploader.Id}" : "designs";
+        var uploaded = await _fileStorage.UploadAsync(content, fileName, contentType, sizeBytes, folderPath);
 
         var image = new DesignImage
         {

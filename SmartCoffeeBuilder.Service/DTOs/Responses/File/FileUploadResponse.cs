@@ -4,13 +4,14 @@ public class FileUploadResponse
 {
     /// <summary>
     /// Tên object trong bucket — ĐÂY là giá trị lưu vào DB (image_url, issue_image…),
-    /// ví dụ "contracts/2026/07/abc123.pdf".
+    /// ví dụ "owner/12/2026/07/abc123.pdf".
     /// </summary>
     public string ObjectName { get; set; } = null!;
 
     /// <summary>
-    /// Đường dẫn xem file trên BE (cố định, không hết hạn):
-    /// "/api/files/view?objectName=..." — FE ghép base URL của API vào trước.
+    /// URL public tuyệt đối trên GCS (cố định, không hết hạn), ví dụ
+    /// "https://storage.googleapis.com/{bucket}/owner/12/2026/07/abc123.pdf" —
+    /// FE dùng thẳng làm img src / link, xem được cả khi chưa đăng nhập.
     /// </summary>
     public string Url { get; set; } = null!;
 
