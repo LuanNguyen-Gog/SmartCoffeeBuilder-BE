@@ -252,7 +252,7 @@ public class DesignService : IDesignService
         await _unitOfWork.CommitAsync();
 
         var response = DesignImageResponse.From(image);
-        response.ViewUrl = uploaded.Url; // signed URL xem ngay, có hạn dùng
+        response.ViewUrl = uploaded.Url;
         return response;
     }
 

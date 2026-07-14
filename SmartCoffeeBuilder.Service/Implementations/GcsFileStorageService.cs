@@ -7,46 +7,37 @@ using SmartCoffeeBuilder.Service.Interfaces;
 namespace SmartCoffeeBuilder.Service.Implementations;
 
 /// <summary>
-/// Upload/xoá file trên Google Cloud Storage — bucket PRIVATE (Public access prevention bật).
-/// DB chỉ lưu objectName; muốn xem file thì xin signed URL có hạn dùng qua GetSignedUrlAsync.
+/// Upload/xoá/đọc file trên Google Cloud Storage — bucket PRIVATE (Public access prevention bật).
+/// Không dùng signed URL: file được BE stream trực tiếp qua GET api/files/view (URL cố định,
+/// không hết hạn); DB lưu objectName. Chỉ cần quyền Storage Object Admin, không cần quyền ký.
 ///
 /// Config (appsettings):
 /// - Gcs:BucketName (bắt buộc)
-/// - Gcs:CredentialsPath (local dev: đường dẫn file key JSON của service account — cần để KÝ signed URL;
-///   trên Cloud Run để trống, dùng service account gắn với service, cần role 'Service Account Token Creator')
+/// - Gcs:CredentialsPath (local dev: file key JSON nếu có; để trống dùng ADC — Cloud Run/gcloud login)
 /// - Gcs:MaxFileSizeMb (mặc định 10)
-/// - Gcs:SignedUrlExpiryMinutes (mặc định 60, tối đa 10080 = 7 ngày theo giới hạn V4 của Google)
 /// </summary>
 public class GcsFileStorageService : IFileStorageService
 {
-    private const int MaxExpiryMinutes = 7 * 24 * 60; // V4 signed URL tối đa 7 ngày.
-
     private static readonly string[] ImageExtensions = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
     private static readonly string[] DocumentExtensions = [".pdf", ".doc", ".docx", ".xls", ".xlsx"];
 
     private readonly string _bucketName;
     private readonly long _maxFileSizeBytes;
-    private readonly int _defaultExpiryMinutes;
-    private readonly Lazy<GoogleCredential> _credential;
     private readonly Lazy<StorageClient> _client;
-    private readonly Lazy<UrlSigner> _signer;
 
     public GcsFileStorageService(IConfiguration configuration)
     {
         _bucketName = configuration["Gcs:BucketName"]
             ?? throw new ApplicationException("Missing configuration: Gcs:BucketName");
         _maxFileSizeBytes = configuration.GetValue("Gcs:MaxFileSizeMb", 10L) * 1024 * 1024;
-        _defaultExpiryMinutes = Math.Clamp(
-            configuration.GetValue("Gcs:SignedUrlExpiryMinutes", 60), 1, MaxExpiryMinutes);
 
-        // Credential/client tạo lazy để app vẫn start được khi thiếu config GCS (chỉ fail lúc gọi api/files).
+        // Client tạo lazy để app vẫn start được khi thiếu config GCS (chỉ fail lúc gọi api/files).
         var credentialsPath = configuration["Gcs:CredentialsPath"];
-        _credential = new Lazy<GoogleCredential>(() =>
+        _client = new Lazy<StorageClient>(() =>
             string.IsNullOrWhiteSpace(credentialsPath)
-                ? GoogleCredential.GetApplicationDefault() // Cloud Run / gcloud ADC
-                : CredentialFactory.FromFile<ServiceAccountCredential>(credentialsPath).ToGoogleCredential());
-        _client = new Lazy<StorageClient>(() => StorageClient.Create(_credential.Value));
-        _signer = new Lazy<UrlSigner>(() => UrlSigner.FromCredential(_credential.Value));
+                ? StorageClient.Create() // Application Default Credentials (Cloud Run / gcloud ADC)
+                : StorageClient.Create(
+                    CredentialFactory.FromFile<ServiceAccountCredential>(credentialsPath).ToGoogleCredential()));
     }
 
     public async Task<FileUploadResponse> UploadAsync(
@@ -76,39 +67,42 @@ public class GcsFileStorageService : IFileStorageService
             string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType,
             content);
 
-        var (url, expiresAt) = await SignAsync(objectName, _defaultExpiryMinutes);
-
         return new FileUploadResponse
         {
             ObjectName = objectName,
-            Url = url,
-            UrlExpiresAt = expiresAt,
+            // Đường dẫn tương đối trên chính BE — FE ghép base URL của API vào trước.
+            Url = $"/api/files/view?objectName={Uri.EscapeDataString(objectName)}",
             ContentType = uploaded.ContentType,
             SizeBytes = sizeBytes
         };
     }
 
-    public async Task<SignedUrlResponse> GetSignedUrlAsync(string objectName, int? expiryMinutes = null)
+    public async Task<FileDownloadResult> DownloadAsync(string objectName)
     {
         if (string.IsNullOrWhiteSpace(objectName))
             throw new ArgumentException("ObjectName không được rỗng.");
 
-        var minutes = expiryMinutes ?? _defaultExpiryMinutes;
-        if (minutes is < 1 or > MaxExpiryMinutes)
-            throw new ArgumentException($"expiryMinutes phải trong khoảng 1–{MaxExpiryMinutes} (tối đa 7 ngày).");
-
-        // Check tồn tại để trả 404 rõ ràng thay vì signed URL trỏ vào object không có.
         try
         {
-            await _client.Value.GetObjectAsync(_bucketName, objectName);
+            var metadata = await _client.Value.GetObjectAsync(_bucketName, objectName);
+
+            var stream = new MemoryStream();
+            await _client.Value.DownloadObjectAsync(_bucketName, objectName, stream);
+            stream.Position = 0;
+
+            return new FileDownloadResult
+            {
+                Content = stream,
+                ContentType = string.IsNullOrWhiteSpace(metadata.ContentType)
+                    ? "application/octet-stream"
+                    : metadata.ContentType,
+                FileName = Path.GetFileName(objectName)
+            };
         }
         catch (Google.GoogleApiException ex) when (ex.HttpStatusCode == System.Net.HttpStatusCode.NotFound)
         {
             throw new KeyNotFoundException($"Không tìm thấy file '{objectName}' trong bucket.");
         }
-
-        var (url, expiresAt) = await SignAsync(objectName, minutes);
-        return new SignedUrlResponse { ObjectName = objectName, Url = url, UrlExpiresAt = expiresAt };
     }
 
     public async Task DeleteAsync(string objectName)
@@ -123,25 +117,6 @@ public class GcsFileStorageService : IFileStorageService
         catch (Google.GoogleApiException ex) when (ex.HttpStatusCode == System.Net.HttpStatusCode.NotFound)
         {
             throw new KeyNotFoundException($"Không tìm thấy file '{objectName}' trong bucket.");
-        }
-    }
-
-    private async Task<(string Url, DateTime ExpiresAt)> SignAsync(string objectName, int minutes)
-    {
-        try
-        {
-            var url = await _signer.Value.SignAsync(
-                _bucketName, objectName, TimeSpan.FromMinutes(minutes),
-                HttpMethod.Get, SigningVersion.V4);
-            return (url, DateTime.UtcNow.AddMinutes(minutes));
-        }
-        catch (InvalidOperationException ex)
-        {
-            // Credential hiện tại không có khả năng ký (ví dụ ADC bằng tài khoản cá nhân).
-            throw new ApplicationException(
-                "Credential hiện tại không ký được signed URL. Local dev: điền Gcs:CredentialsPath bằng file key " +
-                "của service account, hoặc dùng 'gcloud auth application-default login --impersonate-service-account=<SA>'. " +
-                "Cloud Run: cấp role 'Service Account Token Creator' cho service account.", ex);
         }
     }
 }

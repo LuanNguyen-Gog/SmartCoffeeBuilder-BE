@@ -7,7 +7,7 @@ namespace SmartCoffeeBuilder.API.Controllers;
 /// <summary>
 /// Upload file/ảnh lên Google Cloud Storage — bucket PRIVATE. Lưu ObjectName vào các cột
 /// image_url / issue_image / confirm_image… của entity (không có bảng file riêng);
-/// khi cần hiển thị, gọi GET api/files/url để lấy link xem có hạn dùng.
+/// hiển thị qua GET api/files/view — BE stream trực tiếp từ bucket, URL cố định không hết hạn.
 /// </summary>
 [ApiController]
 [Route("api/files")]
@@ -50,14 +50,19 @@ public class FileController : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Lấy URL xem file private, có hạn dùng (expiryMinutes mặc định theo config, tối đa 7 ngày).</summary>
-    [HttpGet("url")]
-    public async Task<IActionResult> GetSignedUrl(
-        [FromQuery] string objectName,
-        [FromQuery] int? expiryMinutes = null)
+    /// <summary>
+    /// Xem/tải file — BE stream trực tiếp từ bucket private. AllowAnonymous để &lt;img src&gt;
+    /// dùng thẳng được; objectName chứa GUID ngẫu nhiên nên không đoán mò được.
+    /// </summary>
+    [HttpGet("view")]
+    [AllowAnonymous]
+    public async Task<IActionResult> View([FromQuery] string objectName)
     {
-        var result = await _fileStorageService.GetSignedUrlAsync(objectName, expiryMinutes);
-        return Ok(result);
+        var file = await _fileStorageService.DownloadAsync(objectName);
+
+        // Object bất biến (tên GUID, không ghi đè) — cho phép browser/CDN cache 1 ngày.
+        Response.Headers.CacheControl = "public, max-age=86400";
+        return File(file.Content, file.ContentType); // không set fileDownloadName → hiển thị inline
     }
 
     /// <summary>Xoá file theo objectName trả về lúc upload (ví dụ: issues/2026/07/abc.png).</summary>
