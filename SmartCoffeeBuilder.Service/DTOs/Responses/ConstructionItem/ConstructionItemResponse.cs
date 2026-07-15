@@ -3,7 +3,7 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.ConstructionItem;
 public class ConstructionItemResponse
 {
     public long Id { get; set; }
-    public long ProjectProviderId { get; set; }
+    public long ProjectWorkingId { get; set; }
     public long? ParentId { get; set; }
     public string Name { get; set; } = null!;
     public string? Description { get; set; }
@@ -18,7 +18,7 @@ public class ConstructionItemResponse
     public static ConstructionItemResponse From(SmartCoffeeBuilder.Repository.Models.ConstructionItem e) => new()
     {
         Id = e.Id,
-        ProjectProviderId = e.ProjectProviderId,
+        ProjectWorkingId = e.ProjectWorkingId,
         ParentId = e.ParentId,
         Name = e.Name,
         Description = e.Description,

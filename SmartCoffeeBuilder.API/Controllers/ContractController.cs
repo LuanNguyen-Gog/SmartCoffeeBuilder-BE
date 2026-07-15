@@ -26,9 +26,9 @@ public class ContractController : ControllerBase
     public async Task<IActionResult> GetAll(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
-        [FromQuery] long? projectProviderId = null)
+        [FromQuery] long? projectWorkingId = null)
     {
-        var result = await _contractService.GetAllAsync(pageNumber, pageSize, projectProviderId);
+        var result = await _contractService.GetAllAsync(pageNumber, pageSize, projectWorkingId);
         return Ok(result);
     }
 

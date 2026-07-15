@@ -5,7 +5,7 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.DesignBrief;
 public class DesignBriefResponse
 {
     public long Id { get; set; }
-    public long ProjectId { get; set; }
+    public long ProjectShopOwnerId { get; set; }
     public string TargetCustomer { get; set; } = null!;
     public string Style { get; set; } = null!;
     public string Mood { get; set; } = null!;
@@ -21,7 +21,7 @@ public class DesignBriefResponse
     public static DesignBriefResponse From(SmartCoffeeBuilder.Repository.Models.DesignBrief b) => new()
     {
         Id = b.Id,
-        ProjectId = b.ProjectId,
+        ProjectShopOwnerId = b.ProjectShopOwnerId,
         TargetCustomer = b.TargetCustomer,
         Style = b.Style,
         Mood = b.Mood,

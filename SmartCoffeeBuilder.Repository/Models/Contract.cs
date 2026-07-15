@@ -5,7 +5,7 @@ namespace SmartCoffeeBuilder.Repository.Models;
 public class Contract
 {
     public long Id { get; set; }
-    public long ProjectProviderId { get; set; }
+    public long ProjectWorkingId { get; set; }
     public string Title { get; set; } = null!;
     public string? PartyInfo { get; set; }
     public string? Terms { get; set; }
@@ -19,6 +19,6 @@ public class Contract
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
-    public ProjectProvider ProjectProvider { get; set; } = null!;
+    public ProjectWorking ProjectWorking { get; set; } = null!;
     public Account? ConfirmedByAccount { get; set; }
 }

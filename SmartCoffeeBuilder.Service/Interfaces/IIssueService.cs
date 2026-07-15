@@ -8,7 +8,7 @@ public interface IIssueService
 {
     Task<PaginationResponse<IssueResponse>> GetAllAsync(
         int pageNumber = 1, int pageSize = 10,
-        long? projectProviderId = null, long? constructionItemId = null, string? status = null);
+        long? projectWorkingId = null, long? constructionItemId = null, string? status = null);
 
     Task<IssueResponse> GetByIdAsync(long id);
 

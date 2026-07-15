@@ -32,8 +32,8 @@ builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IShopOwnerService, ShopOwnerService>();
-builder.Services.AddScoped<IServiceProviderService, ServiceProviderService>();
-builder.Services.AddScoped<IProjectService, ProjectService>();
+builder.Services.AddScoped<IServiceProviderProfileService, ServiceProviderProfileService>();
+builder.Services.AddScoped<IProjectShopOwnerService, ProjectShopOwnerService>();
 builder.Services.AddScoped<IDesignBriefService, DesignBriefService>();
 
 // AI Design Client & Service
@@ -41,9 +41,9 @@ builder.Services.AddHttpClient<IAiDesignClient, AiDesignClient>();
 builder.Services.AddSingleton<IMessageBusService, RabbitMqService>();
 builder.Services.AddScoped<IAiRecommendationService, AiRecommendationService>();
 builder.Services.AddHostedService<AiDesignResultConsumer>();
-builder.Services.AddScoped<IProjectPostService, ProjectPostService>();
-builder.Services.AddScoped<IProjectApplicationService, ProjectApplicationService>();
-builder.Services.AddScoped<IProjectProviderService, ProjectProviderService>();
+builder.Services.AddScoped<IPostService, PostService>();
+builder.Services.AddScoped<IApplyService, ApplyService>();
+builder.Services.AddScoped<IProjectWorkingService, ProjectWorkingService>();
 builder.Services.AddScoped<IOtpRepository, OtpRepository>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IOtpService, OtpService>();

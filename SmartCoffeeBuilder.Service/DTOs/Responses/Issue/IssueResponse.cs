@@ -3,7 +3,7 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.Issue;
 public class IssueResponse
 {
     public long Id { get; set; }
-    public long ProjectProviderId { get; set; }
+    public long ProjectWorkingId { get; set; }
     public long? ConstructionItemId { get; set; }
     public long IssueTypeId { get; set; }
     public string? IssueTypeName { get; set; }
@@ -22,7 +22,7 @@ public class IssueResponse
     public static IssueResponse From(SmartCoffeeBuilder.Repository.Models.Issue e) => new()
     {
         Id = e.Id,
-        ProjectProviderId = e.ProjectProviderId,
+        ProjectWorkingId = e.ProjectWorkingId,
         ConstructionItemId = e.ConstructionItemId,
         IssueTypeId = e.IssueTypeId,
         IssueTypeName = e.IssueType?.Name,

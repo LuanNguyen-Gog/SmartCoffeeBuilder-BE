@@ -21,9 +21,9 @@ public class DesignBriefController : ControllerBase
     public async Task<IActionResult> GetAll(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
-        [FromQuery] long? projectId = null)
+        [FromQuery] long? projectShopOwnerId = null)
     {
-        var result = await _designBriefService.GetAllAsync(pageNumber, pageSize, projectId);
+        var result = await _designBriefService.GetAllAsync(pageNumber, pageSize, projectShopOwnerId);
         return Ok(result);
     }
 

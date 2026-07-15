@@ -8,7 +8,7 @@ public interface IDesignService
 {
     Task<PaginationResponse<DesignResponse>> GetAllAsync(
         int pageNumber = 1, int pageSize = 10,
-        long? projectProviderId = null, string? status = null, string? type = null);
+        long? projectWorkingId = null, string? status = null, string? type = null);
     Task<DesignResponse> GetByIdAsync(long id);
     Task<DesignResponse> CreateAsync(CreateDesignRequest request);
     Task<DesignResponse> UpdateAsync(long id, UpdateDesignRequest request);

@@ -9,7 +9,7 @@ namespace SmartCoffeeBuilder.Service.DTOs.Requests.Review;
 public class CreateReviewRequest
 {
     [Required]
-    public long ProjectProviderId { get; set; }
+    public long ProjectWorkingId { get; set; }
 
     [Range(1, 5)]
     public decimal OverallRating { get; set; }

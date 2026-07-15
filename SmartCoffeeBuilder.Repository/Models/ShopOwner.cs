@@ -12,5 +12,5 @@ public class ShopOwner
     public DateTime UpdatedAt { get; set; }
 
     public Account Account { get; set; } = null!;
-    public ICollection<Project> Projects { get; set; } = new List<Project>();
+    public ICollection<ProjectShopOwner> ProjectShopOwners { get; set; } = new List<ProjectShopOwner>();
 }

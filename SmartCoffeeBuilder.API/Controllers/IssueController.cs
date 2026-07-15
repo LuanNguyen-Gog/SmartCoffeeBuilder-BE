@@ -26,11 +26,11 @@ public class IssueController : ControllerBase
     public async Task<IActionResult> GetAll(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
-        [FromQuery] long? projectProviderId = null,
+        [FromQuery] long? projectWorkingId = null,
         [FromQuery] long? constructionItemId = null,
         [FromQuery] string? status = null)
     {
-        var result = await _issueService.GetAllAsync(pageNumber, pageSize, projectProviderId, constructionItemId, status);
+        var result = await _issueService.GetAllAsync(pageNumber, pageSize, projectWorkingId, constructionItemId, status);
         return Ok(result);
     }
 

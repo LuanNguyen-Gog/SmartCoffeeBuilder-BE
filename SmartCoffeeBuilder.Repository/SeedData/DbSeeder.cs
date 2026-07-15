@@ -78,7 +78,7 @@ public static class DbSeeder
         };
 
         // ───────── Service providers ─────────
-        var designerProvider = new ServiceProvider
+        var designerProvider = new ServiceProviderProfile
         {
             Account = designerAcc,
             DisplayName = "Studio Mộc Design",
@@ -99,7 +99,7 @@ public static class DbSeeder
             },
         };
 
-        var constructorProvider = new ServiceProvider
+        var constructorProvider = new ServiceProviderProfile
         {
             Account = constructorAcc,
             DisplayName = "Xây Dựng Tín Phát",
@@ -121,7 +121,7 @@ public static class DbSeeder
             },
         };
 
-        var bothProvider = new ServiceProvider
+        var bothProvider = new ServiceProviderProfile
         {
             Account = bothAcc,
             DisplayName = "Combo Design & Build",
@@ -149,7 +149,7 @@ public static class DbSeeder
         };
 
         // ───────── Project 1 (lifecycle đầy đủ) ─────────
-        var project1 = new Project
+        var project1 = new ProjectShopOwner
         {
             Owner = owner1,
             Name = "An's Coffee House - Chi nhánh Quận 1",
@@ -190,9 +190,9 @@ public static class DbSeeder
         };
 
         // Marketplace: bài đăng tìm designer + 2 đơn ứng tuyển.
-        var post1 = new ProjectPost
+        var post1 = new Post
         {
-            Project = project1,
+            ProjectShopOwner = project1,
             ServiceKind = ServiceKind.design,
             Title = "Tìm đơn vị thiết kế quán cà phê 85m2 Quận 1",
             Description = "Cần thiết kế concept + bản vẽ kỹ thuật cho quán cà phê phong cách industrial.",
@@ -200,10 +200,10 @@ public static class DbSeeder
             SubmissionDeadline = At(40),
         };
 
-        var appDesigner = new ProjectApplication
+        var appDesigner = new Apply
         {
             Post = post1,
-            Provider = designerProvider,
+            ServiceProviderProfile = designerProvider,
             Proposal = "Chúng tôi đề xuất concept industrial-scandinavian với quầy bar trung tâm. " +
                        "Bao gồm 3 phương án 3D và bản vẽ kỹ thuật chi tiết.",
             EstimatedDurationDays = 21,
@@ -211,22 +211,22 @@ public static class DbSeeder
             SubmittedAt = At(45),
         };
 
-        var appBoth = new ProjectApplication
+        var appBoth = new Apply
         {
             Post = post1,
-            Provider = bothProvider,
+            ServiceProviderProfile = bothProvider,
             Proposal = "Báo giá thiết kế trọn gói, có thể kèm thi công.",
             EstimatedDurationDays = 30,
             Status = ApplicationStatus.rejected,
             SubmittedAt = At(44),
         };
 
-        // ───────── ProjectProvider 1: thiết kế (qua marketplace) ─────────
-        var ppDesign = new ProjectProvider
+        // ───────── ProjectWorking 1: thiết kế (qua marketplace) ─────────
+        var ppDesign = new ProjectWorking
         {
-            Project = project1,
-            Provider = designerProvider,
-            Application = appDesigner,
+            ProjectShopOwner = project1,
+            ServiceProviderProfile = designerProvider,
+            Apply = appDesigner,
             ContractType = ServiceKind.design,
             Status = ProviderStatus.completed,
             RequestMessage = "Chấp nhận đơn ứng tuyển của Studio Mộc Design.",
@@ -284,12 +284,12 @@ public static class DbSeeder
             },
         };
 
-        // ───────── ProjectProvider 2: thi công (thuê trực tiếp) ─────────
-        var ppBuild = new ProjectProvider
+        // ───────── ProjectWorking 2: thi công (thuê trực tiếp) ─────────
+        var ppBuild = new ProjectWorking
         {
-            Project = project1,
-            Provider = constructorProvider,
-            Application = null, // thuê trực tiếp
+            ProjectShopOwner = project1,
+            ServiceProviderProfile = constructorProvider,
+            Apply = null, // thuê trực tiếp
             ContractType = ServiceKind.construction,
             Status = ProviderStatus.accepted, // đang thi công = accepted + contract confirmed (derived)
             RequestMessage = "Mời thi công theo bản vẽ đã được duyệt.",
@@ -313,7 +313,7 @@ public static class DbSeeder
         // Hạng mục thi công (parent + children)
         var itemRough = new ConstructionItem
         {
-            ProjectProvider = ppBuild,
+            ProjectWorking = ppBuild,
             Name = "Phần thô",
             Description = "Xử lý tường, sàn, trần, điện nước âm.",
             Category = "Kết cấu",
@@ -324,7 +324,7 @@ public static class DbSeeder
         };
         var itemElectric = new ConstructionItem
         {
-            ProjectProvider = ppBuild,
+            ProjectWorking = ppBuild,
             Parent = itemRough,
             Name = "Hệ thống điện",
             Description = "Đi dây điện âm tường, lắp ổ cắm khu vực bar.",
@@ -336,7 +336,7 @@ public static class DbSeeder
         };
         var itemFurniture = new ConstructionItem
         {
-            ProjectProvider = ppBuild,
+            ProjectWorking = ppBuild,
             Name = "Đóng nội thất gỗ",
             Description = "Quầy bar, kệ trang trí, bàn ghế gỗ.",
             Category = "Nội thất",
@@ -370,7 +370,7 @@ public static class DbSeeder
 
         var issue1 = new Issue
         {
-            ProjectProvider = ppBuild,
+            ProjectWorking = ppBuild,
             ConstructionItem = itemRough,
             IssueType = issueTypes[2], // site_condition
             Cause = "Tường mặt tiền bị thấm nước mưa.",
@@ -386,7 +386,7 @@ public static class DbSeeder
 
         var docQuote = new Doc
         {
-            ProjectProvider = ppBuild,
+            ProjectWorking = ppBuild,
             DocType = docTypes[1], // quotation
             FileUrl = "https://files.scb.com/docs/p1-quotation.pdf",
             FileName = "bao-gia-thi-cong.pdf",
@@ -395,7 +395,7 @@ public static class DbSeeder
         };
         var docDrawing = new Doc
         {
-            ProjectProvider = ppDesign,
+            ProjectWorking = ppDesign,
             DocType = docTypes[2], // technical_drawing
             FileUrl = "https://files.scb.com/docs/p1-drawings.pdf",
             FileName = "ban-ve-ky-thuat.pdf",
@@ -406,7 +406,7 @@ public static class DbSeeder
         // Hội thoại + tin nhắn (trên ppDesign)
         var convo = new Conversation
         {
-            ProjectProvider = ppDesign,
+            ProjectWorking = ppDesign,
             Topic = "Trao đổi concept thiết kế",
             Messages =
             {
@@ -419,7 +419,7 @@ public static class DbSeeder
         // Đánh giá (trên ppDesign — đã completed)
         var review = new Review
         {
-            ProjectProvider = ppDesign,
+            ProjectWorking = ppDesign,
             OverallRating = 4.80m,
             Comment = "Thiết kế đẹp, đúng concept, phản hồi nhanh. Rất hài lòng!",
             ReviewScores =
@@ -431,7 +431,7 @@ public static class DbSeeder
         };
 
         // ───────── Project 2 (mới brief, đơn giản) ─────────
-        var project2 = new Project
+        var project2 = new ProjectShopOwner
         {
             Owner = owner2,
             Name = "Bình Minh Cafe - Quán take-away",
@@ -454,9 +454,9 @@ public static class DbSeeder
                 new BudgetItem { Category = "Thiết kế", PlannedAmount = 20_000_000m },
                 new BudgetItem { Category = "Thi công", PlannedAmount = 90_000_000m },
             },
-            ProjectPosts =
+            Posts =
             {
-                new ProjectPost
+                new Post
                 {
                     ServiceKind = ServiceKind.both,
                     Title = "Tìm đơn vị thiết kế & thi công quán take-away 30m2",
@@ -482,9 +482,9 @@ public static class DbSeeder
         db.IssueTypes.AddRange(issueTypes);
         db.DocTypes.AddRange(docTypes);
         db.Accounts.AddRange(adminAcc, owner1Acc, owner2Acc, designerAcc, constructorAcc, bothAcc);
-        db.ServiceProviders.AddRange(designerProvider, constructorProvider, bothProvider);
-        db.Projects.AddRange(project1, project2);
-        db.ProjectProviders.AddRange(ppDesign, ppBuild);
+        db.ServiceProviderProfiles.AddRange(designerProvider, constructorProvider, bothProvider);
+        db.ProjectShopOwners.AddRange(project1, project2);
+        db.ProjectWorkings.AddRange(ppDesign, ppBuild);
         db.ConstructionItems.AddRange(itemRough, itemElectric, itemFurniture);
         db.ConstructionTasks.AddRange(taskWaterproof, taskWiring);
         db.Issues.Add(issue1);

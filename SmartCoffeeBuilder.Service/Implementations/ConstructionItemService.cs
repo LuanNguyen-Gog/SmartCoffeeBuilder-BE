@@ -22,7 +22,7 @@ public class ConstructionItemService : IConstructionItemService
 
     public async Task<PaginationResponse<ConstructionItemResponse>> GetAllAsync(
         int pageNumber = 1, int pageSize = 10,
-        long? projectProviderId = null, long? parentId = null, string? status = null)
+        long? projectWorkingId = null, long? parentId = null, string? status = null)
     {
         ItemStatus? st = null;
         if (!string.IsNullOrWhiteSpace(status))
@@ -33,7 +33,7 @@ public class ConstructionItemService : IConstructionItemService
         }
 
         var query = _repository
-            .GetQueryable(e => (projectProviderId == null || e.ProjectProviderId == projectProviderId)
+            .GetQueryable(e => (projectWorkingId == null || e.ProjectWorkingId == projectWorkingId)
                                && (parentId == null || e.ParentId == parentId)
                                && (st == null || e.Status == st))
             .OrderByDescending(e => e.CreatedAt);
@@ -55,9 +55,9 @@ public class ConstructionItemService : IConstructionItemService
 
     public async Task<ConstructionItemResponse> CreateAsync(CreateConstructionItemRequest request)
     {
-        var engagement = await _unitOfWork.GetRepository<ProjectProvider>()
-            .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectProviderId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {request.ProjectProviderId}.");
+        var engagement = await _unitOfWork.GetRepository<ProjectWorking>()
+            .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectWorkingId)
+            ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {request.ProjectWorkingId}.");
 
         if (engagement.ContractType == ServiceKind.design)
             throw new InvalidOperationException(
@@ -69,7 +69,7 @@ public class ConstructionItemService : IConstructionItemService
 
         // v5: "đã ký mới được làm" — guard qua contract confirmed, không check provider_status.
         var hasConfirmedContract = await _unitOfWork.GetRepository<Contract>()
-            .CountAsync(c => c.ProjectProviderId == engagement.Id && c.Status == ContractStatus.confirmed) > 0;
+            .CountAsync(c => c.ProjectWorkingId == engagement.Id && c.Status == ContractStatus.confirmed) > 0;
         if (!hasConfirmedContract)
             throw new InvalidOperationException(
                 "Engagement chưa có contract 'confirmed' — ký hợp đồng trước khi tạo hạng mục thi công.");
@@ -78,7 +78,7 @@ public class ConstructionItemService : IConstructionItemService
         {
             var parent = await _repository.SingleOrDefaultAsync(predicate: e => e.Id == request.ParentId)
                 ?? throw new KeyNotFoundException($"Không tìm thấy milestone cha với id {request.ParentId}.");
-            if (parent.ProjectProviderId != engagement.Id)
+            if (parent.ProjectWorkingId != engagement.Id)
                 throw new InvalidOperationException("Milestone cha phải thuộc cùng engagement.");
         }
 
@@ -91,7 +91,7 @@ public class ConstructionItemService : IConstructionItemService
 
         var item = new ConstructionItem
         {
-            ProjectProviderId = engagement.Id,
+            ProjectWorkingId = engagement.Id,
             ParentId = request.ParentId,
             Name = request.Name,
             Description = request.Description,

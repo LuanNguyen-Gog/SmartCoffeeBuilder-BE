@@ -138,8 +138,8 @@ public class AiRecommendationService : IAiRecommendationService
             .SingleOrDefaultAsync(predicate: b => b.Id == briefId)
             ?? throw new KeyNotFoundException($"Không tìm thấy design brief với id {briefId}.");
 
-        var project = await _unitOfWork.GetRepository<Project>()
-            .SingleOrDefaultAsync(predicate: p => p.Id == brief.ProjectId)
+        var project = await _unitOfWork.GetRepository<ProjectShopOwner>()
+            .SingleOrDefaultAsync(predicate: p => p.Id == brief.ProjectShopOwnerId)
             ?? throw new KeyNotFoundException($"Không tìm thấy project liên quan.");
 
         // Required fields for AI worker — fail fast if project metadata is incomplete

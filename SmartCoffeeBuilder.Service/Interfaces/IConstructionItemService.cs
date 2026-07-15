@@ -8,7 +8,7 @@ public interface IConstructionItemService
 {
     Task<PaginationResponse<ConstructionItemResponse>> GetAllAsync(
         int pageNumber = 1, int pageSize = 10,
-        long? projectProviderId = null, long? parentId = null, string? status = null);
+        long? projectWorkingId = null, long? parentId = null, string? status = null);
 
     Task<ConstructionItemResponse> GetByIdAsync(long id);
 

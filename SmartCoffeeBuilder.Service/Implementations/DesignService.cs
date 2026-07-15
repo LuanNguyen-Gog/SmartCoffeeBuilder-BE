@@ -25,7 +25,7 @@ public class DesignService : IDesignService
 
     public async Task<PaginationResponse<DesignResponse>> GetAllAsync(
         int pageNumber = 1, int pageSize = 10,
-        long? projectProviderId = null, string? status = null, string? type = null)
+        long? projectWorkingId = null, string? status = null, string? type = null)
     {
         DesignStatus? st = null;
         if (!string.IsNullOrWhiteSpace(status))
@@ -45,7 +45,7 @@ public class DesignService : IDesignService
 
         var query = _repository
             .GetQueryable(
-                d => (projectProviderId == null || d.ProjectProviderId == projectProviderId)
+                d => (projectWorkingId == null || d.ProjectWorkingId == projectWorkingId)
                      && (st == null || d.Status == st)
                      && (tp == null || d.Type == tp),
                 include: q => q.Include(d => d.DesignImages))
@@ -66,9 +66,9 @@ public class DesignService : IDesignService
 
     public async Task<DesignResponse> CreateAsync(CreateDesignRequest request)
     {
-        var engagement = await _unitOfWork.GetRepository<ProjectProvider>()
-            .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectProviderId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {request.ProjectProviderId}.");
+        var engagement = await _unitOfWork.GetRepository<ProjectWorking>()
+            .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectWorkingId)
+            ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {request.ProjectWorkingId}.");
 
         if (engagement.ContractType == ServiceKind.construction)
             throw new InvalidOperationException(
@@ -80,7 +80,7 @@ public class DesignService : IDesignService
 
         // v5: "đã ký mới được làm" — guard qua contract confirmed, không check provider_status.
         var hasConfirmedContract = await _unitOfWork.GetRepository<Contract>()
-            .CountAsync(c => c.ProjectProviderId == engagement.Id && c.Status == ContractStatus.confirmed) > 0;
+            .CountAsync(c => c.ProjectWorkingId == engagement.Id && c.Status == ContractStatus.confirmed) > 0;
         if (!hasConfirmedContract)
             throw new InvalidOperationException(
                 "Engagement chưa có contract 'confirmed' — ký hợp đồng trước khi tạo design.");
@@ -98,7 +98,7 @@ public class DesignService : IDesignService
 
         var design = new Design
         {
-            ProjectProviderId = engagement.Id,
+            ProjectWorkingId = engagement.Id,
             Title = request.Title,
             Version = 0.1m, // bản nháp đầu tiên; mỗi vòng revision +0.1
             Type = type,

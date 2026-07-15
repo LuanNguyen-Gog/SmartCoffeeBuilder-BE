@@ -7,7 +7,7 @@ namespace SmartCoffeeBuilder.Service.Interfaces;
 public interface IContractService
 {
     Task<PaginationResponse<ContractResponse>> GetAllAsync(
-        int pageNumber = 1, int pageSize = 10, long? projectProviderId = null);
+        int pageNumber = 1, int pageSize = 10, long? projectWorkingId = null);
 
     Task<ContractResponse> GetByIdAsync(long id);
 

@@ -8,11 +8,11 @@ public interface IReviewService
 {
     Task<PaginationResponse<ReviewResponse>> GetAllAsync(
         int pageNumber = 1, int pageSize = 10,
-        long? projectProviderId = null, long? providerId = null);
+        long? projectWorkingId = null, long? serviceProviderProfileId = null);
 
     Task<ReviewResponse> GetByIdAsync(long id);
 
-    Task<ProviderRatingSummaryResponse> GetProviderSummaryAsync(long providerId);
+    Task<ProviderRatingSummaryResponse> GetProviderSummaryAsync(long serviceProviderProfileId);
 
     Task<ReviewResponse> CreateAsync(CreateReviewRequest request);
 
