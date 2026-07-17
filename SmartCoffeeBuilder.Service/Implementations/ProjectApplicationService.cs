@@ -15,11 +15,15 @@ public class ProjectApplicationService : IProjectApplicationService
 {
     private readonly IUnitOfWork<SmartCafeBuilderContext> _unitOfWork;
     private readonly IGenericRepository<ProjectApplication> _repository;
+    private readonly INotificationService _notificationService;
 
-    public ProjectApplicationService(IUnitOfWork<SmartCafeBuilderContext> unitOfWork)
+    public ProjectApplicationService(
+        IUnitOfWork<SmartCafeBuilderContext> unitOfWork,
+        INotificationService notificationService)
     {
         _unitOfWork = unitOfWork;
         _repository = unitOfWork.GetRepository<ProjectApplication>();
+        _notificationService = notificationService;
     }
 
     public async Task<PaginationResponse<ProjectApplicationResponse>> GetAllAsync(
@@ -103,6 +107,9 @@ public class ProjectApplicationService : IProjectApplicationService
         await _repository.InsertAsync(application);
         await _unitOfWork.CommitAsync();
 
+        // Thông báo cho OWNER: có provider vừa ứng tuyển vào bài đăng của họ.
+        await _notificationService.NotifyApplicationReceivedAsync(application.Id);
+
         application.Post = post;
         application.Provider = provider;
         return ProjectApplicationResponse.From(application);
@@ -181,6 +188,11 @@ public class ProjectApplicationService : IProjectApplicationService
         // SaveChanges chạy trong một transaction — 4 bước trên là atomic.
         await _unitOfWork.CommitAsync();
 
+        // Thông báo cho provider được chấp nhận + các provider bị từ chối tự động.
+        await _notificationService.NotifyApplicationDecisionAsync(application.Id, accepted: true);
+        foreach (var other in otherPending)
+            await _notificationService.NotifyApplicationDecisionAsync(other.Id, accepted: false);
+
         engagement.Project = post.Project;
         engagement.Provider = application.Provider;
         return ProjectProviderResponse.From(engagement);
@@ -200,6 +212,9 @@ public class ProjectApplicationService : IProjectApplicationService
         application.UpdatedAt = DateTime.UtcNow;
         _repository.Update(application);
         await _unitOfWork.CommitAsync();
+
+        // Thông báo cho provider: hồ sơ bị từ chối.
+        await _notificationService.NotifyApplicationDecisionAsync(application.Id, accepted: false);
 
         return ProjectApplicationResponse.From(application);
     }
