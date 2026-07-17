@@ -331,7 +331,9 @@ public class SmartCafeBuilderContext : DbContext
         {
             e.HasIndex(x => x.AccountId);
             e.Property(x => x.Type).HasMaxLength(50);
+            e.Property(x => x.Title).HasMaxLength(200).HasDefaultValue(string.Empty);
             e.Property(x => x.Content).HasMaxLength(500);
+            e.Property(x => x.ReferenceType).HasMaxLength(50);
             e.HasOne(x => x.Account).WithMany(a => a.Notifications)
                 .HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
         });
