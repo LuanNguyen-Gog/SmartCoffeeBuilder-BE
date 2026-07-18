@@ -66,6 +66,9 @@ builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddScoped<IContractService, ContractService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 
+// Thanh toán phí nền tảng qua payOS (config section "PayOs" — ClientId/ApiKey/ChecksumKey/ReturnUrl/CancelUrl).
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+
 // File storage — Google Cloud Storage (StorageClient thread-safe nên đăng ký singleton).
 builder.Services.AddSingleton<IFileStorageService, GcsFileStorageService>();
 
@@ -215,6 +218,12 @@ try
         "refresh-otps",
         service => service.RefreshOtpsAsync(),
         Cron.Minutely());
+
+    // Job dọn subscription: active quá hạn → expired, giao dịch pending quá hạn link → cancelled.
+    recurringJobs.AddOrUpdate<IPaymentService>(
+        "expire-subscriptions",
+        service => service.ExpireOverdueSubscriptionsAsync(),
+        Cron.Hourly());
 }
 catch (Exception ex)
 {
