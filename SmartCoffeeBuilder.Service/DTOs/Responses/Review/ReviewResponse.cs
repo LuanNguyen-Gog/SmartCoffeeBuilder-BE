@@ -17,9 +17,9 @@ public class ReviewScoreResponse
 public class ReviewResponse
 {
     public long Id { get; set; }
-    public long ProjectProviderId { get; set; }
-    public long? ProjectId { get; set; }
-    public long? ProviderId { get; set; }
+    public long ProjectWorkingId { get; set; }
+    public long? ProjectShopOwnerId { get; set; }
+    public long? ServiceProviderProfileId { get; set; }
     public decimal OverallRating { get; set; }
     public string? Comment { get; set; }
     public List<ReviewScoreResponse> Scores { get; set; } = new();
@@ -29,9 +29,9 @@ public class ReviewResponse
     public static ReviewResponse From(SmartCoffeeBuilder.Repository.Models.Review r) => new()
     {
         Id = r.Id,
-        ProjectProviderId = r.ProjectProviderId,
-        ProjectId = r.ProjectProvider?.ProjectId,
-        ProviderId = r.ProjectProvider?.ProviderId,
+        ProjectWorkingId = r.ProjectWorkingId,
+        ProjectShopOwnerId = r.ProjectWorking?.ProjectShopOwnerId,
+        ServiceProviderProfileId = r.ProjectWorking?.ServiceProviderProfileId,
         OverallRating = r.OverallRating,
         Comment = r.Comment,
         Scores = r.ReviewScores?.Select(ReviewScoreResponse.From).ToList() ?? new(),

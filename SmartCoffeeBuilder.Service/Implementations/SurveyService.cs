@@ -22,10 +22,10 @@ public class SurveyService : ISurveyService
     }
 
     public async Task<PaginationResponse<SurveyResponse>> GetAllAsync(
-        int pageNumber = 1, int pageSize = 10, long? projectProviderId = null)
+        int pageNumber = 1, int pageSize = 10, long? projectWorkingId = null)
     {
         var query = _repository
-            .GetQueryable(s => projectProviderId == null || s.ProjectProviderId == projectProviderId)
+            .GetQueryable(s => projectWorkingId == null || s.ProjectWorkingId == projectWorkingId)
             .OrderByDescending(s => s.CreatedAt);
 
         var paged = await query.ToPaginationResponseAsync(pageNumber, pageSize);
@@ -45,9 +45,9 @@ public class SurveyService : ISurveyService
 
     public async Task<SurveyResponse> CreateAsync(CreateSurveyRequest request)
     {
-        var engagement = await _unitOfWork.GetRepository<ProjectProvider>()
-            .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectProviderId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {request.ProjectProviderId}.");
+        var engagement = await _unitOfWork.GetRepository<ProjectWorking>()
+            .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectWorkingId)
+            ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {request.ProjectWorkingId}.");
 
         if (engagement.ContractType == ServiceKind.construction)
             throw new InvalidOperationException(
@@ -70,13 +70,13 @@ public class SurveyService : ISurveyService
 
         // Version tự tăng 0.1 theo từng engagement (0.1, 0.2, …).
         var maxVersion = await _repository
-            .GetQueryable(s => s.ProjectProviderId == engagement.Id)
+            .GetQueryable(s => s.ProjectWorkingId == engagement.Id)
             .Select(s => (decimal?)s.Version)
             .MaxAsync() ?? 0m;
 
         var survey = new Survey
         {
-            ProjectProviderId = engagement.Id,
+            ProjectWorkingId = engagement.Id,
             Version = maxVersion + 0.1m,
             ConditionNote = request.ConditionNote,
             ReportUrl = request.ReportUrl,

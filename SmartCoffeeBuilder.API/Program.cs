@@ -32,8 +32,8 @@ builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IShopOwnerService, ShopOwnerService>();
-builder.Services.AddScoped<IServiceProviderService, ServiceProviderService>();
-builder.Services.AddScoped<IProjectService, ProjectService>();
+builder.Services.AddScoped<IServiceProviderProfileService, ServiceProviderProfileService>();
+builder.Services.AddScoped<IProjectShopOwnerService, ProjectShopOwnerService>();
 builder.Services.AddScoped<IDesignBriefService, DesignBriefService>();
 
 // AI Design Client & Service
@@ -41,9 +41,9 @@ builder.Services.AddHttpClient<IAiDesignClient, AiDesignClient>();
 builder.Services.AddSingleton<IMessageBusService, RabbitMqService>();
 builder.Services.AddScoped<IAiRecommendationService, AiRecommendationService>();
 builder.Services.AddHostedService<AiDesignResultConsumer>();
-builder.Services.AddScoped<IProjectPostService, ProjectPostService>();
-builder.Services.AddScoped<IProjectApplicationService, ProjectApplicationService>();
-builder.Services.AddScoped<IProjectProviderService, ProjectProviderService>();
+builder.Services.AddScoped<IPostService, PostService>();
+builder.Services.AddScoped<IApplyService, ApplyService>();
+builder.Services.AddScoped<IProjectWorkingService, ProjectWorkingService>();
 builder.Services.AddScoped<IOtpRepository, OtpRepository>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IOtpService, OtpService>();
@@ -65,6 +65,9 @@ builder.Services.AddScoped<IIssueTypeService, IssueTypeService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddScoped<IContractService, ContractService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+
+// Thanh toán phí nền tảng qua payOS (config section "PayOs" — ClientId/ApiKey/ChecksumKey/ReturnUrl/CancelUrl).
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 
 // File storage — Google Cloud Storage (StorageClient thread-safe nên đăng ký singleton).
 builder.Services.AddSingleton<IFileStorageService, GcsFileStorageService>();
@@ -215,6 +218,12 @@ try
         "refresh-otps",
         service => service.RefreshOtpsAsync(),
         Cron.Minutely());
+
+    // Job dọn subscription: active quá hạn → expired, giao dịch pending quá hạn link → cancelled.
+    recurringJobs.AddOrUpdate<IPaymentService>(
+        "expire-subscriptions",
+        service => service.ExpireOverdueSubscriptionsAsync(),
+        Cron.Hourly());
 }
 catch (Exception ex)
 {

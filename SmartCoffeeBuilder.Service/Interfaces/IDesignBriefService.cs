@@ -6,7 +6,7 @@ namespace SmartCoffeeBuilder.Service.Interfaces;
 
 public interface IDesignBriefService
 {
-    Task<PaginationResponse<DesignBriefResponse>> GetAllAsync(int pageNumber = 1, int pageSize = 10, long? projectId = null);
+    Task<PaginationResponse<DesignBriefResponse>> GetAllAsync(int pageNumber = 1, int pageSize = 10, long? projectShopOwnerId = null);
     Task<DesignBriefResponse> GetByIdAsync(long id);
     Task<DesignBriefResponse> CreateAsync(CreateDesignBriefRequest request);
     Task<DesignBriefResponse> UpdateAsync(long id, UpdateDesignBriefRequest request);

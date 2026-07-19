@@ -14,22 +14,22 @@ public class SmartCafeBuilderContext : DbContext
     // Nhóm 1 — Định danh & Actor
     public DbSet<Account> Accounts => Set<Account>();
     public DbSet<ShopOwner> ShopOwners => Set<ShopOwner>();
-    public DbSet<ServiceProvider> ServiceProviders => Set<ServiceProvider>();
+    public DbSet<ServiceProviderProfile> ServiceProviderProfiles => Set<ServiceProviderProfile>();
     public DbSet<DesignerProfile> DesignerProfiles => Set<DesignerProfile>();
     public DbSet<ConstructorProfile> ConstructorProfiles => Set<ConstructorProfile>();
 
     // Nhóm 2 — Dự án & AI
-    public DbSet<Project> Projects => Set<Project>();
+    public DbSet<ProjectShopOwner> ProjectShopOwners => Set<ProjectShopOwner>();
     public DbSet<DesignBrief> DesignBriefs => Set<DesignBrief>();
     public DbSet<AiRecommendation> AiRecommendations => Set<AiRecommendation>();
     public DbSet<BudgetItem> BudgetItems => Set<BudgetItem>();
 
     // Nhóm 3 — Marketplace
-    public DbSet<ProjectPost> ProjectPosts => Set<ProjectPost>();
-    public DbSet<ProjectApplication> ProjectApplications => Set<ProjectApplication>();
+    public DbSet<Post> Posts => Set<Post>();
+    public DbSet<Apply> Applies => Set<Apply>();
 
     // Nhóm 4 — Trục trung tâm
-    public DbSet<ProjectProvider> ProjectProviders => Set<ProjectProvider>();
+    public DbSet<ProjectWorking> ProjectWorkings => Set<ProjectWorking>();
 
     // Nhóm 5 — Thiết kế
     public DbSet<Survey> Surveys => Set<Survey>();
@@ -56,6 +56,11 @@ public class SmartCafeBuilderContext : DbContext
     public DbSet<Review> Reviews => Set<Review>();
     public DbSet<ReviewScore> ReviewScores => Set<ReviewScore>();
 
+    // Nhóm 10 — Thanh toán (phí nền tảng qua payOS)
+    public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
+    public DbSet<Subscription> Subscriptions => Set<Subscription>();
+    public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
+
     // Auth
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Otp> Otps => Set<Otp>();
@@ -77,6 +82,9 @@ public class SmartCafeBuilderContext : DbContext
         configurationBuilder.Properties<ItemStatus>().HaveConversion<string>().HaveMaxLength(30);
         configurationBuilder.Properties<IssueStatus>().HaveConversion<string>().HaveMaxLength(30);
         configurationBuilder.Properties<ContractStatus>().HaveConversion<string>().HaveMaxLength(30);
+        configurationBuilder.Properties<SubscriptionStatus>().HaveConversion<string>().HaveMaxLength(30);
+        configurationBuilder.Properties<PaymentTransactionStatus>().HaveConversion<string>().HaveMaxLength(30);
+        configurationBuilder.Properties<PaymentPurpose>().HaveConversion<string>().HaveMaxLength(30);
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -97,45 +105,55 @@ public class SmartCafeBuilderContext : DbContext
                 .HasForeignKey<ShopOwner>(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
         });
 
-        modelBuilder.Entity<ServiceProvider>(e =>
+        // Các entity đổi tên (ServiceProviderProfile/ProjectShopOwner/Post/Apply/ProjectWorking)
+        // vẫn map về tên bảng & cột DB cũ để không phải migration — KHÔNG bỏ ToTable/HasColumnName.
+        modelBuilder.Entity<ServiceProviderProfile>(e =>
         {
+            e.ToTable("service_providers");
             e.HasIndex(x => x.AccountId).IsUnique();
             e.Property(x => x.AvgRating).HasPrecision(3, 2);
-            e.HasOne(x => x.Account).WithOne(a => a.ServiceProvider)
-                .HasForeignKey<ServiceProvider>(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Account).WithOne(a => a.ServiceProviderProfile)
+                .HasForeignKey<ServiceProviderProfile>(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<DesignerProfile>(e =>
         {
-            e.HasIndex(x => x.ProviderId).IsUnique();
+            e.Property(x => x.ServiceProviderProfileId).HasColumnName("provider_id");
+            e.HasIndex(x => x.ServiceProviderProfileId).IsUnique().HasDatabaseName("ix_designer_profiles_provider_id");
             e.Property(x => x.MinProjectBudget).HasPrecision(15, 2);
-            e.HasOne(x => x.Provider).WithOne(p => p.DesignerProfile)
-                .HasForeignKey<DesignerProfile>(x => x.ProviderId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.ServiceProviderProfile).WithOne(p => p.DesignerProfile)
+                .HasForeignKey<DesignerProfile>(x => x.ServiceProviderProfileId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_designer_profiles_service_providers_provider_id");
         });
 
         modelBuilder.Entity<ConstructorProfile>(e =>
         {
-            e.HasIndex(x => x.ProviderId).IsUnique();
+            e.Property(x => x.ServiceProviderProfileId).HasColumnName("provider_id");
+            e.HasIndex(x => x.ServiceProviderProfileId).IsUnique().HasDatabaseName("ix_constructor_profiles_provider_id");
             e.Property(x => x.MaxProjectValue).HasPrecision(15, 2);
-            e.HasOne(x => x.Provider).WithOne(p => p.ConstructorProfile)
-                .HasForeignKey<ConstructorProfile>(x => x.ProviderId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.ServiceProviderProfile).WithOne(p => p.ConstructorProfile)
+                .HasForeignKey<ConstructorProfile>(x => x.ServiceProviderProfileId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_constructor_profiles_service_providers_provider_id");
         });
 
         // ───────── Nhóm 2 — Dự án & AI ─────────
-        modelBuilder.Entity<Project>(e =>
+        modelBuilder.Entity<ProjectShopOwner>(e =>
         {
+            e.ToTable("projects");
             e.HasIndex(x => x.OwnerId);
             e.Property(x => x.AreaM2).HasPrecision(10, 2);
             e.Property(x => x.Budget).HasPrecision(15, 2);
-            e.HasOne(x => x.Owner).WithMany(o => o.Projects)
+            e.HasOne(x => x.Owner).WithMany(o => o.ProjectShopOwners)
                 .HasForeignKey(x => x.OwnerId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<DesignBrief>(e =>
         {
-            e.HasIndex(x => x.ProjectId).IsUnique();
-            e.HasOne(x => x.Project).WithOne(p => p.DesignBrief)
-                .HasForeignKey<DesignBrief>(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(x => x.ProjectShopOwnerId).HasColumnName("project_id");
+            e.HasIndex(x => x.ProjectShopOwnerId).IsUnique().HasDatabaseName("ix_design_briefs_project_id");
+            e.HasOne(x => x.ProjectShopOwner).WithOne(p => p.DesignBrief)
+                .HasForeignKey<DesignBrief>(x => x.ProjectShopOwnerId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_design_briefs_projects_project_id");
         });
 
         modelBuilder.Entity<AiRecommendation>(e =>
@@ -164,62 +182,81 @@ public class SmartCafeBuilderContext : DbContext
 
         modelBuilder.Entity<BudgetItem>(e =>
         {
-            e.HasIndex(x => x.ProjectId);
+            e.Property(x => x.ProjectShopOwnerId).HasColumnName("project_id");
+            e.HasIndex(x => x.ProjectShopOwnerId).HasDatabaseName("ix_budget_items_project_id");
             e.Property(x => x.PlannedAmount).HasPrecision(15, 2);
             e.Property(x => x.ActualAmount).HasPrecision(15, 2);
-            e.HasOne(x => x.Project).WithMany(p => p.BudgetItems)
-                .HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.ProjectShopOwner).WithMany(p => p.BudgetItems)
+                .HasForeignKey(x => x.ProjectShopOwnerId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_budget_items_projects_project_id");
         });
 
         // ───────── Nhóm 3 — Marketplace ─────────
-        modelBuilder.Entity<ProjectPost>(e =>
+        modelBuilder.Entity<Post>(e =>
         {
-            e.HasIndex(x => x.ProjectId);
-            e.HasOne(x => x.Project).WithMany(p => p.ProjectPosts)
-                .HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            e.ToTable("project_posts");
+            e.Property(x => x.ProjectShopOwnerId).HasColumnName("project_id");
+            e.HasIndex(x => x.ProjectShopOwnerId).HasDatabaseName("ix_project_posts_project_id");
+            e.HasOne(x => x.ProjectShopOwner).WithMany(p => p.Posts)
+                .HasForeignKey(x => x.ProjectShopOwnerId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_project_posts_projects_project_id");
         });
 
-        modelBuilder.Entity<ProjectApplication>(e =>
+        modelBuilder.Entity<Apply>(e =>
         {
+            e.ToTable("project_applications");
+            e.Property(x => x.ServiceProviderProfileId).HasColumnName("provider_id");
             e.HasIndex(x => x.PostId);
-            e.HasIndex(x => x.ProviderId);
-            e.HasOne(x => x.Post).WithMany(p => p.ProjectApplications)
+            e.HasIndex(x => x.ServiceProviderProfileId).HasDatabaseName("ix_project_applications_provider_id");
+            e.HasOne(x => x.Post).WithMany(p => p.Applies)
                 .HasForeignKey(x => x.PostId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.Provider).WithMany(p => p.ProjectApplications)
-                .HasForeignKey(x => x.ProviderId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.ServiceProviderProfile).WithMany(p => p.Applies)
+                .HasForeignKey(x => x.ServiceProviderProfileId).OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("fk_project_applications_service_providers_provider_id");
         });
 
         // ───────── Nhóm 4 — Trục ─────────
-        modelBuilder.Entity<ProjectProvider>(e =>
+        modelBuilder.Entity<ProjectWorking>(e =>
         {
-            e.HasIndex(x => x.ProjectId);
-            e.HasIndex(x => x.ProviderId);
-            e.HasIndex(x => x.ApplicationId);
-            e.HasOne(x => x.Project).WithMany(p => p.ProjectProviders)
-                .HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.Provider).WithMany(p => p.ProjectProviders)
-                .HasForeignKey(x => x.ProviderId).OnDelete(DeleteBehavior.Restrict);
-            e.HasOne(x => x.Application).WithMany(a => a.ProjectProviders)
-                .HasForeignKey(x => x.ApplicationId).OnDelete(DeleteBehavior.SetNull);
+            e.ToTable("project_providers");
+            e.Property(x => x.ProjectShopOwnerId).HasColumnName("project_id");
+            e.Property(x => x.ServiceProviderProfileId).HasColumnName("provider_id");
+            e.Property(x => x.ApplyId).HasColumnName("application_id");
+            e.HasIndex(x => x.ProjectShopOwnerId).HasDatabaseName("ix_project_providers_project_id");
+            e.HasIndex(x => x.ServiceProviderProfileId).HasDatabaseName("ix_project_providers_provider_id");
+            e.HasIndex(x => x.ApplyId).HasDatabaseName("ix_project_providers_application_id");
+            e.HasOne(x => x.ProjectShopOwner).WithMany(p => p.ProjectWorkings)
+                .HasForeignKey(x => x.ProjectShopOwnerId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_project_providers_projects_project_id");
+            e.HasOne(x => x.ServiceProviderProfile).WithMany(p => p.ProjectWorkings)
+                .HasForeignKey(x => x.ServiceProviderProfileId).OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("fk_project_providers_service_providers_provider_id");
+            e.HasOne(x => x.Apply).WithMany(a => a.ProjectWorkings)
+                .HasForeignKey(x => x.ApplyId).OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("fk_project_providers_project_applications_application_id");
         });
 
         // ───────── Nhóm 5 — Thiết kế ─────────
         modelBuilder.Entity<Survey>(e =>
         {
-            e.HasIndex(x => x.ProjectProviderId);
+            e.Property(x => x.ProjectWorkingId).HasColumnName("project_provider_id");
+            e.HasIndex(x => x.ProjectWorkingId).HasDatabaseName("ix_surveys_project_provider_id");
             e.Property(x => x.Version).HasPrecision(4, 1);
-            e.HasOne(x => x.ProjectProvider).WithMany(p => p.Surveys)
-                .HasForeignKey(x => x.ProjectProviderId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.ProjectWorking).WithMany(p => p.Surveys)
+                .HasForeignKey(x => x.ProjectWorkingId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_surveys_project_providers_project_provider_id");
             e.HasOne(x => x.CreatedByAccount).WithMany()
                 .HasForeignKey(x => x.CreatedBy).OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<Design>(e =>
         {
-            e.HasIndex(x => x.ProjectProviderId);
+            e.Property(x => x.ProjectWorkingId).HasColumnName("project_provider_id");
+            e.HasIndex(x => x.ProjectWorkingId).HasDatabaseName("ix_designs_project_provider_id");
             e.Property(x => x.Version).HasPrecision(4, 1);
-            e.HasOne(x => x.ProjectProvider).WithMany(p => p.Designs)
-                .HasForeignKey(x => x.ProjectProviderId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.ProjectWorking).WithMany(p => p.Designs)
+                .HasForeignKey(x => x.ProjectWorkingId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_designs_project_providers_project_provider_id");
             e.HasOne(x => x.CreatedByAccount).WithMany()
                 .HasForeignKey(x => x.CreatedBy).OnDelete(DeleteBehavior.SetNull);
         });
@@ -236,10 +273,12 @@ public class SmartCafeBuilderContext : DbContext
         // ───────── Nhóm 6 — Thi công ─────────
         modelBuilder.Entity<ConstructionItem>(e =>
         {
-            e.HasIndex(x => x.ProjectProviderId);
+            e.Property(x => x.ProjectWorkingId).HasColumnName("project_provider_id");
+            e.HasIndex(x => x.ProjectWorkingId).HasDatabaseName("ix_construction_items_project_provider_id");
             e.HasIndex(x => x.ParentId);
-            e.HasOne(x => x.ProjectProvider).WithMany(p => p.ConstructionItems)
-                .HasForeignKey(x => x.ProjectProviderId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.ProjectWorking).WithMany(p => p.ConstructionItems)
+                .HasForeignKey(x => x.ProjectWorkingId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_construction_items_project_providers_project_provider_id");
             e.HasOne(x => x.Parent).WithMany(p => p.Children)
                 .HasForeignKey(x => x.ParentId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.CreatedByAccount).WithMany()
@@ -257,11 +296,13 @@ public class SmartCafeBuilderContext : DbContext
 
         modelBuilder.Entity<Issue>(e =>
         {
-            e.HasIndex(x => x.ProjectProviderId);
+            e.Property(x => x.ProjectWorkingId).HasColumnName("project_provider_id");
+            e.HasIndex(x => x.ProjectWorkingId).HasDatabaseName("ix_issues_project_provider_id");
             e.HasIndex(x => x.ConstructionItemId);
             e.HasIndex(x => x.IssueTypeId);
-            e.HasOne(x => x.ProjectProvider).WithMany(p => p.Issues)
-                .HasForeignKey(x => x.ProjectProviderId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.ProjectWorking).WithMany(p => p.Issues)
+                .HasForeignKey(x => x.ProjectWorkingId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_issues_project_providers_project_provider_id");
             e.HasOne(x => x.ConstructionItem).WithMany(c => c.Issues)
                 .HasForeignKey(x => x.ConstructionItemId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.IssueType).WithMany(t => t.Issues)
@@ -280,21 +321,25 @@ public class SmartCafeBuilderContext : DbContext
         // ───────── Nhóm 7 — Hợp đồng & File ─────────
         modelBuilder.Entity<Contract>(e =>
         {
-            e.HasIndex(x => x.ProjectProviderId);
+            e.Property(x => x.ProjectWorkingId).HasColumnName("project_provider_id");
+            e.HasIndex(x => x.ProjectWorkingId).HasDatabaseName("ix_contracts_project_provider_id");
             e.Property(x => x.AgreedValue).HasPrecision(15, 2);
             e.Property(x => x.OtpCode).HasMaxLength(10);
-            e.HasOne(x => x.ProjectProvider).WithMany(p => p.Contracts)
-                .HasForeignKey(x => x.ProjectProviderId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.ProjectWorking).WithMany(p => p.Contracts)
+                .HasForeignKey(x => x.ProjectWorkingId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_contracts_project_providers_project_provider_id");
             e.HasOne(x => x.ConfirmedByAccount).WithMany()
                 .HasForeignKey(x => x.ConfirmedBy).OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<Doc>(e =>
         {
-            e.HasIndex(x => x.ProjectProviderId);
+            e.Property(x => x.ProjectWorkingId).HasColumnName("project_provider_id");
+            e.HasIndex(x => x.ProjectWorkingId).HasDatabaseName("ix_docs_project_provider_id");
             e.HasIndex(x => x.DocTypeId);
-            e.HasOne(x => x.ProjectProvider).WithMany(p => p.Docs)
-                .HasForeignKey(x => x.ProjectProviderId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.ProjectWorking).WithMany(p => p.Docs)
+                .HasForeignKey(x => x.ProjectWorkingId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_docs_project_providers_project_provider_id");
             e.HasOne(x => x.DocType).WithMany(t => t.Docs)
                 .HasForeignKey(x => x.DocTypeId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.UploadedByAccount).WithMany()
@@ -311,10 +356,12 @@ public class SmartCafeBuilderContext : DbContext
         // ───────── Nhóm 8 — Giao tiếp ─────────
         modelBuilder.Entity<Conversation>(e =>
         {
-            e.HasIndex(x => x.ProjectProviderId);
+            e.Property(x => x.ProjectWorkingId).HasColumnName("project_provider_id");
+            e.HasIndex(x => x.ProjectWorkingId).HasDatabaseName("ix_conversations_project_provider_id");
             e.Property(x => x.Topic).HasMaxLength(200);
-            e.HasOne(x => x.ProjectProvider).WithMany(p => p.Conversations)
-                .HasForeignKey(x => x.ProjectProviderId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.ProjectWorking).WithMany(p => p.Conversations)
+                .HasForeignKey(x => x.ProjectWorkingId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_conversations_project_providers_project_provider_id");
         });
 
         modelBuilder.Entity<Message>(e =>
@@ -341,10 +388,12 @@ public class SmartCafeBuilderContext : DbContext
         // ───────── Nhóm 9 — Đánh giá ─────────
         modelBuilder.Entity<Review>(e =>
         {
-            e.HasIndex(x => x.ProjectProviderId);
+            e.Property(x => x.ProjectWorkingId).HasColumnName("project_provider_id");
+            e.HasIndex(x => x.ProjectWorkingId).HasDatabaseName("ix_reviews_project_provider_id");
             e.Property(x => x.OverallRating).HasPrecision(3, 2);
-            e.HasOne(x => x.ProjectProvider).WithMany(p => p.Reviews)
-                .HasForeignKey(x => x.ProjectProviderId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.ProjectWorking).WithMany(p => p.Reviews)
+                .HasForeignKey(x => x.ProjectWorkingId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_reviews_project_providers_project_provider_id");
         });
 
         modelBuilder.Entity<ReviewScore>(e =>
@@ -353,6 +402,45 @@ public class SmartCafeBuilderContext : DbContext
             e.Property(x => x.Dimension).HasMaxLength(50);
             e.HasOne(x => x.Review).WithMany(r => r.ReviewScores)
                 .HasForeignKey(x => x.ReviewId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ───────── Nhóm 10 — Thanh toán ─────────
+        modelBuilder.Entity<SubscriptionPlan>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(150);
+            e.Property(x => x.Description).HasMaxLength(500);
+            e.Property(x => x.Price).HasPrecision(15, 2);
+        });
+
+        modelBuilder.Entity<Subscription>(e =>
+        {
+            e.HasIndex(x => x.AccountId);
+            e.HasIndex(x => x.PlanId);
+            e.Property(x => x.PaidAmount).HasPrecision(15, 2);
+            e.HasOne(x => x.Account).WithMany(a => a.Subscriptions)
+                .HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Plan).WithMany(p => p.Subscriptions)
+                .HasForeignKey(x => x.PlanId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PaymentTransaction>(e =>
+        {
+            e.HasIndex(x => x.OrderCode).IsUnique();
+            e.HasIndex(x => x.SubscriptionId);
+            e.HasIndex(x => x.AccountId);
+            e.Property(x => x.PaymentLinkId).HasMaxLength(100);
+            e.Property(x => x.CheckoutUrl).HasMaxLength(500);
+            e.Property(x => x.QrCode).HasMaxLength(500);
+            e.Property(x => x.Description).HasMaxLength(500);
+            e.Property(x => x.Amount).HasPrecision(15, 2);
+            e.HasIndex(x => x.PostId);
+            e.HasOne(x => x.Subscription).WithMany(s => s.PaymentTransactions)
+                .HasForeignKey(x => x.SubscriptionId).OnDelete(DeleteBehavior.Cascade);
+            // Bài đăng bị xoá thì giữ lịch sử giao dịch, chỉ set null.
+            e.HasOne(x => x.Post).WithMany()
+                .HasForeignKey(x => x.PostId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Account).WithMany(a => a.PaymentTransactions)
+                .HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // ───────── Auth ─────────

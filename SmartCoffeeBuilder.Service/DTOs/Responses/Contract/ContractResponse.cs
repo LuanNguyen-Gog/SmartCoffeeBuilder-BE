@@ -3,7 +3,7 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.Contract;
 public class ContractResponse
 {
     public long Id { get; set; }
-    public long ProjectProviderId { get; set; }
+    public long ProjectWorkingId { get; set; }
     public string Title { get; set; } = null!;
     public string? PartyInfo { get; set; }
     public string? Terms { get; set; }
@@ -21,7 +21,7 @@ public class ContractResponse
     public static ContractResponse From(SmartCoffeeBuilder.Repository.Models.Contract e) => new()
     {
         Id = e.Id,
-        ProjectProviderId = e.ProjectProviderId,
+        ProjectWorkingId = e.ProjectWorkingId,
         Title = e.Title,
         PartyInfo = e.PartyInfo,
         Terms = e.Terms,

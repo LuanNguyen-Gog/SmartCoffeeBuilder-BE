@@ -5,7 +5,7 @@ namespace SmartCoffeeBuilder.Service.DTOs.Requests.DesignBrief;
 public class CreateDesignBriefRequest
 {
     [Required]
-    public long ProjectId { get; set; }
+    public long ProjectShopOwnerId { get; set; }
 
     [Required]
     public string TargetCustomer { get; set; } = null!;

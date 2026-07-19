@@ -19,10 +19,10 @@ public class DesignBriefService : IDesignBriefService
         _repository = unitOfWork.GetRepository<DesignBrief>();
     }
 
-    public async Task<PaginationResponse<DesignBriefResponse>> GetAllAsync(int pageNumber = 1, int pageSize = 10, long? projectId = null)
+    public async Task<PaginationResponse<DesignBriefResponse>> GetAllAsync(int pageNumber = 1, int pageSize = 10, long? projectShopOwnerId = null)
     {
         var query = _repository
-            .GetQueryable(b => projectId == null || b.ProjectId == projectId)
+            .GetQueryable(b => projectShopOwnerId == null || b.ProjectShopOwnerId == projectShopOwnerId)
             .OrderByDescending(b => b.CreatedAt);
 
         var paged = await query.ToPaginationResponseAsync(pageNumber, pageSize);
@@ -42,17 +42,17 @@ public class DesignBriefService : IDesignBriefService
 
     public async Task<DesignBriefResponse> CreateAsync(CreateDesignBriefRequest request)
     {
-        _ = await _unitOfWork.GetRepository<Project>()
-            .SingleOrDefaultAsync(predicate: p => p.Id == request.ProjectId && p.DeletedAt == null)
-            ?? throw new KeyNotFoundException($"Không tìm thấy project với id {request.ProjectId}.");
+        _ = await _unitOfWork.GetRepository<ProjectShopOwner>()
+            .SingleOrDefaultAsync(predicate: p => p.Id == request.ProjectShopOwnerId && p.DeletedAt == null)
+            ?? throw new KeyNotFoundException($"Không tìm thấy project với id {request.ProjectShopOwnerId}.");
 
         // DB có unique index trên project_id — check trước để trả 409 thay vì 500.
-        if (await _repository.CountAsync(b => b.ProjectId == request.ProjectId) > 0)
-            throw new InvalidOperationException($"Project {request.ProjectId} đã có design brief.");
+        if (await _repository.CountAsync(b => b.ProjectShopOwnerId == request.ProjectShopOwnerId) > 0)
+            throw new InvalidOperationException($"ProjectShopOwner {request.ProjectShopOwnerId} đã có design brief.");
 
         var brief = new DesignBrief
         {
-            ProjectId = request.ProjectId,
+            ProjectShopOwnerId = request.ProjectShopOwnerId,
             TargetCustomer = request.TargetCustomer,
             Style = request.Style,
             Mood = request.Mood,

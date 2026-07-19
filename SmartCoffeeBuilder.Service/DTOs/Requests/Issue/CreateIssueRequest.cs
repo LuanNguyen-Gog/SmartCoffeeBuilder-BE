@@ -6,7 +6,7 @@ namespace SmartCoffeeBuilder.Service.DTOs.Requests.Issue;
 public class CreateIssueRequest
 {
     [Required]
-    public long ProjectProviderId { get; set; }
+    public long ProjectWorkingId { get; set; }
 
     /// <summary>Chỉ set khi gắn với một milestone thi công — phải cùng engagement.</summary>
     public long? ConstructionItemId { get; set; }

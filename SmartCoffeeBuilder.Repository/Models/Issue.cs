@@ -6,7 +6,7 @@ namespace SmartCoffeeBuilder.Repository.Models;
 public class Issue
 {
     public long Id { get; set; }
-    public long ProjectProviderId { get; set; }
+    public long ProjectWorkingId { get; set; }
     public long? ConstructionItemId { get; set; } // chỉ set khi gắn hạng mục thi công
     public long IssueTypeId { get; set; }
     public string? Cause { get; set; }
@@ -21,7 +21,7 @@ public class Issue
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
-    public ProjectProvider ProjectProvider { get; set; } = null!;
+    public ProjectWorking ProjectWorking { get; set; } = null!;
     public ConstructionItem? ConstructionItem { get; set; }
     public IssueType IssueType { get; set; } = null!;
     public Account? CreatedByAccount { get; set; }

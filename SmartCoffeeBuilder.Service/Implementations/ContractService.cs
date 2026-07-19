@@ -37,10 +37,10 @@ public class ContractService : IContractService
     }
 
     public async Task<PaginationResponse<ContractResponse>> GetAllAsync(
-        int pageNumber = 1, int pageSize = 10, long? projectProviderId = null)
+        int pageNumber = 1, int pageSize = 10, long? projectWorkingId = null)
     {
         var query = _repository
-            .GetQueryable(c => projectProviderId == null || c.ProjectProviderId == projectProviderId)
+            .GetQueryable(c => projectWorkingId == null || c.ProjectWorkingId == projectWorkingId)
             .OrderByDescending(c => c.CreatedAt);
 
         var paged = await query.ToPaginationResponseAsync(pageNumber, pageSize);
@@ -60,10 +60,10 @@ public class ContractService : IContractService
 
     public async Task<ContractResponse> CreateAsync(CreateContractRequest request)
     {
-        var engagement = await _unitOfWork.GetRepository<ProjectProvider>()
-            .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectProviderId)
+        var engagement = await _unitOfWork.GetRepository<ProjectWorking>()
+            .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectWorkingId)
             ?? throw new KeyNotFoundException(
-                $"Không tìm thấy project provider với id {request.ProjectProviderId}.");
+                $"Không tìm thấy project provider với id {request.ProjectWorkingId}.");
 
         if (engagement.Status != ProviderStatus.accepted)
             throw new InvalidOperationException(
@@ -71,14 +71,14 @@ public class ContractService : IContractService
 
         // Không tạo hợp đồng mới khi engagement đã có một contract 'confirmed'.
         var hasConfirmed = await _repository
-            .CountAsync(c => c.ProjectProviderId == engagement.Id && c.Status == ContractStatus.confirmed) > 0;
+            .CountAsync(c => c.ProjectWorkingId == engagement.Id && c.Status == ContractStatus.confirmed) > 0;
         if (hasConfirmed)
             throw new InvalidOperationException(
                 "Engagement đã có contract 'confirmed' — không tạo thêm hợp đồng.");
 
         var contract = new Contract
         {
-            ProjectProviderId = engagement.Id,
+            ProjectWorkingId = engagement.Id,
             Title = request.Title,
             PartyInfo = request.PartyInfo,
             Terms = request.Terms,
@@ -128,7 +128,7 @@ public class ContractService : IContractService
             throw new InvalidOperationException(
                 $"Contract đang ở trạng thái '{contract.Status}' — chỉ gửi OTP khi 'drafted' hoặc 'pending_otp'.");
 
-        var ownerEmail = await ResolveOwnerEmailAsync(contract.ProjectProviderId);
+        var ownerEmail = await ResolveOwnerEmailAsync(contract.ProjectWorkingId);
 
         var code = GenerateOtpCode();
         contract.OtpCode = code;
@@ -225,16 +225,16 @@ public class ContractService : IContractService
     }
 
     /// <summary>Lấy email owner của engagement để gửi OTP ký hợp đồng.</summary>
-    private async Task<string> ResolveOwnerEmailAsync(long projectProviderId)
+    private async Task<string> ResolveOwnerEmailAsync(long projectWorkingId)
     {
-        var engagement = await _unitOfWork.GetRepository<ProjectProvider>()
+        var engagement = await _unitOfWork.GetRepository<ProjectWorking>()
             .SingleOrDefaultAsync(
-                predicate: e => e.Id == projectProviderId,
-                include: q => q.Include(e => e.Project).ThenInclude(p => p.Owner).ThenInclude(o => o.Account))
+                predicate: e => e.Id == projectWorkingId,
+                include: q => q.Include(e => e.ProjectShopOwner).ThenInclude(p => p.Owner).ThenInclude(o => o.Account))
             ?? throw new KeyNotFoundException(
-                $"Không tìm thấy project provider với id {projectProviderId}.");
+                $"Không tìm thấy project provider với id {projectWorkingId}.");
 
-        var email = engagement.Project?.Owner?.Account?.Email;
+        var email = engagement.ProjectShopOwner?.Owner?.Account?.Email;
         if (string.IsNullOrEmpty(email))
             throw new InvalidOperationException(
                 "Không xác định được email owner để gửi OTP ký hợp đồng.");

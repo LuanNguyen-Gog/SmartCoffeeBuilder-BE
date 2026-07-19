@@ -114,21 +114,21 @@ public class NotificationService : INotificationService
 
     public async Task NotifyApplicationReceivedAsync(long applicationId)
     {
-        var app = await _unitOfWork.GetRepository<ProjectApplication>().SingleOrDefaultAsync(
+        var app = await _unitOfWork.GetRepository<Apply>().SingleOrDefaultAsync(
             predicate: a => a.Id == applicationId,
             include: q => q
-                .Include(a => a.Post).ThenInclude(p => p.Project).ThenInclude(pr => pr.Owner).ThenInclude(o => o.Account)
-                .Include(a => a.Provider));
+                .Include(a => a.Post).ThenInclude(p => p.ProjectShopOwner).ThenInclude(pr => pr.Owner).ThenInclude(o => o.Account)
+                .Include(a => a.ServiceProviderProfile));
 
-        var ownerAccount = app?.Post?.Project?.Owner?.Account;
+        var ownerAccount = app?.Post?.ProjectShopOwner?.Owner?.Account;
         if (app is null || ownerAccount is null)
         {
             _logger.LogWarning("Bỏ qua noti application_received: không resolve được owner cho application #{Id}.", applicationId);
             return;
         }
 
-        var providerName = app.Provider?.DisplayName ?? "Một nhà cung cấp";
-        var projectName = app.Post?.Project?.Name ?? "dự án của bạn";
+        var providerName = app.ServiceProviderProfile?.DisplayName ?? "Một nhà cung cấp";
+        var projectName = app.Post?.ProjectShopOwner?.Name ?? "dự án của bạn";
         var postTitle = app.Post?.Title ?? "bài đăng";
 
         var title = "Hồ sơ ứng tuyển mới cho dự án của bạn";
@@ -142,20 +142,20 @@ public class NotificationService : INotificationService
 
     public async Task NotifyApplicationDecisionAsync(long applicationId, bool accepted)
     {
-        var app = await _unitOfWork.GetRepository<ProjectApplication>().SingleOrDefaultAsync(
+        var app = await _unitOfWork.GetRepository<Apply>().SingleOrDefaultAsync(
             predicate: a => a.Id == applicationId,
             include: q => q
-                .Include(a => a.Post).ThenInclude(p => p.Project)
-                .Include(a => a.Provider).ThenInclude(pr => pr.Account));
+                .Include(a => a.Post).ThenInclude(p => p.ProjectShopOwner)
+                .Include(a => a.ServiceProviderProfile).ThenInclude(pr => pr.Account));
 
-        var providerAccount = app?.Provider?.Account;
+        var providerAccount = app?.ServiceProviderProfile?.Account;
         if (app is null || providerAccount is null)
         {
             _logger.LogWarning("Bỏ qua noti application decision: không resolve được provider cho application #{Id}.", applicationId);
             return;
         }
 
-        var projectName = app.Post?.Project?.Name ?? "dự án";
+        var projectName = app.Post?.ProjectShopOwner?.Name ?? "dự án";
         var postTitle = app.Post?.Title ?? "bài đăng";
 
         string type, title, content;

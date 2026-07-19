@@ -5,7 +5,7 @@ namespace SmartCoffeeBuilder.Repository.Models;
 public class Design
 {
     public long Id { get; set; }
-    public long ProjectProviderId { get; set; }
+    public long ProjectWorkingId { get; set; }
     public string? Title { get; set; }
     public decimal Version { get; set; } // decimal(4,1)
     public DesignType Type { get; set; }
@@ -15,7 +15,7 @@ public class Design
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
-    public ProjectProvider ProjectProvider { get; set; } = null!;
+    public ProjectWorking ProjectWorking { get; set; } = null!;
     public Account? CreatedByAccount { get; set; }
     public ICollection<DesignImage> DesignImages { get; set; } = new List<DesignImage>();
 }

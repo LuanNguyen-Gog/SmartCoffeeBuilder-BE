@@ -3,7 +3,7 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.Design;
 public class DesignResponse
 {
     public long Id { get; set; }
-    public long ProjectProviderId { get; set; }
+    public long ProjectWorkingId { get; set; }
     public string? Title { get; set; }
     public decimal Version { get; set; }
     public string Type { get; set; } = null!;
@@ -18,7 +18,7 @@ public class DesignResponse
     public static DesignResponse From(SmartCoffeeBuilder.Repository.Models.Design e) => new()
     {
         Id = e.Id,
-        ProjectProviderId = e.ProjectProviderId,
+        ProjectWorkingId = e.ProjectWorkingId,
         Title = e.Title,
         Version = e.Version,
         Type = e.Type.ToString(),

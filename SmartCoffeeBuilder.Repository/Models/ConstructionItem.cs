@@ -5,7 +5,7 @@ namespace SmartCoffeeBuilder.Repository.Models;
 public class ConstructionItem
 {
     public long Id { get; set; }
-    public long ProjectProviderId { get; set; }
+    public long ProjectWorkingId { get; set; }
     public long? ParentId { get; set; } // phân cấp
     public string Name { get; set; } = null!;
     public string? Description { get; set; }
@@ -18,7 +18,7 @@ public class ConstructionItem
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
-    public ProjectProvider ProjectProvider { get; set; } = null!;
+    public ProjectWorking ProjectWorking { get; set; } = null!;
     public ConstructionItem? Parent { get; set; }
     public ICollection<ConstructionItem> Children { get; set; } = new List<ConstructionItem>();
     public Account? CreatedByAccount { get; set; }

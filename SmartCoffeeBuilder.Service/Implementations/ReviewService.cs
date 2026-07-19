@@ -23,13 +23,13 @@ public class ReviewService : IReviewService
 
     public async Task<PaginationResponse<ReviewResponse>> GetAllAsync(
         int pageNumber = 1, int pageSize = 10,
-        long? projectProviderId = null, long? providerId = null)
+        long? projectWorkingId = null, long? serviceProviderProfileId = null)
     {
         var query = _repository
             .GetQueryable(
-                r => (projectProviderId == null || r.ProjectProviderId == projectProviderId)
-                     && (providerId == null || r.ProjectProvider.ProviderId == providerId),
-                include: q => q.Include(r => r.ReviewScores).Include(r => r.ProjectProvider))
+                r => (projectWorkingId == null || r.ProjectWorkingId == projectWorkingId)
+                     && (serviceProviderProfileId == null || r.ProjectWorking.ServiceProviderProfileId == serviceProviderProfileId),
+                include: q => q.Include(r => r.ReviewScores).Include(r => r.ProjectWorking))
             .OrderByDescending(r => r.CreatedAt);
 
         var paged = await query.ToPaginationResponseAsync(pageNumber, pageSize);
@@ -43,25 +43,25 @@ public class ReviewService : IReviewService
     {
         var review = await _repository.SingleOrDefaultAsync(
             predicate: r => r.Id == id,
-            include: q => q.Include(r => r.ReviewScores).Include(r => r.ProjectProvider))
+            include: q => q.Include(r => r.ReviewScores).Include(r => r.ProjectWorking))
             ?? throw new KeyNotFoundException($"Không tìm thấy review với id {id}.");
 
         return ReviewResponse.From(review);
     }
 
-    public async Task<ProviderRatingSummaryResponse> GetProviderSummaryAsync(long providerId)
+    public async Task<ProviderRatingSummaryResponse> GetProviderSummaryAsync(long serviceProviderProfileId)
     {
-        _ = await _unitOfWork.GetRepository<ServiceProvider>()
-            .SingleOrDefaultAsync(predicate: s => s.Id == providerId && s.DeletedAt == null)
-            ?? throw new KeyNotFoundException($"Không tìm thấy service provider với id {providerId}.");
+        _ = await _unitOfWork.GetRepository<ServiceProviderProfile>()
+            .SingleOrDefaultAsync(predicate: s => s.Id == serviceProviderProfileId && s.DeletedAt == null)
+            ?? throw new KeyNotFoundException($"Không tìm thấy service provider với id {serviceProviderProfileId}.");
 
         var reviews = await _repository.GetListAsync(
-            predicate: r => r.ProjectProvider.ProviderId == providerId,
+            predicate: r => r.ProjectWorking.ServiceProviderProfileId == serviceProviderProfileId,
             include: q => q.Include(r => r.ReviewScores));
 
         var summary = new ProviderRatingSummaryResponse
         {
-            ProviderId = providerId,
+            ServiceProviderProfileId = serviceProviderProfileId,
             ReviewCount = reviews.Count
         };
 
@@ -79,16 +79,16 @@ public class ReviewService : IReviewService
 
     public async Task<ReviewResponse> CreateAsync(CreateReviewRequest request)
     {
-        var engagement = await _unitOfWork.GetRepository<ProjectProvider>()
-            .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectProviderId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {request.ProjectProviderId}.");
+        var engagement = await _unitOfWork.GetRepository<ProjectWorking>()
+            .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectWorkingId)
+            ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {request.ProjectWorkingId}.");
 
         // v5: review chỉ mở khoá sau khi owner nghiệm thu (provider_status = completed).
         if (engagement.Status != ProviderStatus.completed)
             throw new InvalidOperationException(
                 $"Engagement đang ở trạng thái '{engagement.Status}' — chỉ review được sau khi owner nghiệm thu ('completed').");
 
-        var alreadyReviewed = await _repository.CountAsync(r => r.ProjectProviderId == engagement.Id) > 0;
+        var alreadyReviewed = await _repository.CountAsync(r => r.ProjectWorkingId == engagement.Id) > 0;
         if (alreadyReviewed)
             throw new InvalidOperationException("Engagement này đã có review — mỗi engagement chỉ review 1 lần, dùng PUT để sửa.");
 
@@ -96,7 +96,7 @@ public class ReviewService : IReviewService
 
         var review = new Review
         {
-            ProjectProviderId = engagement.Id,
+            ProjectWorkingId = engagement.Id,
             OverallRating = request.OverallRating,
             Comment = request.Comment,
             ReviewScores = request.Scores
@@ -109,7 +109,7 @@ public class ReviewService : IReviewService
         await _repository.InsertAsync(review);
         await _unitOfWork.CommitAsync();
 
-        review.ProjectProvider = engagement;
+        review.ProjectWorking = engagement;
         return ReviewResponse.From(review);
     }
 
@@ -117,7 +117,7 @@ public class ReviewService : IReviewService
     {
         var review = await _repository.SingleOrDefaultAsync(
             predicate: r => r.Id == id,
-            include: q => q.Include(r => r.ReviewScores).Include(r => r.ProjectProvider))
+            include: q => q.Include(r => r.ReviewScores).Include(r => r.ProjectWorking))
             ?? throw new KeyNotFoundException($"Không tìm thấy review với id {id}.");
 
         if (request.OverallRating.HasValue) review.OverallRating = request.OverallRating.Value;

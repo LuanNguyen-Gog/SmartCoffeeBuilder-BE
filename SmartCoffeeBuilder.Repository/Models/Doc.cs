@@ -4,7 +4,7 @@ namespace SmartCoffeeBuilder.Repository.Models;
 public class Doc
 {
     public long Id { get; set; }
-    public long ProjectProviderId { get; set; }
+    public long ProjectWorkingId { get; set; }
     public long DocTypeId { get; set; }
     public string FileUrl { get; set; } = null!;
     public string? FileName { get; set; }
@@ -12,7 +12,7 @@ public class Doc
     public long? UploadedBy { get; set; }
     public DateTime CreatedAt { get; set; }
 
-    public ProjectProvider ProjectProvider { get; set; } = null!;
+    public ProjectWorking ProjectWorking { get; set; } = null!;
     public DocType DocType { get; set; } = null!;
     public Account? UploadedByAccount { get; set; }
 }

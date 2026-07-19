@@ -26,10 +26,10 @@ public class ReviewController : ControllerBase
     public async Task<IActionResult> GetAll(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
-        [FromQuery] long? projectProviderId = null,
-        [FromQuery] long? providerId = null)
+        [FromQuery] long? projectWorkingId = null,
+        [FromQuery] long? serviceProviderProfileId = null)
     {
-        var result = await _reviewService.GetAllAsync(pageNumber, pageSize, projectProviderId, providerId);
+        var result = await _reviewService.GetAllAsync(pageNumber, pageSize, projectWorkingId, serviceProviderProfileId);
         return Ok(result);
     }
 
@@ -41,10 +41,10 @@ public class ReviewController : ControllerBase
     }
 
     /// <summary>Tổng hợp rating của provider (điểm trung bình + theo tiêu chí) — cho trang profile.</summary>
-    [HttpGet("providers/{providerId:long}/summary")]
-    public async Task<IActionResult> GetProviderSummary(long providerId)
+    [HttpGet("providers/{serviceProviderProfileId:long}/summary")]
+    public async Task<IActionResult> GetProviderSummary(long serviceProviderProfileId)
     {
-        var result = await _reviewService.GetProviderSummaryAsync(providerId);
+        var result = await _reviewService.GetProviderSummaryAsync(serviceProviderProfileId);
         return Ok(result);
     }
 

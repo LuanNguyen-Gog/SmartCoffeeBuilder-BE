@@ -31,11 +31,11 @@ public class DesignController : ControllerBase
     public async Task<IActionResult> GetAll(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
-        [FromQuery] long? projectProviderId = null,
+        [FromQuery] long? projectWorkingId = null,
         [FromQuery] string? status = null,
         [FromQuery] string? type = null)
     {
-        var result = await _designService.GetAllAsync(pageNumber, pageSize, projectProviderId, status, type);
+        var result = await _designService.GetAllAsync(pageNumber, pageSize, projectWorkingId, status, type);
         return Ok(result);
     }
 

@@ -26,11 +26,11 @@ public class ConstructionItemController : ControllerBase
     public async Task<IActionResult> GetAll(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
-        [FromQuery] long? projectProviderId = null,
+        [FromQuery] long? projectWorkingId = null,
         [FromQuery] long? parentId = null,
         [FromQuery] string? status = null)
     {
-        var result = await _constructionItemService.GetAllAsync(pageNumber, pageSize, projectProviderId, parentId, status);
+        var result = await _constructionItemService.GetAllAsync(pageNumber, pageSize, projectWorkingId, parentId, status);
         return Ok(result);
     }
 

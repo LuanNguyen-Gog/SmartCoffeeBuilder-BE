@@ -23,7 +23,7 @@ public class IssueService : IIssueService
 
     public async Task<PaginationResponse<IssueResponse>> GetAllAsync(
         int pageNumber = 1, int pageSize = 10,
-        long? projectProviderId = null, long? constructionItemId = null, string? status = null)
+        long? projectWorkingId = null, long? constructionItemId = null, string? status = null)
     {
         IssueStatus? st = null;
         if (!string.IsNullOrWhiteSpace(status))
@@ -35,7 +35,7 @@ public class IssueService : IIssueService
 
         var query = _repository
             .GetQueryable(
-                e => (projectProviderId == null || e.ProjectProviderId == projectProviderId)
+                e => (projectWorkingId == null || e.ProjectWorkingId == projectWorkingId)
                      && (constructionItemId == null || e.ConstructionItemId == constructionItemId)
                      && (st == null || e.Status == st),
                 include: q => q.Include(e => e.IssueType))
@@ -60,9 +60,9 @@ public class IssueService : IIssueService
 
     public async Task<IssueResponse> CreateAsync(CreateIssueRequest request)
     {
-        var engagement = await _unitOfWork.GetRepository<ProjectProvider>()
-            .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectProviderId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {request.ProjectProviderId}.");
+        var engagement = await _unitOfWork.GetRepository<ProjectWorking>()
+            .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectWorkingId)
+            ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {request.ProjectWorkingId}.");
 
         var issueType = await _unitOfWork.GetRepository<IssueType>()
             .SingleOrDefaultAsync(predicate: t => t.Id == request.IssueTypeId)
@@ -73,7 +73,7 @@ public class IssueService : IIssueService
             var item = await _unitOfWork.GetRepository<ConstructionItem>()
                 .SingleOrDefaultAsync(predicate: e => e.Id == request.ConstructionItemId)
                 ?? throw new KeyNotFoundException($"Không tìm thấy construction item với id {request.ConstructionItemId}.");
-            if (item.ProjectProviderId != engagement.Id)
+            if (item.ProjectWorkingId != engagement.Id)
                 throw new InvalidOperationException("Construction item phải thuộc cùng engagement với issue.");
         }
 
@@ -86,7 +86,7 @@ public class IssueService : IIssueService
 
         var issue = new Issue
         {
-            ProjectProviderId = engagement.Id,
+            ProjectWorkingId = engagement.Id,
             ConstructionItemId = request.ConstructionItemId,
             IssueTypeId = issueType.Id,
             Cause = request.Cause,

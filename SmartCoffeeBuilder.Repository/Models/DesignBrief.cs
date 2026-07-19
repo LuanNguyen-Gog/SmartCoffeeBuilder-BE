@@ -3,7 +3,7 @@ namespace SmartCoffeeBuilder.Repository.Models;
 public class DesignBrief
 {
     public long Id { get; set; }
-    public long ProjectId { get; set; }
+    public long ProjectShopOwnerId { get; set; }
     public string TargetCustomer { get; set; } = null!;
     public string Style { get; set; } = null!;
     public string Mood { get; set; } = null!;
@@ -16,6 +16,6 @@ public class DesignBrief
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
-    public Project Project { get; set; } = null!;
+    public ProjectShopOwner ProjectShopOwner { get; set; } = null!;
     public ICollection<AiRecommendation> AiRecommendations { get; set; } = new List<AiRecommendation>();
 }
