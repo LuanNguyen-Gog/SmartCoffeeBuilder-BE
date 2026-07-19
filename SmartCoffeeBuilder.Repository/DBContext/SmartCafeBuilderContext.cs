@@ -56,6 +56,11 @@ public class SmartCafeBuilderContext : DbContext
     public DbSet<Review> Reviews => Set<Review>();
     public DbSet<ReviewScore> ReviewScores => Set<ReviewScore>();
 
+    // Nhóm 10 — Thanh toán (phí nền tảng qua payOS)
+    public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
+    public DbSet<Subscription> Subscriptions => Set<Subscription>();
+    public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
+
     // Auth
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Otp> Otps => Set<Otp>();
@@ -77,6 +82,8 @@ public class SmartCafeBuilderContext : DbContext
         configurationBuilder.Properties<ItemStatus>().HaveConversion<string>().HaveMaxLength(30);
         configurationBuilder.Properties<IssueStatus>().HaveConversion<string>().HaveMaxLength(30);
         configurationBuilder.Properties<ContractStatus>().HaveConversion<string>().HaveMaxLength(30);
+        configurationBuilder.Properties<SubscriptionStatus>().HaveConversion<string>().HaveMaxLength(30);
+        configurationBuilder.Properties<PaymentTransactionStatus>().HaveConversion<string>().HaveMaxLength(30);
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -370,7 +377,9 @@ public class SmartCafeBuilderContext : DbContext
         {
             e.HasIndex(x => x.AccountId);
             e.Property(x => x.Type).HasMaxLength(50);
+            e.Property(x => x.Title).HasMaxLength(200).HasDefaultValue(string.Empty);
             e.Property(x => x.Content).HasMaxLength(500);
+            e.Property(x => x.ReferenceType).HasMaxLength(50);
             e.HasOne(x => x.Account).WithMany(a => a.Notifications)
                 .HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
         });
@@ -392,6 +401,41 @@ public class SmartCafeBuilderContext : DbContext
             e.Property(x => x.Dimension).HasMaxLength(50);
             e.HasOne(x => x.Review).WithMany(r => r.ReviewScores)
                 .HasForeignKey(x => x.ReviewId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ───────── Nhóm 10 — Thanh toán ─────────
+        modelBuilder.Entity<SubscriptionPlan>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(150);
+            e.Property(x => x.Description).HasMaxLength(500);
+            e.Property(x => x.Price).HasPrecision(15, 2);
+        });
+
+        modelBuilder.Entity<Subscription>(e =>
+        {
+            e.HasIndex(x => x.AccountId);
+            e.HasIndex(x => x.PlanId);
+            e.Property(x => x.PaidAmount).HasPrecision(15, 2);
+            e.HasOne(x => x.Account).WithMany(a => a.Subscriptions)
+                .HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Plan).WithMany(p => p.Subscriptions)
+                .HasForeignKey(x => x.PlanId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PaymentTransaction>(e =>
+        {
+            e.HasIndex(x => x.OrderCode).IsUnique();
+            e.HasIndex(x => x.SubscriptionId);
+            e.HasIndex(x => x.AccountId);
+            e.Property(x => x.PaymentLinkId).HasMaxLength(100);
+            e.Property(x => x.CheckoutUrl).HasMaxLength(500);
+            e.Property(x => x.QrCode).HasMaxLength(500);
+            e.Property(x => x.Description).HasMaxLength(500);
+            e.Property(x => x.Amount).HasPrecision(15, 2);
+            e.HasOne(x => x.Subscription).WithMany(s => s.PaymentTransactions)
+                .HasForeignKey(x => x.SubscriptionId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Account).WithMany(a => a.PaymentTransactions)
+                .HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // ───────── Auth ─────────

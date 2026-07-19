@@ -38,4 +38,14 @@ public enum ItemStatus { pending, in_progress, completed }
 public enum IssueStatus { open, in_progress, resolved, closed }
 
 public enum ContractStatus { drafted, pending_otp, confirmed, cancelled }
+
+/// <summary>
+/// Vòng đời subscription (phí nền tảng):
+/// pending → active (webhook payOS báo đã thanh toán) | cancelled (huỷ/hết hạn link);
+/// active → expired (quá EndDate, job nền quét).
+/// </summary>
+public enum SubscriptionStatus { pending, active, expired, cancelled }
+
+/// <summary>Trạng thái giao dịch payOS: pending → paid | cancelled | failed.</summary>
+public enum PaymentTransactionStatus { pending, paid, cancelled, failed }
 #pragma warning restore CS8981

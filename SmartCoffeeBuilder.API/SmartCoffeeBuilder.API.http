@@ -4,3 +4,42 @@ GET {{SmartCoffeeBuilder.API_HostAddress}}/weatherforecast/
 Accept: application/json
 
 ###
+
+### ─── Payments (payOS) ───
+
+# Danh sách gói phí nền tảng (lọc theo role: owner | provider)
+GET {{SmartCoffeeBuilder.API_HostAddress}}/api/payments/plans?targetRole=owner
+Accept: application/json
+
+###
+# Tạo link thanh toán cho gói (cần JWT)
+POST {{SmartCoffeeBuilder.API_HostAddress}}/api/payments/subscriptions
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "planId": 1
+}
+
+###
+# Gói active hiện tại của account
+GET {{SmartCoffeeBuilder.API_HostAddress}}/api/payments/subscriptions/me/active
+Authorization: Bearer {{token}}
+
+###
+# Polling trạng thái giao dịch sau khi redirect về từ payOS
+GET {{SmartCoffeeBuilder.API_HostAddress}}/api/payments/status?orderCode=1752830000000
+
+###
+# Huỷ giao dịch pending (user bấm huỷ trên payOS)
+POST {{SmartCoffeeBuilder.API_HostAddress}}/api/payments/cancel?orderCode=1752830000000
+
+###
+# Đăng ký webhook URL với payOS (admin, gọi một lần sau deploy)
+POST {{SmartCoffeeBuilder.API_HostAddress}}/api/payments/webhook/confirm
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "webhookUrl": "https://<api-domain>/api/payments/webhook"
+}

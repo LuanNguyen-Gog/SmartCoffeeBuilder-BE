@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SmartCoffeeBuilder.Repository.DBContext;
@@ -11,9 +12,11 @@ using SmartCoffeeBuilder.Repository.DBContext;
 namespace SmartCoffeeBuilder.Repository.Migrations
 {
     [DbContext(typeof(SmartCafeBuilderContext))]
-    partial class SmartCafeBuilderContextModelSnapshot : ModelSnapshot
+    [Migration("20260717041957_AddNotificationDetailFields")]
+    partial class AddNotificationDetailFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1241,89 +1244,6 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     b.ToTable("otps", (string)null);
                 });
 
-            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.PaymentTransaction", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("account_id");
-
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(15, 2)
-                        .HasColumnType("numeric(15,2)")
-                        .HasColumnName("amount");
-
-                    b.Property<string>("CheckoutUrl")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("checkout_url");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("description");
-
-                    b.Property<long>("OrderCode")
-                        .HasColumnType("bigint")
-                        .HasColumnName("order_code");
-
-                    b.Property<string>("PaymentLinkId")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("payment_link_id");
-
-                    b.Property<string>("QrCode")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("qr_code");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
-                        .HasColumnName("status");
-
-                    b.Property<long>("SubscriptionId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("subscription_id");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at")
-                        .HasDefaultValueSql("now()");
-
-                    b.HasKey("Id")
-                        .HasName("pk_payment_transactions");
-
-                    b.HasIndex("AccountId")
-                        .HasDatabaseName("ix_payment_transactions_account_id");
-
-                    b.HasIndex("OrderCode")
-                        .IsUnique()
-                        .HasDatabaseName("ix_payment_transactions_order_code");
-
-                    b.HasIndex("SubscriptionId")
-                        .HasDatabaseName("ix_payment_transactions_subscription_id");
-
-                    b.ToTable("payment_transactions", (string)null);
-                });
-
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Project", b =>
                 {
                     b.Property<long>("Id")
@@ -1833,123 +1753,6 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     b.ToTable("shop_owners", (string)null);
                 });
 
-            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Subscription", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("account_id");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<DateTime>("EndDate")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("end_date");
-
-                    b.Property<decimal>("PaidAmount")
-                        .HasPrecision(15, 2)
-                        .HasColumnType("numeric(15,2)")
-                        .HasColumnName("paid_amount");
-
-                    b.Property<long>("PlanId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("plan_id");
-
-                    b.Property<DateTime>("StartDate")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("start_date");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
-                        .HasColumnName("status");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at")
-                        .HasDefaultValueSql("now()");
-
-                    b.HasKey("Id")
-                        .HasName("pk_subscriptions");
-
-                    b.HasIndex("AccountId")
-                        .HasDatabaseName("ix_subscriptions_account_id");
-
-                    b.HasIndex("PlanId")
-                        .HasDatabaseName("ix_subscriptions_plan_id");
-
-                    b.ToTable("subscriptions", (string)null);
-                });
-
-            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.SubscriptionPlan", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("description");
-
-                    b.Property<int>("DurationInDays")
-                        .HasColumnType("integer")
-                        .HasColumnName("duration_in_days");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_active");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)")
-                        .HasColumnName("name");
-
-                    b.Property<decimal>("Price")
-                        .HasPrecision(15, 2)
-                        .HasColumnType("numeric(15,2)")
-                        .HasColumnName("price");
-
-                    b.Property<string>("TargetRole")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
-                        .HasColumnName("target_role");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at")
-                        .HasDefaultValueSql("now()");
-
-                    b.HasKey("Id")
-                        .HasName("pk_subscription_plans");
-
-                    b.ToTable("subscription_plans", (string)null);
-                });
-
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Survey", b =>
                 {
                     b.Property<long>("Id")
@@ -2296,27 +2099,6 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     b.Navigation("Account");
                 });
 
-            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.PaymentTransaction", b =>
-                {
-                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Account", "Account")
-                        .WithMany("PaymentTransactions")
-                        .HasForeignKey("AccountId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_payment_transactions_accounts_account_id");
-
-                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Subscription", "Subscription")
-                        .WithMany("PaymentTransactions")
-                        .HasForeignKey("SubscriptionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_payment_transactions_subscriptions_subscription_id");
-
-                    b.Navigation("Account");
-
-                    b.Navigation("Subscription");
-                });
-
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Project", b =>
                 {
                     b.HasOne("SmartCoffeeBuilder.Repository.Models.ShopOwner", "Owner")
@@ -2451,27 +2233,6 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     b.Navigation("Account");
                 });
 
-            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Subscription", b =>
-                {
-                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Account", "Account")
-                        .WithMany("Subscriptions")
-                        .HasForeignKey("AccountId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_subscriptions_accounts_account_id");
-
-                    b.HasOne("SmartCoffeeBuilder.Repository.Models.SubscriptionPlan", "Plan")
-                        .WithMany("Subscriptions")
-                        .HasForeignKey("PlanId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_subscriptions_subscription_plans_plan_id");
-
-                    b.Navigation("Account");
-
-                    b.Navigation("Plan");
-                });
-
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Survey", b =>
                 {
                     b.HasOne("SmartCoffeeBuilder.Repository.Models.Account", "CreatedByAccount")
@@ -2498,15 +2259,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
                     b.Navigation("Otps");
 
-                    b.Navigation("PaymentTransactions");
-
                     b.Navigation("RefreshTokens");
 
                     b.Navigation("ServiceProvider");
 
                     b.Navigation("ShopOwner");
-
-                    b.Navigation("Subscriptions");
                 });
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ConstructionItem", b =>
@@ -2602,16 +2359,6 @@ namespace SmartCoffeeBuilder.Repository.Migrations
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ShopOwner", b =>
                 {
                     b.Navigation("Projects");
-                });
-
-            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Subscription", b =>
-                {
-                    b.Navigation("PaymentTransactions");
-                });
-
-            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.SubscriptionPlan", b =>
-                {
-                    b.Navigation("Subscriptions");
                 });
 #pragma warning restore 612, 618
         }

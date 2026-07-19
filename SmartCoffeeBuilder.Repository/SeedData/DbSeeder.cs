@@ -17,6 +17,9 @@ public static class DbSeeder
 
     public static async Task SeedAsync(SmartCafeBuilderContext db, CancellationToken ct = default)
     {
+        // Gói phí nền tảng seed riêng (trước early-return) để DB cũ đã có accounts vẫn nhận được plans.
+        await SeedSubscriptionPlansAsync(db, ct);
+
         // Đã có dữ liệu → bỏ qua hoàn toàn, không seed lại.
         if (await db.Accounts.AnyAsync(ct))
             return;
@@ -492,6 +495,49 @@ public static class DbSeeder
         db.Conversations.Add(convo);
         db.Reviews.Add(review);
         db.Notifications.AddRange(notifications);
+
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Seed các gói phí nền tảng mặc định — idempotent, chỉ chạy khi bảng còn trống.</summary>
+    private static async Task SeedSubscriptionPlansAsync(SmartCafeBuilderContext db, CancellationToken ct)
+    {
+        if (await db.SubscriptionPlans.AnyAsync(ct))
+            return;
+
+        db.SubscriptionPlans.AddRange(
+            new SubscriptionPlan
+            {
+                Name = "Gói Chủ Quán - 1 Tháng",
+                Description = "Đăng dự án, nhận đề xuất AI và kết nối nhà cung cấp trong 30 ngày.",
+                TargetRole = AccountRole.owner,
+                Price = 199_000m,
+                DurationInDays = 30,
+            },
+            new SubscriptionPlan
+            {
+                Name = "Gói Chủ Quán - 1 Năm",
+                Description = "Toàn bộ quyền lợi gói tháng, tiết kiệm hơn khi trả theo năm.",
+                TargetRole = AccountRole.owner,
+                Price = 1_990_000m,
+                DurationInDays = 365,
+            },
+            new SubscriptionPlan
+            {
+                Name = "Gói Nhà Cung Cấp - 1 Tháng",
+                Description = "Nhận job thiết kế/thi công từ marketplace trong 30 ngày.",
+                TargetRole = AccountRole.provider,
+                Price = 299_000m,
+                DurationInDays = 30,
+            },
+            new SubscriptionPlan
+            {
+                Name = "Gói Nhà Cung Cấp - 1 Năm",
+                Description = "Toàn bộ quyền lợi gói tháng, tiết kiệm hơn khi trả theo năm.",
+                TargetRole = AccountRole.provider,
+                Price = 2_990_000m,
+                DurationInDays = 365,
+            });
 
         await db.SaveChangesAsync(ct);
     }

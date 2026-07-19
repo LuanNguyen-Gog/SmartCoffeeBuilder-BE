@@ -15,11 +15,15 @@ public class ApplyService : IApplyService
 {
     private readonly IUnitOfWork<SmartCafeBuilderContext> _unitOfWork;
     private readonly IGenericRepository<Apply> _repository;
+    private readonly INotificationService _notificationService;
 
-    public ApplyService(IUnitOfWork<SmartCafeBuilderContext> unitOfWork)
+    public ApplyService(
+        IUnitOfWork<SmartCafeBuilderContext> unitOfWork,
+        INotificationService notificationService)
     {
         _unitOfWork = unitOfWork;
         _repository = unitOfWork.GetRepository<Apply>();
+        _notificationService = notificationService;
     }
 
     public async Task<PaginationResponse<ApplyResponse>> GetAllAsync(
@@ -104,6 +108,9 @@ public class ApplyService : IApplyService
         await _repository.InsertAsync(application);
         await _unitOfWork.CommitAsync();
 
+        // Thông báo cho OWNER: có provider vừa ứng tuyển vào bài đăng của họ.
+        await _notificationService.NotifyApplicationReceivedAsync(application.Id);
+
         application.Post = post;
         application.ServiceProviderProfile = provider;
         return ApplyResponse.From(application);
@@ -182,6 +189,11 @@ public class ApplyService : IApplyService
         // SaveChanges chạy trong một transaction — 4 bước trên là atomic.
         await _unitOfWork.CommitAsync();
 
+        // Thông báo cho provider được chấp nhận + các provider bị từ chối tự động.
+        await _notificationService.NotifyApplicationDecisionAsync(application.Id, accepted: true);
+        foreach (var other in otherPending)
+            await _notificationService.NotifyApplicationDecisionAsync(other.Id, accepted: false);
+
         engagement.ProjectShopOwner = post.ProjectShopOwner;
         engagement.ServiceProviderProfile = application.ServiceProviderProfile;
         return ProjectWorkingResponse.From(engagement);
@@ -201,6 +213,9 @@ public class ApplyService : IApplyService
         application.UpdatedAt = DateTime.UtcNow;
         _repository.Update(application);
         await _unitOfWork.CommitAsync();
+
+        // Thông báo cho provider: hồ sơ bị từ chối.
+        await _notificationService.NotifyApplicationDecisionAsync(application.Id, accepted: false);
 
         return ApplyResponse.From(application);
     }
