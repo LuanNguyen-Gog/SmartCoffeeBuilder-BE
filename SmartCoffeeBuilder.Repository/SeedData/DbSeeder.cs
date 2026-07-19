@@ -20,10 +20,17 @@ public static class DbSeeder
         // Gói phí nền tảng seed riêng (trước early-return) để DB cũ đã có accounts vẫn nhận được plans.
         await SeedSubscriptionPlansAsync(db, ct);
 
-        // Đã có dữ liệu → bỏ qua hoàn toàn, không seed lại.
-        if (await db.Accounts.AnyAsync(ct))
-            return;
+        // Seed gốc: chỉ chạy khi bảng accounts còn trống.
+        if (!await db.Accounts.AnyAsync(ct))
+            await SeedCoreAsync(db, ct);
 
+        // Dữ liệu test bổ sung (designer/constructor/both 2-3 + project mẫu) — idempotent riêng
+        // theo email đại diện, nên DB cũ đã seed vẫn nhận được.
+        await SeedExtraTestDataAsync(db, ct);
+    }
+
+    private static async Task SeedCoreAsync(SmartCafeBuilderContext db, CancellationToken ct)
+    {
         var now = DateTime.UtcNow;
         DateTime At(int daysAgo) => DateTime.SpecifyKind(now.AddDays(-daysAgo), DateTimeKind.Utc);
 
@@ -496,6 +503,308 @@ public static class DbSeeder
         db.Reviews.Add(review);
         db.Notifications.AddRange(notifications);
 
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Seed thêm provider (designer/constructor/both 2-3) + owner 3 với các project mẫu đang mở post,
+    /// phục vụ test marketplace/apply. Idempotent theo email đại diện "designer2@scb.com".
+    /// </summary>
+    private static async Task SeedExtraTestDataAsync(SmartCafeBuilderContext db, CancellationToken ct)
+    {
+        if (await db.Accounts.AnyAsync(a => a.Email == "designer2@scb.com", ct))
+            return;
+
+        var now = DateTime.UtcNow;
+        DateTime At(int daysAgo) => DateTime.SpecifyKind(now.AddDays(-daysAgo), DateTimeKind.Utc);
+
+        Account NewAccount(string email, string phone) => new()
+        {
+            Email = email,
+            Phone = phone,
+            PasswordHash = PasswordHash,
+            Role = AccountRole.provider,
+            Status = AccountStatus.active,
+            EmailVerifiedAt = At(30),
+        };
+
+        // ───────── Designer 2 & 3 ─────────
+        var designer2 = new ServiceProviderProfile
+        {
+            Account = NewAccount("designer2@scb.com", "0900000011"),
+            DisplayName = "Kiến Trúc Sáng Tạo KAS",
+            ProviderType = ProviderType.company,
+            Capability = Capability.designer,
+            Bio = "Studio thiết kế trẻ, mạnh về concept quán cà phê sân vườn và tropical.",
+            CompanyTaxCode = "0311122233",
+            YearsExperience = 5,
+            PortfolioHeadline = "Chuyên cà phê sân vườn & tropical",
+            IsVerified = true,
+            AvgRating = 4.60m,
+            DesignerProfile = new DesignerProfile
+            {
+                Specialties = "Cà phê sân vườn, tropical, ngoại thất",
+                SoftwareSkills = "SketchUp, 3ds Max, V-Ray",
+                DesignStyle = "Tropical, Rustic, Vintage",
+                MinProjectBudget = 40_000_000m,
+            },
+        };
+        var designer3 = new ServiceProviderProfile
+        {
+            Account = NewAccount("designer3@scb.com", "0900000012"),
+            DisplayName = "Lê Minh Hoạ - Freelance Designer",
+            ProviderType = ProviderType.individual,
+            Capability = Capability.designer,
+            Bio = "Designer tự do 4 năm kinh nghiệm, nhận dự án quán nhỏ và kiosk.",
+            YearsExperience = 4,
+            PortfolioHeadline = "Thiết kế nhanh gọn cho quán nhỏ, kiosk",
+            IsVerified = false,
+            AvgRating = 4.10m,
+            DesignerProfile = new DesignerProfile
+            {
+                Specialties = "Kiosk, xe cà phê, quán dưới 40m2",
+                SoftwareSkills = "SketchUp, Photoshop, Canva",
+                DesignStyle = "Minimalist, Retro",
+                MinProjectBudget = 15_000_000m,
+            },
+        };
+
+        // ───────── Constructor 2 & 3 ─────────
+        var constructor2 = new ServiceProviderProfile
+        {
+            Account = NewAccount("constructor2@scb.com", "0900000013"),
+            DisplayName = "Nội Thất Hưng Thịnh",
+            ProviderType = ProviderType.company,
+            Capability = Capability.constructor,
+            Bio = "Xưởng sản xuất kiêm thi công nội thất gỗ công nghiệp, có xưởng riêng tại Bình Dương.",
+            CompanyTaxCode = "0322233445",
+            YearsExperience = 9,
+            PortfolioHeadline = "Xưởng gỗ riêng — giá tận gốc",
+            IsVerified = true,
+            AvgRating = 4.40m,
+            ConstructorProfile = new ConstructorProfile
+            {
+                LicenseNo = "GPXD-2020-00456",
+                TeamSize = 18,
+                Equipment = "Dây chuyền gỗ công nghiệp, máy dán cạnh, xe tải vận chuyển",
+                MaxProjectValue = 1_500_000_000m,
+                WarrantyPolicy = "Bảo hành 18 tháng nội thất gỗ.",
+            },
+        };
+        var constructor3 = new ServiceProviderProfile
+        {
+            Account = NewAccount("constructor3@scb.com", "0900000014"),
+            DisplayName = "Đội Thi Công Anh Tuấn",
+            ProviderType = ProviderType.individual,
+            Capability = Capability.constructor,
+            Bio = "Đội thợ đa năng nhận sửa chữa, cải tạo mặt bằng quán cà phê giá hợp lý.",
+            YearsExperience = 7,
+            PortfolioHeadline = "Cải tạo nhanh, nhận việc nhỏ lẻ",
+            IsVerified = false,
+            AvgRating = 3.90m,
+            ConstructorProfile = new ConstructorProfile
+            {
+                LicenseNo = "GPXD-2022-01777",
+                TeamSize = 6,
+                Equipment = "Dụng cụ cầm tay, máy khoan bê tông, giàn giáo mini",
+                MaxProjectValue = 300_000_000m,
+                WarrantyPolicy = "Bảo hành 6 tháng.",
+            },
+        };
+
+        // ───────── Both 2 & 3 ─────────
+        var both2 = new ServiceProviderProfile
+        {
+            Account = NewAccount("both2@scb.com", "0900000015"),
+            DisplayName = "F&B Design Build Group",
+            ProviderType = ProviderType.company,
+            Capability = Capability.both,
+            Bio = "Tổng thầu design & build chuyên chuỗi F&B, đã làm cho 3 chuỗi cà phê lớn.",
+            CompanyTaxCode = "0333344556",
+            YearsExperience = 11,
+            PortfolioHeadline = "Design & Build trọn gói cho chuỗi F&B",
+            IsVerified = true,
+            AvgRating = 4.85m,
+            DesignerProfile = new DesignerProfile
+            {
+                Specialties = "Chuỗi cà phê, nhận diện thương hiệu không gian",
+                SoftwareSkills = "AutoCAD, Revit, 3ds Max, Enscape",
+                DesignStyle = "Modern, Industrial, Brand-driven",
+                MinProjectBudget = 100_000_000m,
+            },
+            ConstructorProfile = new ConstructorProfile
+            {
+                LicenseNo = "GPXD-2018-00088",
+                TeamSize = 40,
+                Equipment = "Đội M&E riêng, xưởng gỗ, xưởng sắt, xe cẩu nhỏ",
+                MaxProjectValue = 5_000_000_000m,
+                WarrantyPolicy = "Bảo hành 24 tháng toàn bộ hạng mục.",
+            },
+        };
+        var both3 = new ServiceProviderProfile
+        {
+            Account = NewAccount("both3@scb.com", "0900000016"),
+            DisplayName = "Cafe Maker Studio",
+            ProviderType = ProviderType.individual,
+            Capability = Capability.both,
+            Bio = "Hai anh em kiến trúc sư + kỹ sư, chuyên setup quán cà phê nhỏ trọn gói từ A-Z.",
+            YearsExperience = 3,
+            PortfolioHeadline = "Setup quán nhỏ trọn gói từ A-Z",
+            IsVerified = false,
+            AvgRating = 4.30m,
+            DesignerProfile = new DesignerProfile
+            {
+                Specialties = "Quán nhỏ 20-50m2, take-away, container",
+                SoftwareSkills = "SketchUp, Enscape, Illustrator",
+                DesignStyle = "Cozy, Vintage, Hàn Quốc",
+                MinProjectBudget = 20_000_000m,
+            },
+            ConstructorProfile = new ConstructorProfile
+            {
+                LicenseNo = "GPXD-2023-02456",
+                TeamSize = 5,
+                Equipment = "Dụng cụ cầm tay, máy cắt gỗ mini",
+                MaxProjectValue = 250_000_000m,
+                WarrantyPolicy = "Bảo hành 12 tháng.",
+            },
+        };
+
+        // ───────── Owner 3 + các project mẫu đang mở post ─────────
+        var owner3Acc = new Account
+        {
+            Email = "owner3@scb.com",
+            Phone = "0900000017",
+            PasswordHash = PasswordHash,
+            Role = AccountRole.owner,
+            Status = AccountStatus.active,
+            EmailVerifiedAt = At(30),
+        };
+        var owner3 = new ShopOwner
+        {
+            Account = owner3Acc,
+            FullName = "Phạm Quốc Cường",
+            ShopName = "Cường Sài Gòn Coffee",
+            Phone = "0900000017",
+            Address = "88 Phan Xích Long, Phú Nhuận, TP.HCM",
+        };
+
+        // Project 3: cần thiết kế — post design đang mở.
+        var project3 = new ProjectShopOwner
+        {
+            Owner = owner3,
+            Name = "Cường Sài Gòn - Quán sân vườn Phú Nhuận",
+            Address = "88 Phan Xích Long, Phú Nhuận, TP.HCM",
+            AreaM2 = 150.00m,
+            Budget = 800_000_000m,
+            Status = ProjectStatus.briefed,
+            DesignBrief = new DesignBrief
+            {
+                TargetCustomer = "Gia đình, nhóm bạn cuối tuần, khách chụp ảnh",
+                Style = "Tropical sân vườn",
+                Mood = "Thư giãn, nhiều cây xanh",
+                SeatCount = 120,
+                Timeline = "12 tuần",
+                BrandNote = "Tông xanh lá + gỗ tự nhiên, có khu vực chụp ảnh check-in.",
+                BusinessModel = "Dine-in, tổ chức workshop cuối tuần",
+                BusinessGoals = "Trở thành điểm check-in nổi bật khu Phan Xích Long",
+                OperationNote = "Đông nhất tối thứ 6 - chủ nhật",
+            },
+            BudgetItems =
+            {
+                new BudgetItem { Category = "Thiết kế", PlannedAmount = 80_000_000m },
+                new BudgetItem { Category = "Thi công & cảnh quan", PlannedAmount = 600_000_000m },
+                new BudgetItem { Category = "Dự phòng", PlannedAmount = 120_000_000m },
+            },
+            Posts =
+            {
+                new Post
+                {
+                    ServiceKind = ServiceKind.design,
+                    Title = "Tìm designer cho quán cà phê sân vườn 150m2",
+                    Description = "Cần concept tropical sân vườn nhiều cây xanh, có khu check-in. " +
+                                  "Ưu tiên đơn vị từng làm quán sân vườn.",
+                    Status = PostStatus.open,
+                    SubmissionDeadline = At(-21),
+                },
+            },
+        };
+
+        // Project 4: đã có bản vẽ — post construction đang mở.
+        var project4 = new ProjectShopOwner
+        {
+            Owner = owner3,
+            Name = "Cường Sài Gòn - Chi nhánh 2 Gò Vấp",
+            Address = "215 Quang Trung, Gò Vấp, TP.HCM",
+            AreaM2 = 60.00m,
+            Budget = 350_000_000m,
+            Status = ProjectStatus.briefed,
+            DesignBrief = new DesignBrief
+            {
+                TargetCustomer = "Sinh viên, dân văn phòng khu Gò Vấp",
+                Style = "Industrial",
+                Mood = "Năng động, trẻ trung",
+                SeatCount = 45,
+                Timeline = "6 tuần",
+                BrandNote = "Đồng bộ nhận diện với chi nhánh 1.",
+                BusinessModel = "Dine-in kết hợp take-away",
+            },
+            BudgetItems =
+            {
+                new BudgetItem { Category = "Thi công", PlannedAmount = 300_000_000m },
+                new BudgetItem { Category = "Dự phòng", PlannedAmount = 50_000_000m },
+            },
+            Posts =
+            {
+                new Post
+                {
+                    ServiceKind = ServiceKind.construction,
+                    Title = "Tìm nhà thầu thi công quán 60m2 theo bản vẽ có sẵn",
+                    Description = "Đã có đầy đủ bản vẽ kỹ thuật, cần nhà thầu thi công trọn gói trong 6 tuần.",
+                    Status = PostStatus.open,
+                    SubmissionDeadline = At(-14),
+                },
+            },
+        };
+
+        // Project 5: muốn trọn gói — post both đang mở.
+        var project5 = new ProjectShopOwner
+        {
+            Owner = owner3,
+            Name = "Cường Sài Gòn - Kiosk container Thủ Đức",
+            Address = "Khu công nghệ cao, TP. Thủ Đức, TP.HCM",
+            AreaM2 = 25.00m,
+            Budget = 180_000_000m,
+            Status = ProjectStatus.briefed,
+            DesignBrief = new DesignBrief
+            {
+                TargetCustomer = "Kỹ sư, nhân viên khu công nghệ cao mua mang đi",
+                Style = "Container hiện đại",
+                Mood = "Nhanh gọn, bắt mắt",
+                SeatCount = 10,
+                Timeline = "5 tuần",
+                BrandNote = "Container sơn màu cam nổi bật, logo lớn hai mặt.",
+                BusinessModel = "Take-away là chính",
+            },
+            BudgetItems =
+            {
+                new BudgetItem { Category = "Thiết kế + thi công trọn gói", PlannedAmount = 160_000_000m },
+                new BudgetItem { Category = "Dự phòng", PlannedAmount = 20_000_000m },
+            },
+            Posts =
+            {
+                new Post
+                {
+                    ServiceKind = ServiceKind.both,
+                    Title = "Tìm đơn vị design & build kiosk container 25m2",
+                    Description = "Cần đơn vị làm trọn gói từ thiết kế đến thi công kiosk container, bàn giao chìa khoá trao tay.",
+                    Status = PostStatus.open,
+                    SubmissionDeadline = At(-30),
+                },
+            },
+        };
+
+        db.ServiceProviderProfiles.AddRange(designer2, designer3, constructor2, constructor3, both2, both3);
+        db.ProjectShopOwners.AddRange(project3, project4, project5);
         await db.SaveChangesAsync(ct);
     }
 
