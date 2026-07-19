@@ -48,4 +48,10 @@ public enum SubscriptionStatus { pending, active, expired, cancelled }
 
 /// <summary>Trạng thái giao dịch payOS: pending → paid | cancelled | failed.</summary>
 public enum PaymentTransactionStatus { pending, paid, cancelled, failed }
+
+/// <summary>
+/// Mục đích giao dịch payOS: mua gói phí nền tảng (subscription)
+/// hay trả phí đẩy bài đăng tuyển provider lên đầu danh sách (post_boost).
+/// </summary>
+public enum PaymentPurpose { subscription, post_boost }
 #pragma warning restore CS8981

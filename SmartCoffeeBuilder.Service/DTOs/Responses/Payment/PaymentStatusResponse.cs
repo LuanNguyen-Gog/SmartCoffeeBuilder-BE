@@ -11,10 +11,18 @@ public class PaymentStatusResponse
     public bool IsFinal { get; set; }
 
     public PaymentTransactionStatus Status { get; set; }
+    public PaymentPurpose Purpose { get; set; }
     public long OrderCode { get; set; }
     public string PaymentLinkId { get; set; } = null!;
-    public long SubscriptionId { get; set; }
-    public SubscriptionStatus SubscriptionStatus { get; set; }
+
+    /// <summary>Có giá trị khi Purpose = subscription.</summary>
+    public long? SubscriptionId { get; set; }
+    public SubscriptionStatus? SubscriptionStatus { get; set; }
+
+    /// <summary>Có giá trị khi Purpose = post_boost.</summary>
+    public long? PostId { get; set; }
+    public DateTime? PostBoostedUntil { get; set; }
+
     public decimal Amount { get; set; }
     public string Message { get; set; } = null!;
 
@@ -23,14 +31,19 @@ public class PaymentStatusResponse
         Success = t.Status == PaymentTransactionStatus.paid,
         IsFinal = t.Status != PaymentTransactionStatus.pending,
         Status = t.Status,
+        Purpose = t.Purpose,
         OrderCode = t.OrderCode,
         PaymentLinkId = t.PaymentLinkId,
         SubscriptionId = t.SubscriptionId,
-        SubscriptionStatus = t.Subscription.Status,
+        SubscriptionStatus = t.Subscription?.Status,
+        PostId = t.PostId,
+        PostBoostedUntil = t.Post?.BoostedUntil,
         Amount = t.Amount,
         Message = t.Status switch
         {
-            PaymentTransactionStatus.paid => "Thanh toán thành công — gói đã được kích hoạt.",
+            PaymentTransactionStatus.paid => t.Purpose == PaymentPurpose.post_boost
+                ? "Thanh toán thành công — bài đăng đã được đẩy lên nổi bật."
+                : "Thanh toán thành công — gói đã được kích hoạt.",
             PaymentTransactionStatus.cancelled => "Giao dịch đã bị huỷ.",
             PaymentTransactionStatus.failed => "Thanh toán thất bại.",
             _ => "Đang chờ payOS xác nhận thanh toán."

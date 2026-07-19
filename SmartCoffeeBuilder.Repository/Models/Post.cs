@@ -11,6 +11,9 @@ public class Post
     public string Description { get; set; } = null!;
     public PostStatus Status { get; set; } = PostStatus.open;
     public DateTime? SubmissionDeadline { get; set; }
+
+    /// <summary>Hạn nổi bật (trả phí payOS). Bài có BoostedUntil > now được đẩy lên đầu danh sách.</summary>
+    public DateTime? BoostedUntil { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

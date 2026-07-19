@@ -2,6 +2,7 @@ using System.Text.Json;
 using SmartCoffeeBuilder.Repository.DBContext;
 using SmartCoffeeBuilder.Repository.Interfaces;
 using SmartCoffeeBuilder.Repository.Models;
+using SmartCoffeeBuilder.Repository.Models.Enums;
 using SmartCoffeeBuilder.Service.ApiResponse;
 using SmartCoffeeBuilder.Service.DTOs.Requests.AiRecommendation;
 using SmartCoffeeBuilder.Service.DTOs.Responses.AiRecommendation;
@@ -133,6 +134,9 @@ public class AiRecommendationService : IAiRecommendationService
 
     public async Task<AiDesignJobStatusResponse> GenerateDesignAsync(long briefId, string userId, GenerateAiDesignRequest request)
     {
+        // Phí nền tảng: shop owner gói free KHÔNG dùng được AI — phải có subscription active.
+        await EnsureAiAccessAsync(userId);
+
         // Load DesignBrief với Project
         var brief = await _unitOfWork.GetRepository<DesignBrief>()
             .SingleOrDefaultAsync(predicate: b => b.Id == briefId)
@@ -263,6 +267,33 @@ public class AiRecommendationService : IAiRecommendationService
 
         _repository.Update(recommendation);
         await _unitOfWork.CommitAsync();
+    }
+
+    /// <summary>
+    /// Guard phí nền tảng cho tính năng AI: account role owner phải có subscription active còn hạn.
+    /// Admin/provider không bị chặn ở đây (owner là đối tượng bán gói AI).
+    /// </summary>
+    private async Task EnsureAiAccessAsync(string userId)
+    {
+        if (!long.TryParse(userId, out var accountId))
+            throw new UnauthorizedAccessException("User ID trong token không hợp lệ.");
+
+        var account = await _unitOfWork.GetRepository<Account>()
+            .SingleOrDefaultAsync(predicate: a => a.Id == accountId && a.DeletedAt == null)
+            ?? throw new KeyNotFoundException($"Không tìm thấy tài khoản với id {accountId}.");
+
+        if (account.Role != AccountRole.owner) return;
+
+        var now = DateTime.UtcNow;
+        var hasActiveSubscription = await _unitOfWork.GetRepository<Subscription>().CountAsync(
+            s => s.AccountId == accountId
+                 && s.Status == SubscriptionStatus.active
+                 && s.EndDate > now) > 0;
+
+        if (!hasActiveSubscription)
+            throw new InvalidOperationException(
+                "Tài khoản gói free không dùng được tính năng AI design. " +
+                "Vui lòng mua gói subscription (GET /api/payments/plans) để mở khoá.");
     }
 
     private static List<string>? ParseJsonList(string? json)

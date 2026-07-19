@@ -51,6 +51,15 @@ public class PaymentController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Tạo link thanh toán payOS đẩy bài đăng nổi bật — chỉ chủ quán sở hữu bài đăng.</summary>
+    [HttpPost("post-boosts")]
+    [Authorize]
+    public async Task<IActionResult> CreatePostBoostPayment([FromBody] CreatePostBoostRequest request)
+    {
+        var result = await _paymentService.CreatePostBoostPaymentAsync(GetAccountId(), request);
+        return Ok(result);
+    }
+
     /// <summary>Gói đang active (còn hạn) của account hiện tại — null nếu chưa mua.</summary>
     [HttpGet("subscriptions/me/active")]
     [Authorize]

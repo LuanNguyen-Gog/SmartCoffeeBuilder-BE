@@ -84,6 +84,7 @@ public class SmartCafeBuilderContext : DbContext
         configurationBuilder.Properties<ContractStatus>().HaveConversion<string>().HaveMaxLength(30);
         configurationBuilder.Properties<SubscriptionStatus>().HaveConversion<string>().HaveMaxLength(30);
         configurationBuilder.Properties<PaymentTransactionStatus>().HaveConversion<string>().HaveMaxLength(30);
+        configurationBuilder.Properties<PaymentPurpose>().HaveConversion<string>().HaveMaxLength(30);
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -432,8 +433,12 @@ public class SmartCafeBuilderContext : DbContext
             e.Property(x => x.QrCode).HasMaxLength(500);
             e.Property(x => x.Description).HasMaxLength(500);
             e.Property(x => x.Amount).HasPrecision(15, 2);
+            e.HasIndex(x => x.PostId);
             e.HasOne(x => x.Subscription).WithMany(s => s.PaymentTransactions)
                 .HasForeignKey(x => x.SubscriptionId).OnDelete(DeleteBehavior.Cascade);
+            // Bài đăng bị xoá thì giữ lịch sử giao dịch, chỉ set null.
+            e.HasOne(x => x.Post).WithMany()
+                .HasForeignKey(x => x.PostId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Account).WithMany(a => a.PaymentTransactions)
                 .HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
         });

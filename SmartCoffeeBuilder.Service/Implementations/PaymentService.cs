@@ -69,9 +69,7 @@ public class PaymentService : IPaymentService
 
         var payOs = CreatePayOsClient();
         var orderCode = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var description = plan.Name.Length > PayOsDescriptionMaxLength
-            ? plan.Name[..PayOsDescriptionMaxLength]
-            : plan.Name;
+        var description = TruncateForPayOs(plan.Name);
         var expirationSeconds = _configuration.GetValue("PayOs:ExpirationSeconds", 900);
         var expiredAt = DateTimeOffset.UtcNow.AddSeconds(expirationSeconds).ToUnixTimeSeconds();
 
@@ -104,6 +102,7 @@ public class PaymentService : IPaymentService
         {
             SubscriptionId = subscription.Id,
             AccountId = accountId,
+            Purpose = PaymentPurpose.subscription,
             OrderCode = orderCode,
             PaymentLinkId = link.paymentLinkId,
             CheckoutUrl = link.checkoutUrl,
@@ -121,12 +120,92 @@ public class PaymentService : IPaymentService
 
         return new CreatePaymentResponse
         {
+            Purpose = PaymentPurpose.subscription.ToString(),
             SubscriptionId = subscription.Id,
             OrderCode = orderCode,
             PaymentLinkId = link.paymentLinkId,
             CheckoutUrl = link.checkoutUrl,
             QrCode = link.qrCode,
             Amount = plan.Price,
+            ExpiredAt = expiredAt
+        };
+    }
+
+    public async Task<CreatePaymentResponse> CreatePostBoostPaymentAsync(long accountId, CreatePostBoostRequest request)
+    {
+        if (request.Days < 1 || request.Days > 90)
+            throw new ArgumentException("Số ngày đẩy bài phải từ 1 đến 90.");
+
+        var post = await _unitOfWork.GetRepository<Post>().SingleOrDefaultAsync(
+                predicate: p => p.Id == request.PostId,
+                include: q => q.Include(p => p.ProjectShopOwner).ThenInclude(pr => pr.Owner))
+            ?? throw new KeyNotFoundException($"Không tìm thấy bài đăng với id {request.PostId}.");
+
+        if (post.ProjectShopOwner.Owner.AccountId != accountId)
+            throw new InvalidOperationException("Chỉ chủ quán sở hữu bài đăng mới mua được lượt đẩy bài.");
+
+        if (post.Status != PostStatus.open)
+            throw new InvalidOperationException($"Bài đăng đang ở trạng thái '{post.Status}', chỉ đẩy được bài đang mở.");
+
+        var pricePerDay = _configuration.GetValue("PayOs:PostBoostPricePerDay", 20_000m);
+        var amount = pricePerDay * request.Days;
+
+        var payOs = CreatePayOsClient();
+        var orderCode = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var description = TruncateForPayOs($"Day bai #{post.Id}");
+        var expirationSeconds = _configuration.GetValue("PayOs:ExpirationSeconds", 900);
+        var expiredAt = DateTimeOffset.UtcNow.AddSeconds(expirationSeconds).ToUnixTimeSeconds();
+
+        var paymentData = new PaymentData(
+            orderCode: orderCode,
+            amount: (int)amount,
+            description: description,
+            items: new List<ItemData> { new($"Đẩy bài {request.Days} ngày", 1, (int)amount) },
+            returnUrl: GetRequiredSetting("PayOs:ReturnUrl"),
+            cancelUrl: GetRequiredSetting("PayOs:CancelUrl"),
+            expiredAt: expiredAt);
+
+        CreatePaymentResult link;
+        try
+        {
+            link = await payOs.createPaymentLink(paymentData);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "payOS createPaymentLink failed for post boost. Account {AccountId}, post {PostId}", accountId, post.Id);
+            throw new InvalidOperationException("Không thể tạo liên kết thanh toán payOS. Vui lòng thử lại sau.");
+        }
+
+        var transaction = new PaymentTransaction
+        {
+            AccountId = accountId,
+            Purpose = PaymentPurpose.post_boost,
+            PostId = post.Id,
+            BoostDays = request.Days,
+            OrderCode = orderCode,
+            PaymentLinkId = link.paymentLinkId,
+            CheckoutUrl = link.checkoutUrl,
+            QrCode = link.qrCode,
+            Amount = amount,
+            Description = $"Đẩy bài đăng #{post.Id} nổi bật {request.Days} ngày",
+            Status = PaymentTransactionStatus.pending
+        };
+        await _unitOfWork.GetRepository<PaymentTransaction>().InsertAsync(transaction);
+        await _unitOfWork.CommitAsync();
+
+        _logger.LogInformation(
+            "Created payOS post-boost link. Account {AccountId}, post {PostId}, days {Days}, orderCode {OrderCode}",
+            accountId, post.Id, request.Days, orderCode);
+
+        return new CreatePaymentResponse
+        {
+            Purpose = PaymentPurpose.post_boost.ToString(),
+            PostId = post.Id,
+            OrderCode = orderCode,
+            PaymentLinkId = link.paymentLinkId,
+            CheckoutUrl = link.checkoutUrl,
+            QrCode = link.qrCode,
+            Amount = amount,
             ExpiredAt = expiredAt
         };
     }
@@ -211,6 +290,16 @@ public class PaymentService : IPaymentService
 
         if (isPaid)
         {
+            if (transaction.Purpose == PaymentPurpose.post_boost)
+            {
+                ActivatePostBoost(transaction);
+                await _unitOfWork.CommitAsync();
+                _logger.LogInformation(
+                    "Post {PostId} boosted via payOS webhook. OrderCode {OrderCode}",
+                    transaction.PostId, transaction.OrderCode);
+                return "Thanh toán thành công — bài đăng đã được đẩy nổi bật.";
+            }
+
             await ActivateSubscriptionAsync(transaction);
             await _unitOfWork.CommitAsync();
             _logger.LogInformation(
@@ -284,7 +373,9 @@ public class PaymentService : IPaymentService
     private async Task ActivateSubscriptionAsync(PaymentTransaction transaction)
     {
         var now = DateTime.UtcNow;
-        var subscription = transaction.Subscription;
+        var subscription = transaction.Subscription
+            ?? throw new InvalidOperationException(
+                $"Giao dịch #{transaction.Id} purpose subscription nhưng không gắn subscription.");
 
         var currentActiveEnd = await _unitOfWork.GetRepository<Subscription>().SingleOrDefaultAsync(
             selector: s => (DateTime?)s.EndDate,
@@ -307,7 +398,36 @@ public class PaymentService : IPaymentService
         _unitOfWork.GetRepository<PaymentTransaction>().Update(transaction);
     }
 
-    /// <summary>Đánh dấu giao dịch cancelled/failed; subscription pending đi kèm cũng bị huỷ.</summary>
+    /// <summary>
+    /// Chốt boost sau khi payOS xác nhận đã thanh toán: cộng dồn số ngày vào BoostedUntil
+    /// (đang boost dở thì nối tiếp từ hạn hiện tại, hết boost thì tính từ bây giờ).
+    /// </summary>
+    private void ActivatePostBoost(PaymentTransaction transaction)
+    {
+        var now = DateTime.UtcNow;
+        var post = transaction.Post;
+        if (post == null)
+        {
+            // Bài đăng đã bị xoá trước khi webhook về — vẫn ghi nhận giao dịch paid để đối soát.
+            _logger.LogWarning(
+                "payOS webhook paid cho post boost nhưng post không còn. Transaction #{Id}", transaction.Id);
+        }
+        else
+        {
+            var baseTime = post.BoostedUntil.HasValue && post.BoostedUntil.Value > now
+                ? post.BoostedUntil.Value
+                : now;
+            post.BoostedUntil = baseTime.AddDays(transaction.BoostDays ?? 0);
+            post.UpdatedAt = now;
+            _unitOfWork.GetRepository<Post>().Update(post);
+        }
+
+        transaction.Status = PaymentTransactionStatus.paid;
+        transaction.UpdatedAt = now;
+        _unitOfWork.GetRepository<PaymentTransaction>().Update(transaction);
+    }
+
+    /// <summary>Đánh dấu giao dịch cancelled/failed; subscription pending đi kèm (nếu có) cũng bị huỷ.</summary>
     private void MarkTransactionFailed(PaymentTransaction transaction, PaymentTransactionStatus status)
     {
         var now = DateTime.UtcNow;
@@ -315,7 +435,7 @@ public class PaymentService : IPaymentService
         transaction.UpdatedAt = now;
         _unitOfWork.GetRepository<PaymentTransaction>().Update(transaction);
 
-        if (transaction.Subscription.Status == SubscriptionStatus.pending)
+        if (transaction.Subscription is { Status: SubscriptionStatus.pending })
         {
             transaction.Subscription.Status = SubscriptionStatus.cancelled;
             transaction.Subscription.UpdatedAt = now;
@@ -329,8 +449,13 @@ public class PaymentService : IPaymentService
             predicate: t =>
                 (orderCode != null && t.OrderCode == orderCode) ||
                 (orderCode == null && t.PaymentLinkId == paymentLinkId),
-            include: q => q.Include(t => t.Subscription).ThenInclude(s => s.Plan));
+            include: q => q
+                .Include(t => t.Subscription).ThenInclude(s => s!.Plan)
+                .Include(t => t.Post));
     }
+
+    private static string TruncateForPayOs(string value) =>
+        value.Length > PayOsDescriptionMaxLength ? value[..PayOsDescriptionMaxLength] : value;
 
     private PayOS CreatePayOsClient() => new(
         GetRequiredSetting("PayOs:ClientId"),

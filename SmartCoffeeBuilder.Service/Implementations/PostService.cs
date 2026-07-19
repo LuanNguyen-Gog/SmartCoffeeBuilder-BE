@@ -43,7 +43,9 @@ public class PostService : IPostService
                      && (st != PostStatus.open || p.SubmissionDeadline == null || p.SubmissionDeadline > now)
                      && (term == null || EF.Functions.ILike(p.Title, $"%{term}%")),
                 include: q => q.Include(p => p.ProjectShopOwner))
-            .OrderByDescending(p => p.CreatedAt);
+            // Bài trả phí boost còn hạn được ghim lên đầu, phần còn lại theo mới nhất.
+            .OrderByDescending(p => p.BoostedUntil != null && p.BoostedUntil > now)
+            .ThenByDescending(p => p.CreatedAt);
 
         var paged = await query.ToPaginationResponseAsync(pageNumber, pageSize);
 

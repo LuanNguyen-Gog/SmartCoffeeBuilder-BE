@@ -22,6 +22,17 @@ Authorization: Bearer {{token}}
 }
 
 ###
+# Mua lượt đẩy bài đăng nổi bật (cần JWT của chủ quán sở hữu bài)
+POST {{SmartCoffeeBuilder.API_HostAddress}}/api/payments/post-boosts
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "postId": 1,
+  "days": 7
+}
+
+###
 # Gói active hiện tại của account
 GET {{SmartCoffeeBuilder.API_HostAddress}}/api/payments/subscriptions/me/active
 Authorization: Bearer {{token}}
