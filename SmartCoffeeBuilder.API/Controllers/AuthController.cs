@@ -59,4 +59,13 @@ public class AuthController : ControllerBase
         await _authService.LogoutAsync(request);
         return NoContent();
     }
+
+    [HttpGet("me")]
+    [Authorize]
+    public async Task<IActionResult> Me()
+    {
+        var accountId = User.GetAccountId();
+        var result = await _authService.GetMeAsync(accountId);
+        return Ok(result);
+    }
 }

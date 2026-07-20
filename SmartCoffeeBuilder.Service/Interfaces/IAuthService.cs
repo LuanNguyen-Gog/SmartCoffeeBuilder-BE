@@ -10,6 +10,9 @@ public interface IAuthService
     Task<AuthResponse> RefreshAsync(RefreshTokenRequest request);
     Task LogoutAsync(RefreshTokenRequest request);
 
+    /// <summary>Lấy thông tin account hiện tại kèm profile chi tiết (ShopOwner / ServiceProvider).</summary>
+    Task<MeResponse> GetMeAsync(long accountId);
+
     /// <summary>Gửi OTP reset mật khẩu tới email (im lặng bỏ qua nếu email không tồn tại).</summary>
     Task ForgotPasswordAsync(ForgotPasswordRequest request);
 

@@ -31,6 +31,15 @@ public class AuthRepository : IAuthRepository
         await _context.SaveChangesAsync();
     }
 
+    public async Task<Account?> GetByIdAsync(long accountId)
+        => await _context.Accounts
+            .Include(a => a.ShopOwner)
+            .Include(a => a.ServiceProviderProfile)
+                .ThenInclude(sp => sp!.DesignerProfile)
+            .Include(a => a.ServiceProviderProfile)
+                .ThenInclude(sp => sp!.ConstructorProfile)
+            .FirstOrDefaultAsync(a => a.Id == accountId && a.DeletedAt == null);
+
     public async Task<RefreshToken?> GetRefreshTokenAsync(string token)
         => await _context.RefreshTokens
             .Include(rt => rt.Account)

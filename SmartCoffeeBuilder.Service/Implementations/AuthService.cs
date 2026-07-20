@@ -106,6 +106,83 @@ public class AuthService : IAuthService
     }
 
     // ──────────────────────────────────────────────────────────────
+    public async Task<MeResponse> GetMeAsync(long accountId)
+    {
+        var account = await _authRepository.GetByIdAsync(accountId)
+            ?? throw new KeyNotFoundException("Tài khoản không tồn tại.");
+
+        var response = new MeResponse
+        {
+            Id = account.Id,
+            Email = account.Email,
+            Phone = account.Phone,
+            Role = account.Role.ToString(),
+            Status = account.Status.ToString(),
+            EmailVerifiedAt = account.EmailVerifiedAt,
+            CreatedAt = account.CreatedAt,
+            UpdatedAt = account.UpdatedAt
+        };
+
+        if (account.ShopOwner != null)
+        {
+            response.ShopOwner = new ShopOwnerInfo
+            {
+                Id = account.ShopOwner.Id,
+                FullName = account.ShopOwner.FullName,
+                ShopName = account.ShopOwner.ShopName,
+                Phone = account.ShopOwner.Phone,
+                Address = account.ShopOwner.Address
+            };
+        }
+
+        if (account.ServiceProviderProfile != null)
+        {
+            var sp = account.ServiceProviderProfile;
+            var spInfo = new ServiceProviderInfo
+            {
+                Id = sp.Id,
+                DisplayName = sp.DisplayName,
+                ProviderType = sp.ProviderType.ToString(),
+                Capability = sp.Capability.ToString(),
+                Bio = sp.Bio,
+                CompanyTaxCode = sp.CompanyTaxCode,
+                YearsExperience = sp.YearsExperience,
+                PortfolioHeadline = sp.PortfolioHeadline,
+                IsVerified = sp.IsVerified,
+                AvgRating = sp.AvgRating,
+                CreatedAt = sp.CreatedAt,
+                UpdatedAt = sp.UpdatedAt
+            };
+
+            if (sp.DesignerProfile != null)
+            {
+                spInfo.Designer = new DesignerInfo
+                {
+                    Specialties = sp.DesignerProfile.Specialties,
+                    SoftwareSkills = sp.DesignerProfile.SoftwareSkills,
+                    DesignStyle = sp.DesignerProfile.DesignStyle,
+                    MinProjectBudget = sp.DesignerProfile.MinProjectBudget
+                };
+            }
+
+            if (sp.ConstructorProfile != null)
+            {
+                spInfo.Constructor = new ConstructorInfo
+                {
+                    LicenseNo = sp.ConstructorProfile.LicenseNo,
+                    TeamSize = sp.ConstructorProfile.TeamSize,
+                    Equipment = sp.ConstructorProfile.Equipment,
+                    MaxProjectValue = sp.ConstructorProfile.MaxProjectValue,
+                    WarrantyPolicy = sp.ConstructorProfile.WarrantyPolicy
+                };
+            }
+
+            response.ServiceProvider = spInfo;
+        }
+
+        return response;
+    }
+
     private async Task<AuthResponse> IssueTokensAsync(Account account)
     {
         var accessToken = GenerateAccessToken(account);
