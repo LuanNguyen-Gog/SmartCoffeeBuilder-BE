@@ -275,6 +275,10 @@ public class AiRecommendationService : IAiRecommendationService
     /// </summary>
     private async Task EnsureAiAccessAsync(string userId)
     {
+        // TODO(rào tạm): Đang mở khoá AI cho MỌI account để FE test luồng/UI ổn định.
+        // Bỏ dòng return dưới đây để bật lại gate phí nền tảng (owner phải có subscription active).
+        return;
+#pragma warning disable CS0162 // Unreachable code detected
         if (!long.TryParse(userId, out var accountId))
             throw new UnauthorizedAccessException("User ID trong token không hợp lệ.");
 
@@ -294,6 +298,7 @@ public class AiRecommendationService : IAiRecommendationService
             throw new InvalidOperationException(
                 "Tài khoản gói free không dùng được tính năng AI design. " +
                 "Vui lòng mua gói subscription (GET /api/payments/plans) để mở khoá.");
+#pragma warning restore CS0162
     }
 
     private static List<string>? ParseJsonList(string? json)
