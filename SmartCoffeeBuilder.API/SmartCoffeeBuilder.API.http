@@ -38,12 +38,14 @@ GET {{SmartCoffeeBuilder.API_HostAddress}}/api/payments/subscriptions/me/active
 Authorization: Bearer {{token}}
 
 ###
-# Polling trạng thái giao dịch sau khi redirect về từ payOS
+# Polling trạng thái giao dịch sau khi redirect về từ payOS (cần JWT — chỉ chủ giao dịch mới xem được)
 GET {{SmartCoffeeBuilder.API_HostAddress}}/api/payments/status?orderCode=1752830000000
+Authorization: Bearer {{token}}
 
 ###
-# Huỷ giao dịch pending (user bấm huỷ trên payOS)
+# Huỷ giao dịch pending (user bấm huỷ trên payOS; cần JWT — chỉ chủ giao dịch mới huỷ được)
 POST {{SmartCoffeeBuilder.API_HostAddress}}/api/payments/cancel?orderCode=1752830000000
+Authorization: Bearer {{token}}
 
 ###
 # Đăng ký webhook URL với payOS (admin, gọi một lần sau deploy)

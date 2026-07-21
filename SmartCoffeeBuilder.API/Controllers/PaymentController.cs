@@ -78,21 +78,28 @@ public class PaymentController : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>FE polling trạng thái giao dịch sau khi redirect về từ payOS.</summary>
+    /// <summary>
+    /// FE polling trạng thái giao dịch sau khi redirect về từ payOS. Bắt buộc JWT — orderCode chỉ là
+    /// timestamp mili-giây nên dễ đoán, nếu cho anonymous thì lộ số tiền/trạng thái giao dịch người khác.
+    /// </summary>
     [HttpGet("status")]
-    [AllowAnonymous]
+    [Authorize]
     public async Task<IActionResult> GetPaymentStatus([FromQuery] long? orderCode, [FromQuery] string? paymentLinkId)
     {
-        var result = await _paymentService.GetPaymentStatusAsync(orderCode, paymentLinkId);
+        var result = await _paymentService.GetPaymentStatusAsync(GetAccountId(), orderCode, paymentLinkId);
         return Ok(result);
     }
 
-    /// <summary>FE gọi khi user huỷ thanh toán (redirect về cancelUrl). Idempotent.</summary>
+    /// <summary>
+    /// FE gọi khi user huỷ thanh toán (redirect về cancelUrl). Idempotent. Bắt buộc JWT + chỉ chủ giao
+    /// dịch mới huỷ được — orderCode đoán được nên không thể để anonymous (kẻ khác có thể huỷ giao dịch
+    /// pending của người dùng khác).
+    /// </summary>
     [HttpPost("cancel")]
-    [AllowAnonymous]
+    [Authorize]
     public async Task<IActionResult> CancelPayment([FromQuery] long orderCode)
     {
-        var result = await _paymentService.CancelPaymentAsync(orderCode);
+        var result = await _paymentService.CancelPaymentAsync(GetAccountId(), orderCode);
         return Ok(result);
     }
 

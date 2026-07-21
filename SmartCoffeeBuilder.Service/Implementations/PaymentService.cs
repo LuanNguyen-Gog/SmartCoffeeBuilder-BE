@@ -55,6 +55,21 @@ public class PaymentService : IPaymentService
             throw new InvalidOperationException(
                 $"Gói '{plan.Name}' dành cho role '{plan.TargetRole}', tài khoản hiện tại là '{account.Role}'.");
 
+        var expirationSeconds = _configuration.GetValue("PayOs:ExpirationSeconds", 900);
+
+        // Đã có link thanh toán còn hạn cho đúng gói này → trả lại link cũ thay vì tạo giao dịch mới.
+        // Chống trường hợp bấm "Thanh toán" nhiều lần, hoặc bấm cancel rồi bấm thanh toán lại trước
+        // khi hết 15 phút — cả hai đều sinh ra nhiều mã/nhiều subscription pending nếu không có bước này.
+        var reusable = await FindReusablePendingTransactionAsync(
+            accountId, PaymentPurpose.subscription, planId: plan.Id, postId: null, expirationSeconds);
+        if (reusable != null)
+        {
+            _logger.LogInformation(
+                "Reused pending payOS payment link. Account {AccountId}, plan {PlanId}, orderCode {OrderCode}",
+                accountId, plan.Id, reusable.OrderCode);
+            return ToPaymentResponse(reusable, expirationSeconds);
+        }
+
         var subscription = new Subscription
         {
             AccountId = accountId,
@@ -70,7 +85,6 @@ public class PaymentService : IPaymentService
         var payOs = CreatePayOsClient();
         var orderCode = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var description = TruncateForPayOs(plan.Name);
-        var expirationSeconds = _configuration.GetValue("PayOs:ExpirationSeconds", 900);
         var expiredAt = DateTimeOffset.UtcNow.AddSeconds(expirationSeconds).ToUnixTimeSeconds();
 
         var paymentData = new PaymentData(
@@ -147,13 +161,25 @@ public class PaymentService : IPaymentService
         if (post.Status != PostStatus.open)
             throw new InvalidOperationException($"Bài đăng đang ở trạng thái '{post.Status}', chỉ đẩy được bài đang mở.");
 
+        var expirationSeconds = _configuration.GetValue("PayOs:ExpirationSeconds", 900);
+
+        // Đã có link thanh toán còn hạn cho đúng bài đăng này → trả lại link cũ, không tạo mã mới.
+        var reusable = await FindReusablePendingTransactionAsync(
+            accountId, PaymentPurpose.post_boost, planId: null, postId: post.Id, expirationSeconds);
+        if (reusable != null)
+        {
+            _logger.LogInformation(
+                "Reused pending payOS post-boost link. Account {AccountId}, post {PostId}, orderCode {OrderCode}",
+                accountId, post.Id, reusable.OrderCode);
+            return ToPaymentResponse(reusable, expirationSeconds);
+        }
+
         var pricePerDay = _configuration.GetValue("PayOs:PostBoostPricePerDay", 20_000m);
         var amount = pricePerDay * request.Days;
 
         var payOs = CreatePayOsClient();
         var orderCode = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var description = TruncateForPayOs($"Day bai #{post.Id}");
-        var expirationSeconds = _configuration.GetValue("PayOs:ExpirationSeconds", 900);
         var expiredAt = DateTimeOffset.UtcNow.AddSeconds(expirationSeconds).ToUnixTimeSeconds();
 
         var paymentData = new PaymentData(
@@ -231,7 +257,7 @@ public class PaymentService : IPaymentService
         return subscriptions.Select(SubscriptionResponse.From).ToList();
     }
 
-    public async Task<PaymentStatusResponse> GetPaymentStatusAsync(long? orderCode, string? paymentLinkId)
+    public async Task<PaymentStatusResponse> GetPaymentStatusAsync(long accountId, long? orderCode, string? paymentLinkId)
     {
         if (orderCode == null && string.IsNullOrWhiteSpace(paymentLinkId))
             throw new ArgumentException("Cần cung cấp orderCode hoặc paymentLinkId.");
@@ -239,21 +265,67 @@ public class PaymentService : IPaymentService
         var transaction = await FindTransactionAsync(orderCode, paymentLinkId)
             ?? throw new KeyNotFoundException("Không tìm thấy giao dịch thanh toán.");
 
+        if (transaction.AccountId != accountId)
+            throw new UnauthorizedAccessException("Bạn không có quyền xem giao dịch này.");
+
         return PaymentStatusResponse.From(transaction);
     }
 
-    public async Task<PaymentStatusResponse> CancelPaymentAsync(long orderCode)
+    public async Task<PaymentStatusResponse> CancelPaymentAsync(long accountId, long orderCode)
     {
         var transaction = await FindTransactionAsync(orderCode, null)
             ?? throw new KeyNotFoundException($"Không tìm thấy giao dịch với orderCode {orderCode}.");
 
-        // Đã ở trạng thái cuối → trả nguyên trạng (idempotent, FE có thể gọi lại nhiều lần).
+        if (transaction.AccountId != accountId)
+            throw new UnauthorizedAccessException("Bạn không có quyền huỷ giao dịch này.");
+
+        // Đã ở trạng thái cuối → idempotent, trả nguyên trạng (FE có thể gọi lại nhiều lần).
         if (transaction.Status != PaymentTransactionStatus.pending)
             return PaymentStatusResponse.From(transaction);
 
-        MarkTransactionFailed(transaction, PaymentTransactionStatus.cancelled);
-        await _unitOfWork.CommitAsync();
+        bool claimed;
+        await using (var dbTransaction = await _unitOfWork.BeginTransactionAsync())
+        {
+            try
+            {
+                claimed = await TryClaimPendingTransactionAsync(transaction.Id, PaymentTransactionStatus.cancelled);
+                if (claimed)
+                {
+                    CancelPendingSubscriptionIfAny(transaction, DateTime.UtcNow);
+                    await _unitOfWork.CommitAsync();
+                }
+                await _unitOfWork.CommitTransactionAsync(dbTransaction);
+            }
+            catch
+            {
+                await _unitOfWork.RollbackTransactionAsync(dbTransaction);
+                throw;
+            }
+        }
 
+        if (!claimed)
+        {
+            // Thua race với webhook (VD payOS vừa báo paid ngay trước đó) — trả trạng thái mới nhất, KHÔNG huỷ.
+            var latest = await FindTransactionAsync(orderCode, null) ?? transaction;
+            return PaymentStatusResponse.From(latest);
+        }
+
+        // Huỷ link phía payOS để không còn thanh toán được nữa. Thiếu bước này thì user bấm "Huỷ"
+        // trên FE xong vẫn có thể lỡ quét/trả tiền qua link cũ — payOS trừ tiền thật nhưng webhook
+        // sẽ bị bỏ qua vì giao dịch nội bộ đã ở trạng thái cancelled, mất tiền mà không kích hoạt gì.
+        try
+        {
+            var payOs = CreatePayOsClient();
+            await payOs.cancelPaymentLink(orderCode, "Người dùng huỷ giao dịch.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "payOS cancelPaymentLink thất bại cho orderCode {OrderCode} (giao dịch vẫn được đánh dấu huỷ nội bộ, cần đối soát thủ công nếu user vẫn trả được tiền).",
+                orderCode);
+        }
+
+        transaction.Status = PaymentTransactionStatus.cancelled;
         _logger.LogInformation("Payment cancelled. OrderCode {OrderCode}", orderCode);
         return PaymentStatusResponse.From(transaction);
     }
@@ -281,38 +353,21 @@ public class PaymentService : IPaymentService
             return "Webhook hợp lệ nhưng không khớp giao dịch nội bộ.";
         }
 
-        if (transaction.Status != PaymentTransactionStatus.pending)
-            return "Giao dịch đã được xử lý trước đó.";
-
         var isPaid = webhook.success
             && string.Equals(webhook.code, "00", StringComparison.OrdinalIgnoreCase)
             && string.Equals(data.code, "00", StringComparison.OrdinalIgnoreCase);
 
-        if (isPaid)
-        {
-            if (transaction.Purpose == PaymentPurpose.post_boost)
-            {
-                ActivatePostBoost(transaction);
-                await _unitOfWork.CommitAsync();
-                _logger.LogInformation(
-                    "Post {PostId} boosted via payOS webhook. OrderCode {OrderCode}",
-                    transaction.PostId, transaction.OrderCode);
-                return "Thanh toán thành công — bài đăng đã được đẩy nổi bật.";
-            }
+        // KHÔNG early-return dựa trên transaction.Status đọc được ở trên — giá trị này có thể stale
+        // nếu một webhook khác (payOS retry gửi trùng) đang xử lý đồng thời. Quyền xử lý được "chốt"
+        // atomic bên trong ProcessPaymentOutcomeAsync (UPDATE ... WHERE status = pending ở tầng DB)
+        // để đảm bảo chỉ đúng MỘT lần gọi được phép kích hoạt subscription / cộng ngày boost.
+        var message = await ProcessPaymentOutcomeAsync(transaction, isPaid);
 
-            await ActivateSubscriptionAsync(transaction);
-            await _unitOfWork.CommitAsync();
-            _logger.LogInformation(
-                "Subscription {SubscriptionId} activated via payOS webhook. OrderCode {OrderCode}",
-                transaction.SubscriptionId, transaction.OrderCode);
-            return "Thanh toán thành công — subscription đã được kích hoạt.";
-        }
-
-        MarkTransactionFailed(transaction, PaymentTransactionStatus.failed);
-        await _unitOfWork.CommitAsync();
         _logger.LogInformation(
-            "payOS webhook reported failure. OrderCode {OrderCode}, code {Code}", transaction.OrderCode, data.code);
-        return "Đã ghi nhận giao dịch thất bại.";
+            "payOS webhook processed. OrderCode {OrderCode}, isPaid {IsPaid}, message {Message}",
+            transaction.OrderCode, isPaid, message);
+
+        return message;
     }
 
     public async Task ConfirmWebhookAsync(string webhookUrl)
@@ -336,7 +391,6 @@ public class PaymentService : IPaymentService
     {
         var now = DateTime.UtcNow;
         var subscriptionRepo = _unitOfWork.GetRepository<Subscription>();
-        var transactionRepo = _unitOfWork.GetRepository<PaymentTransaction>();
 
         // Subscription active đã quá hạn → expired.
         var overdue = await subscriptionRepo.GetListAsync(
@@ -347,30 +401,94 @@ public class PaymentService : IPaymentService
             subscription.UpdatedAt = now;
         }
         subscriptionRepo.UpdateRange(overdue);
+        if (overdue.Count > 0)
+            await _unitOfWork.CommitAsync();
 
         // Giao dịch pending mà link payOS chắc chắn đã hết hạn (quá hạn 1 giờ) → huỷ kèm subscription pending.
+        // Dùng claim atomic thay vì đọc-rồi-ghi để không đụng độ nếu đúng lúc webhook (payOS gửi trễ)
+        // hoặc user bấm cancel cũng đang xử lý cùng giao dịch này.
         var expirationSeconds = _configuration.GetValue("PayOs:ExpirationSeconds", 900);
         var staleBefore = now.AddSeconds(-expirationSeconds).AddHours(-1);
-        var staleTransactions = await transactionRepo.GetListAsync(
+        var staleTransactions = await _unitOfWork.GetRepository<PaymentTransaction>().GetListAsync(
             predicate: t => t.Status == PaymentTransactionStatus.pending && t.CreatedAt <= staleBefore,
             include: q => q.Include(t => t.Subscription));
-        foreach (var transaction in staleTransactions)
-            MarkTransactionFailed(transaction, PaymentTransactionStatus.cancelled);
 
-        if (overdue.Count > 0 || staleTransactions.Count > 0)
+        var cancelledCount = 0;
+        foreach (var transaction in staleTransactions)
         {
+            if (!await TryClaimPendingTransactionAsync(transaction.Id, PaymentTransactionStatus.cancelled))
+                continue; // đã bị webhook/cancel xử lý ngay trước khi job này chạy tới
+
+            cancelledCount++;
+            CancelPendingSubscriptionIfAny(transaction, now);
+        }
+        if (cancelledCount > 0)
             await _unitOfWork.CommitAsync();
+
+        if (overdue.Count > 0 || cancelledCount > 0)
             _logger.LogInformation(
                 "Subscription maintenance: {Expired} expired, {Cancelled} stale pending transactions cancelled.",
-                overdue.Count, staleTransactions.Count);
-        }
+                overdue.Count, cancelledCount);
     }
 
     /// <summary>
-    /// Kích hoạt subscription sau khi payOS xác nhận đã thanh toán.
+    /// Chốt kết quả webhook cho MỘT giao dịch: giành quyền xử lý atomic rồi mới áp side-effect
+    /// (kích hoạt subscription / cộng ngày boost, hoặc huỷ subscription pending nếu thất bại).
+    /// Bọc trong DB transaction để claim + side-effect + save cùng thành công hoặc cùng rollback.
+    /// </summary>
+    private async Task<string> ProcessPaymentOutcomeAsync(PaymentTransaction transaction, bool isPaid)
+    {
+        var newStatus = isPaid ? PaymentTransactionStatus.paid : PaymentTransactionStatus.failed;
+        bool claimed;
+
+        await using (var dbTransaction = await _unitOfWork.BeginTransactionAsync())
+        {
+            try
+            {
+                claimed = await TryClaimPendingTransactionAsync(transaction.Id, newStatus);
+                if (claimed)
+                {
+                    if (isPaid)
+                    {
+                        if (transaction.Purpose == PaymentPurpose.post_boost)
+                            ApplyPostBoostSideEffect(transaction);
+                        else
+                            await ApplySubscriptionSideEffectAsync(transaction);
+                    }
+                    else
+                    {
+                        CancelPendingSubscriptionIfAny(transaction, DateTime.UtcNow);
+                    }
+
+                    await _unitOfWork.CommitAsync();
+                }
+
+                await _unitOfWork.CommitTransactionAsync(dbTransaction);
+            }
+            catch
+            {
+                await _unitOfWork.RollbackTransactionAsync(dbTransaction);
+                throw;
+            }
+        }
+
+        if (!claimed)
+            return "Giao dịch đã được xử lý trước đó.";
+
+        if (!isPaid)
+            return "Đã ghi nhận giao dịch thất bại.";
+
+        return transaction.Purpose == PaymentPurpose.post_boost
+            ? "Thanh toán thành công — bài đăng đã được đẩy nổi bật."
+            : "Thanh toán thành công — subscription đã được kích hoạt.";
+    }
+
+    /// <summary>
+    /// Kích hoạt subscription sau khi payOS xác nhận đã thanh toán (transaction đã được claim atomic
+    /// trước đó — hàm này CHỈ áp side-effect, không tự set lại Status của transaction).
     /// Nếu account đang có gói active còn hạn thì cộng nối tiếp từ EndDate hiện tại.
     /// </summary>
-    private async Task ActivateSubscriptionAsync(PaymentTransaction transaction)
+    private async Task ApplySubscriptionSideEffectAsync(PaymentTransaction transaction)
     {
         var now = DateTime.UtcNow;
         var subscription = transaction.Subscription
@@ -392,17 +510,14 @@ public class PaymentService : IPaymentService
         subscription.PaidAmount = transaction.Amount;
         subscription.UpdatedAt = now;
         _unitOfWork.GetRepository<Subscription>().Update(subscription);
-
-        transaction.Status = PaymentTransactionStatus.paid;
-        transaction.UpdatedAt = now;
-        _unitOfWork.GetRepository<PaymentTransaction>().Update(transaction);
     }
 
     /// <summary>
-    /// Chốt boost sau khi payOS xác nhận đã thanh toán: cộng dồn số ngày vào BoostedUntil
-    /// (đang boost dở thì nối tiếp từ hạn hiện tại, hết boost thì tính từ bây giờ).
+    /// Chốt boost sau khi payOS xác nhận đã thanh toán (transaction đã được claim atomic trước đó):
+    /// cộng dồn số ngày vào BoostedUntil (đang boost dở thì nối tiếp từ hạn hiện tại, hết boost thì
+    /// tính từ bây giờ).
     /// </summary>
-    private void ActivatePostBoost(PaymentTransaction transaction)
+    private void ApplyPostBoostSideEffect(PaymentTransaction transaction)
     {
         var now = DateTime.UtcNow;
         var post = transaction.Post;
@@ -411,37 +526,81 @@ public class PaymentService : IPaymentService
             // Bài đăng đã bị xoá trước khi webhook về — vẫn ghi nhận giao dịch paid để đối soát.
             _logger.LogWarning(
                 "payOS webhook paid cho post boost nhưng post không còn. Transaction #{Id}", transaction.Id);
-        }
-        else
-        {
-            var baseTime = post.BoostedUntil.HasValue && post.BoostedUntil.Value > now
-                ? post.BoostedUntil.Value
-                : now;
-            post.BoostedUntil = baseTime.AddDays(transaction.BoostDays ?? 0);
-            post.UpdatedAt = now;
-            _unitOfWork.GetRepository<Post>().Update(post);
+            return;
         }
 
-        transaction.Status = PaymentTransactionStatus.paid;
-        transaction.UpdatedAt = now;
-        _unitOfWork.GetRepository<PaymentTransaction>().Update(transaction);
+        var baseTime = post.BoostedUntil.HasValue && post.BoostedUntil.Value > now
+            ? post.BoostedUntil.Value
+            : now;
+        post.BoostedUntil = baseTime.AddDays(transaction.BoostDays ?? 0);
+        post.UpdatedAt = now;
+        _unitOfWork.GetRepository<Post>().Update(post);
     }
 
-    /// <summary>Đánh dấu giao dịch cancelled/failed; subscription pending đi kèm (nếu có) cũng bị huỷ.</summary>
-    private void MarkTransactionFailed(PaymentTransaction transaction, PaymentTransactionStatus status)
+    /// <summary>Huỷ subscription pending đi kèm một giao dịch (nếu có) — dùng khi giao dịch bị huỷ/thất bại.</summary>
+    private void CancelPendingSubscriptionIfAny(PaymentTransaction transaction, DateTime now)
     {
-        var now = DateTime.UtcNow;
-        transaction.Status = status;
-        transaction.UpdatedAt = now;
-        _unitOfWork.GetRepository<PaymentTransaction>().Update(transaction);
+        if (transaction.Subscription is not { Status: SubscriptionStatus.pending }) return;
 
-        if (transaction.Subscription is { Status: SubscriptionStatus.pending })
-        {
-            transaction.Subscription.Status = SubscriptionStatus.cancelled;
-            transaction.Subscription.UpdatedAt = now;
-            _unitOfWork.GetRepository<Subscription>().Update(transaction.Subscription);
-        }
+        transaction.Subscription.Status = SubscriptionStatus.cancelled;
+        transaction.Subscription.UpdatedAt = now;
+        _unitOfWork.GetRepository<Subscription>().Update(transaction.Subscription);
     }
+
+    /// <summary>
+    /// Chuyển trạng thái giao dịch pending → newStatus bằng một câu UPDATE ... WHERE status = 'pending'
+    /// duy nhất — atomic ở tầng DB (Postgres khoá row trong lúc UPDATE), nên khi 2 nguồn xử lý cùng lúc
+    /// (payOS gửi webhook trùng do retry, hoặc webhook và user-cancel đụng nhau) chỉ đúng MỘT lệnh gọi
+    /// "thắng" (affected == 1); lệnh còn lại thấy status đã đổi nên affected == 0 và không được làm gì
+    /// tiếp. Đây là truy vấn có điều kiện mà GenericRepository.Update (attach + set toàn bộ Modified,
+    /// không có WHERE) không diễn đạt được, nên dùng thẳng _unitOfWork.Context cho riêng thao tác này.
+    /// </summary>
+    private async Task<bool> TryClaimPendingTransactionAsync(long transactionId, PaymentTransactionStatus newStatus)
+    {
+        var affected = await _unitOfWork.Context.Set<PaymentTransaction>()
+            .Where(t => t.Id == transactionId && t.Status == PaymentTransactionStatus.pending)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(t => t.Status, newStatus)
+                .SetProperty(t => t.UpdatedAt, DateTime.UtcNow));
+
+        return affected == 1;
+    }
+
+    /// <summary>
+    /// Tìm giao dịch pending còn trong hạn payOS (ExpirationSeconds) của account cho đúng mục tiêu
+    /// (planId cho subscription / postId cho post_boost) — dùng để tái sử dụng link cũ thay vì gọi
+    /// payOS tạo giao dịch mới mỗi lần user bấm "Thanh toán" (double-click, hoặc bấm cancel rồi bấm
+    /// lại trong lúc link cũ vẫn còn hạn).
+    /// </summary>
+    private Task<PaymentTransaction?> FindReusablePendingTransactionAsync(
+        long accountId, PaymentPurpose purpose, long? planId, long? postId, int expirationSeconds)
+    {
+        var notExpiredAfter = DateTime.UtcNow.AddSeconds(-expirationSeconds);
+
+        return _unitOfWork.GetRepository<PaymentTransaction>().SingleOrDefaultAsync(
+            predicate: t => t.AccountId == accountId
+                && t.Purpose == purpose
+                && t.Status == PaymentTransactionStatus.pending
+                && t.CreatedAt > notExpiredAfter
+                && (planId == null || (t.Subscription != null && t.Subscription.PlanId == planId))
+                && (postId == null || t.PostId == postId),
+            orderBy: q => q.OrderByDescending(t => t.CreatedAt));
+    }
+
+    private static CreatePaymentResponse ToPaymentResponse(PaymentTransaction t, int expirationSeconds) => new()
+    {
+        Purpose = t.Purpose.ToString(),
+        SubscriptionId = t.SubscriptionId,
+        PostId = t.PostId,
+        OrderCode = t.OrderCode,
+        PaymentLinkId = t.PaymentLinkId,
+        CheckoutUrl = t.CheckoutUrl,
+        QrCode = t.QrCode,
+        Amount = t.Amount,
+        // ExpiredAt gốc không được lưu riêng — suy lại từ CreatedAt + ExpirationSeconds, đúng bằng
+        // giá trị đã gửi cho payOS lúc tạo link (trừ khi config ExpirationSeconds vừa đổi giữa chừng).
+        ExpiredAt = new DateTimeOffset(t.CreatedAt, TimeSpan.Zero).AddSeconds(expirationSeconds).ToUnixTimeSeconds()
+    };
 
     private Task<PaymentTransaction?> FindTransactionAsync(long? orderCode, string? paymentLinkId)
     {
