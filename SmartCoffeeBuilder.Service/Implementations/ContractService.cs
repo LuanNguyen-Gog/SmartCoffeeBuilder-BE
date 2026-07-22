@@ -28,12 +28,17 @@ public class ContractService : IContractService
     private readonly IUnitOfWork<SmartCafeBuilderContext> _unitOfWork;
     private readonly IGenericRepository<Contract> _repository;
     private readonly IEmailService _emailService;
+    private readonly IFileStorageService _fileStorage;
 
-    public ContractService(IUnitOfWork<SmartCafeBuilderContext> unitOfWork, IEmailService emailService)
+    public ContractService(
+        IUnitOfWork<SmartCafeBuilderContext> unitOfWork,
+        IEmailService emailService,
+        IFileStorageService fileStorage)
     {
         _unitOfWork = unitOfWork;
         _repository = unitOfWork.GetRepository<Contract>();
         _emailService = emailService;
+        _fileStorage = fileStorage;
     }
 
     public async Task<PaginationResponse<ContractResponse>> GetAllAsync(
@@ -83,7 +88,8 @@ public class ContractService : IContractService
             PartyInfo = request.PartyInfo,
             Terms = request.Terms,
             AgreedValue = request.AgreedValue,
-            DocumentUrl = request.DocumentUrl,
+            // File hợp đồng phải upload qua api/files trước; giá trị gửi lên rút về ObjectName.
+            DocumentUrl = await _fileStorage.NormalizeForStorageAsync(request.DocumentUrl, "documentUrl"),
             Status = ContractStatus.drafted,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -108,11 +114,22 @@ public class ContractService : IContractService
         if (request.PartyInfo != null) contract.PartyInfo = request.PartyInfo;
         if (request.Terms != null) contract.Terms = request.Terms;
         if (request.AgreedValue != null) contract.AgreedValue = request.AgreedValue;
-        if (request.DocumentUrl != null) contract.DocumentUrl = request.DocumentUrl;
+
+        // File cũ bị thay thì dọn luôn object trên bucket (sau khi DB commit) để khỏi rác.
+        string? replacedDocument = null;
+        if (request.DocumentUrl != null)
+        {
+            var newDocument = await _fileStorage.NormalizeForStorageAsync(request.DocumentUrl, "documentUrl");
+            if (newDocument != contract.DocumentUrl) replacedDocument = contract.DocumentUrl;
+            contract.DocumentUrl = newDocument;
+        }
+
         contract.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(contract);
         await _unitOfWork.CommitAsync();
+
+        await _fileStorage.TryDeleteAsync(replacedDocument);
 
         return ContractResponse.From(contract);
     }

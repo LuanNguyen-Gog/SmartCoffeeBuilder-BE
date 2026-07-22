@@ -1,3 +1,5 @@
+using SmartCoffeeBuilder.Service.Utils;
+
 namespace SmartCoffeeBuilder.Service.DTOs.Responses.Contract;
 
 public class ContractResponse
@@ -8,7 +10,10 @@ public class ContractResponse
     public string? PartyInfo { get; set; }
     public string? Terms { get; set; }
     public decimal? AgreedValue { get; set; }
+    /// <summary>ObjectName file hợp đồng trên bucket — giá trị lưu trong DB.</summary>
     public string? DocumentUrl { get; set; }
+    /// <summary>URL public tuyệt đối của file hợp đồng — FE dùng thẳng để xem/tải.</summary>
+    public string? DocumentViewUrl { get; set; }
     public DateTime? OtpExpiresAt { get; set; }
     public DateTime? ConfirmedAt { get; set; }
     public long? ConfirmedBy { get; set; }
@@ -27,6 +32,7 @@ public class ContractResponse
         Terms = e.Terms,
         AgreedValue = e.AgreedValue,
         DocumentUrl = e.DocumentUrl,
+        DocumentViewUrl = MediaUrl.Resolve(e.DocumentUrl),
         OtpExpiresAt = e.OtpExpiresAt,
         ConfirmedAt = e.ConfirmedAt,
         ConfirmedBy = e.ConfirmedBy,

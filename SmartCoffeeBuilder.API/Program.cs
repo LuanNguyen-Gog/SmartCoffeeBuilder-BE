@@ -72,6 +72,10 @@ builder.Services.AddScoped<IPaymentService, PaymentService>();
 // File storage — Google Cloud Storage (StorageClient thread-safe nên đăng ký singleton).
 builder.Services.AddSingleton<IFileStorageService, GcsFileStorageService>();
 
+// Base URL public của bucket cho mọi response DTO (ObjectName trong DB → URL xem được).
+// Cấu hình ngay lúc startup vì singleton trên chỉ được khởi tạo ở request đầu tiên chạm file.
+SmartCoffeeBuilder.Service.Utils.MediaUrl.Configure(builder.Configuration);
+
 // Nới giới hạn request body theo Gcs:MaxFileSizeMb (+1MB headroom cho phần multipart boundary/header)
 // — mặc định Kestrel ~28MB sẽ chặn upload trước khi tới service.
 var maxUploadBytes = (builder.Configuration.GetValue("Gcs:MaxFileSizeMb", 10L) + 1) * 1024 * 1024;

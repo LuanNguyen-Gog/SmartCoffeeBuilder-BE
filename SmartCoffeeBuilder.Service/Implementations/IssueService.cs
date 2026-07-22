@@ -14,11 +14,13 @@ public class IssueService : IIssueService
 {
     private readonly IUnitOfWork<SmartCafeBuilderContext> _unitOfWork;
     private readonly IGenericRepository<Issue> _repository;
+    private readonly IFileStorageService _fileStorage;
 
-    public IssueService(IUnitOfWork<SmartCafeBuilderContext> unitOfWork)
+    public IssueService(IUnitOfWork<SmartCafeBuilderContext> unitOfWork, IFileStorageService fileStorage)
     {
         _unitOfWork = unitOfWork;
         _repository = unitOfWork.GetRepository<Issue>();
+        _fileStorage = fileStorage;
     }
 
     public async Task<PaginationResponse<IssueResponse>> GetAllAsync(
@@ -92,8 +94,9 @@ public class IssueService : IIssueService
             Cause = request.Cause,
             Reason = request.Reason,
             Solution = request.Solution,
-            IssueImage = request.IssueImage,
-            ConfirmImage = request.ConfirmImage,
+            // Ảnh phải upload qua api/files trước; giá trị gửi lên được rút về ObjectName.
+            IssueImage = await _fileStorage.NormalizeForStorageAsync(request.IssueImage, "issueImage"),
+            ConfirmImage = await _fileStorage.NormalizeForStorageAsync(request.ConfirmImage, "confirmImage"),
             EstimateAt = request.EstimateAt,
             Status = IssueStatus.open,
             CreatedBy = request.CreatedBy,
@@ -129,13 +132,32 @@ public class IssueService : IIssueService
         if (request.Cause != null) issue.Cause = request.Cause;
         if (request.Reason != null) issue.Reason = request.Reason;
         if (request.Solution != null) issue.Solution = request.Solution;
-        if (request.IssueImage != null) issue.IssueImage = request.IssueImage;
-        if (request.ConfirmImage != null) issue.ConfirmImage = request.ConfirmImage;
+        // Ảnh cũ bị thay thì dọn luôn object trên bucket (sau khi DB commit) để khỏi rác.
+        string? replacedIssueImage = null;
+        if (request.IssueImage != null)
+        {
+            var newImage = await _fileStorage.NormalizeForStorageAsync(request.IssueImage, "issueImage");
+            if (newImage != issue.IssueImage) replacedIssueImage = issue.IssueImage;
+            issue.IssueImage = newImage;
+        }
+
+        string? replacedConfirmImage = null;
+        if (request.ConfirmImage != null)
+        {
+            var newImage = await _fileStorage.NormalizeForStorageAsync(request.ConfirmImage, "confirmImage");
+            if (newImage != issue.ConfirmImage) replacedConfirmImage = issue.ConfirmImage;
+            issue.ConfirmImage = newImage;
+        }
+
         if (request.EstimateAt.HasValue) issue.EstimateAt = request.EstimateAt.Value;
         issue.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(issue);
         await _unitOfWork.CommitAsync();
+
+        // Ảnh vẫn được field còn lại dùng thì giữ lại.
+        if (replacedIssueImage != issue.ConfirmImage) await _fileStorage.TryDeleteAsync(replacedIssueImage);
+        if (replacedConfirmImage != issue.IssueImage) await _fileStorage.TryDeleteAsync(replacedConfirmImage);
 
         return IssueResponse.From(issue);
     }
@@ -179,5 +201,10 @@ public class IssueService : IIssueService
 
         _repository.Delete(issue);
         await _unitOfWork.CommitAsync();
+
+        // Dọn ảnh trên bucket sau khi DB đã commit (2 field có thể trỏ cùng 1 object).
+        await _fileStorage.TryDeleteAsync(issue.IssueImage);
+        if (issue.ConfirmImage != issue.IssueImage)
+            await _fileStorage.TryDeleteAsync(issue.ConfirmImage);
     }
 }

@@ -1,3 +1,5 @@
+using SmartCoffeeBuilder.Service.Utils;
+
 namespace SmartCoffeeBuilder.Service.DTOs.Responses.ConstructionTask;
 
 public class ConstructionTaskResponse
@@ -6,7 +8,10 @@ public class ConstructionTaskResponse
     public long ConstructionItemId { get; set; }
     public string Name { get; set; } = null!;
     public string? Description { get; set; }
+    /// <summary>ObjectName ảnh hiện trường trên bucket — giá trị lưu trong DB.</summary>
     public string? ImageUrl { get; set; }
+    /// <summary>URL public tuyệt đối của ảnh hiện trường — FE dùng thẳng làm img src.</summary>
+    public string? ImageViewUrl { get; set; }
     public DateOnly? EstimateAt { get; set; }
     public DateOnly? ActualAt { get; set; }
     public string? Reason { get; set; }
@@ -22,6 +27,7 @@ public class ConstructionTaskResponse
         Name = e.Name,
         Description = e.Description,
         ImageUrl = e.ImageUrl,
+        ImageViewUrl = MediaUrl.Resolve(e.ImageUrl),
         EstimateAt = e.EstimateAt,
         ActualAt = e.ActualAt,
         Reason = e.Reason,

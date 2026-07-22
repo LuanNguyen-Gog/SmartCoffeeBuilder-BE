@@ -3,6 +3,7 @@ using Google.Cloud.Storage.V1;
 using Microsoft.Extensions.Configuration;
 using SmartCoffeeBuilder.Service.DTOs.Responses.File;
 using SmartCoffeeBuilder.Service.Interfaces;
+using SmartCoffeeBuilder.Service.Utils;
 
 namespace SmartCoffeeBuilder.Service.Implementations;
 
@@ -28,7 +29,6 @@ public class GcsFileStorageService : IFileStorageService
     private static readonly string[] DocumentExtensions = [".pdf", ".doc", ".docx", ".xls", ".xlsx"];
 
     private readonly string _bucketName;
-    private readonly string _publicBaseUrl;
     private readonly long _maxFileSizeBytes;
     private readonly Lazy<StorageClient> _client;
 
@@ -36,9 +36,10 @@ public class GcsFileStorageService : IFileStorageService
     {
         _bucketName = configuration["Gcs:BucketName"]
             ?? throw new ApplicationException("Missing configuration: Gcs:BucketName");
-        _publicBaseUrl = (configuration["Gcs:PublicBaseUrl"]
-            ?? $"https://storage.googleapis.com/{_bucketName}").TrimEnd('/');
         _maxFileSizeBytes = configuration.GetValue("Gcs:MaxFileSizeMb", 10L) * 1024 * 1024;
+
+        // Base URL public dùng chung cho mọi response (DTO gọi MediaUrl.Resolve trực tiếp).
+        MediaUrl.Configure(configuration);
 
         // Client tạo lazy để app vẫn start được khi thiếu config GCS (chỉ fail lúc gọi api/files).
         var credentialsPath = configuration["Gcs:CredentialsPath"];
@@ -82,10 +83,51 @@ public class GcsFileStorageService : IFileStorageService
         {
             ObjectName = objectName,
             // URL public tuyệt đối — FE dùng thẳng (img src, mở tab ẩn danh đều xem được).
-            Url = $"{_publicBaseUrl}/{objectName}",
+            Url = GetPublicUrl(objectName)!,
             ContentType = uploaded.ContentType,
             SizeBytes = sizeBytes
         };
+    }
+
+    public string? GetPublicUrl(string? objectName) => MediaUrl.Resolve(objectName);
+
+    public async Task<bool> ExistsAsync(string objectName)
+    {
+        if (string.IsNullOrWhiteSpace(objectName)) return false;
+
+        try
+        {
+            await _client.Value.GetObjectAsync(_bucketName, objectName);
+            return true;
+        }
+        catch (Google.GoogleApiException ex) when (ex.HttpStatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return false;
+        }
+    }
+
+    public async Task<string?> NormalizeForStorageAsync(string? objectNameOrUrl, string fieldName)
+    {
+        if (string.IsNullOrWhiteSpace(objectNameOrUrl)) return null;
+
+        // Link ngoài (host khác) — hệ thống không quản lý file đó, giữ nguyên.
+        if (!MediaUrl.TryGetObjectName(objectNameOrUrl, out var objectName))
+            return objectNameOrUrl.Trim();
+
+        if (!await ExistsAsync(objectName))
+            throw new ArgumentException(
+                $"{fieldName} '{objectNameOrUrl}' không tồn tại trên bucket — " +
+                "upload qua api/files trước rồi gửi objectName mà API trả về.");
+
+        return objectName;
+    }
+
+    public async Task TryDeleteAsync(string? objectNameOrUrl)
+    {
+        if (!MediaUrl.TryGetObjectName(objectNameOrUrl, out var objectName)) return;
+
+        try { await DeleteAsync(objectName); }
+        catch (KeyNotFoundException) { }
     }
 
     public async Task<FileDownloadResult> DownloadAsync(string objectName)

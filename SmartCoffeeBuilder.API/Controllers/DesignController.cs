@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartCoffeeBuilder.Service.DTOs.Requests.Design;
 using SmartCoffeeBuilder.Service.Interfaces;
+using SmartCoffeeBuilder.Service.Utils;
 
 namespace SmartCoffeeBuilder.API.Controllers;
 
@@ -98,8 +99,10 @@ public class DesignController : ControllerBase
     }
 
     /// <summary>
-    /// Upload ảnh render hoặc file bản vẽ (pdf/office) cho design — lưu thẳng lên GCS (folder "designs").
-    /// Multipart form-data: file (bắt buộc), caption, uploadedBy. Không thêm được khi đã approved.
+    /// Upload ảnh render hoặc file bản vẽ (pdf/office) cho design — lưu lên GCS theo đúng quy ước
+    /// của api/files: object nằm ở "{role}/{accountId}/{yyyy}/{MM}/{guid}{ext}".
+    /// Multipart form-data: file (bắt buộc), caption, uploadedBy (mặc định = người đang đăng nhập).
+    /// Không thêm được khi design đã approved.
     /// </summary>
     [HttpPost("{id:long}/files")]
     public async Task<IActionResult> UploadFile(
@@ -112,7 +115,10 @@ public class DesignController : ControllerBase
 
         await using var stream = file.OpenReadStream();
         var result = await _designService.UploadFileAsync(
-            id, stream, file.FileName, file.ContentType, file.Length, caption, uploadedBy);
+            id, stream, file.FileName, file.ContentType, file.Length, caption,
+            // Không có uploadedBy thì lấy account từ token (giống FileController) — luôn có
+            // folder "{role}/{accountId}", không rơi vào folder chung.
+            uploadedBy ?? User.GetAccountId());
 
         return CreatedAtAction(nameof(GetById), new { id }, result);
     }

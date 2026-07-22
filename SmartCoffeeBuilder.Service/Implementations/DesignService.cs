@@ -235,8 +235,9 @@ public class DesignService : IDesignService
                 ?? throw new KeyNotFoundException($"Không tìm thấy account với id {uploadedBy}.");
         }
 
-        // Nhận cả ảnh render lẫn file bản vẽ (pdf/office). Lưu theo "{role}/{accountId}" của
-        // người upload; không có uploadedBy thì rơi về folder chung "designs".
+        // Nhận cả ảnh render lẫn file bản vẽ (pdf/office). Lưu theo "{role}/{accountId}" của người
+        // upload — cùng quy ước với api/files (controller luôn truyền account từ token nếu form
+        // không có uploadedBy); "designs" chỉ là chốt chặn cho caller không xác định được người upload.
         var folderPath = uploader != null ? $"{uploader.Role}/{uploader.Id}" : "designs";
         var uploaded = await _fileStorage.UploadAsync(content, fileName, contentType, sizeBytes, folderPath);
 
@@ -254,9 +255,8 @@ public class DesignService : IDesignService
         _repository.Update(design);
         await _unitOfWork.CommitAsync();
 
-        var response = DesignImageResponse.From(image);
-        response.ViewUrl = uploaded.Url;
-        return response;
+        // ViewUrl do DesignImageResponse.From resolve từ ObjectName — giống hệt uploaded.Url.
+        return DesignImageResponse.From(image);
     }
 
     public async Task RemoveFileAsync(long designId, long imageId)

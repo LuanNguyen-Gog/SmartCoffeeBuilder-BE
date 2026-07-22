@@ -1,3 +1,5 @@
+using SmartCoffeeBuilder.Service.Utils;
+
 namespace SmartCoffeeBuilder.Service.DTOs.Responses.Design;
 
 public class DesignImageResponse
@@ -17,6 +19,9 @@ public class DesignImageResponse
         Id = e.Id,
         DesignId = e.DesignId,
         ImageUrl = e.ImageUrl,
+        // Phải resolve ở mọi response (GET list/detail chứ không chỉ lúc upload) —
+        // nếu không FE nhận ObjectName trần và không hiển thị được ảnh từ bucket.
+        ViewUrl = MediaUrl.Resolve(e.ImageUrl),
         Caption = e.Caption,
         UploadedBy = e.UploadedBy,
         CreatedAt = e.CreatedAt

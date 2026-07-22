@@ -1,3 +1,5 @@
+using SmartCoffeeBuilder.Service.Utils;
+
 namespace SmartCoffeeBuilder.Service.DTOs.Responses.Issue;
 
 public class IssueResponse
@@ -10,8 +12,14 @@ public class IssueResponse
     public string? Cause { get; set; }
     public string? Reason { get; set; }
     public string? Solution { get; set; }
+    /// <summary>ObjectName ảnh hiện trạng lỗi trên bucket — giá trị lưu trong DB.</summary>
     public string? IssueImage { get; set; }
+    /// <summary>ObjectName ảnh nghiệm thu sau khắc phục — giá trị lưu trong DB.</summary>
     public string? ConfirmImage { get; set; }
+    /// <summary>URL public tuyệt đối của IssueImage — FE dùng thẳng làm img src.</summary>
+    public string? IssueImageViewUrl { get; set; }
+    /// <summary>URL public tuyệt đối của ConfirmImage — FE dùng thẳng làm img src.</summary>
+    public string? ConfirmImageViewUrl { get; set; }
     public DateOnly? EstimateAt { get; set; }
     public DateOnly? ActualAt { get; set; }
     public string Status { get; set; } = null!;
@@ -31,6 +39,8 @@ public class IssueResponse
         Solution = e.Solution,
         IssueImage = e.IssueImage,
         ConfirmImage = e.ConfirmImage,
+        IssueImageViewUrl = MediaUrl.Resolve(e.IssueImage),
+        ConfirmImageViewUrl = MediaUrl.Resolve(e.ConfirmImage),
         EstimateAt = e.EstimateAt,
         ActualAt = e.ActualAt,
         Status = e.Status.ToString(),
