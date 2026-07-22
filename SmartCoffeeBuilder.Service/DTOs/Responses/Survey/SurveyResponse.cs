@@ -1,3 +1,5 @@
+using SmartCoffeeBuilder.Service.Utils;
+
 namespace SmartCoffeeBuilder.Service.DTOs.Responses.Survey;
 
 public class SurveyResponse
@@ -6,7 +8,10 @@ public class SurveyResponse
     public long ProjectWorkingId { get; set; }
     public decimal Version { get; set; }
     public string ConditionNote { get; set; } = null!;
+    /// <summary>ObjectName file báo cáo khảo sát trên bucket — giá trị lưu trong DB.</summary>
     public string? ReportUrl { get; set; }
+    /// <summary>URL public tuyệt đối của file báo cáo — FE dùng thẳng để xem/tải.</summary>
+    public string? ReportViewUrl { get; set; }
     public long? CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
@@ -18,6 +23,7 @@ public class SurveyResponse
         Version = e.Version,
         ConditionNote = e.ConditionNote,
         ReportUrl = e.ReportUrl,
+        ReportViewUrl = MediaUrl.Resolve(e.ReportUrl),
         CreatedBy = e.CreatedBy,
         CreatedAt = e.CreatedAt,
         UpdatedAt = e.UpdatedAt

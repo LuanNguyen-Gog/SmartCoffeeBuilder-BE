@@ -14,11 +14,13 @@ public class SurveyService : ISurveyService
 {
     private readonly IUnitOfWork<SmartCafeBuilderContext> _unitOfWork;
     private readonly IGenericRepository<Survey> _repository;
+    private readonly IFileStorageService _fileStorage;
 
-    public SurveyService(IUnitOfWork<SmartCafeBuilderContext> unitOfWork)
+    public SurveyService(IUnitOfWork<SmartCafeBuilderContext> unitOfWork, IFileStorageService fileStorage)
     {
         _unitOfWork = unitOfWork;
         _repository = unitOfWork.GetRepository<Survey>();
+        _fileStorage = fileStorage;
     }
 
     public async Task<PaginationResponse<SurveyResponse>> GetAllAsync(
@@ -79,7 +81,8 @@ public class SurveyService : ISurveyService
             ProjectWorkingId = engagement.Id,
             Version = maxVersion + 0.1m,
             ConditionNote = request.ConditionNote,
-            ReportUrl = request.ReportUrl,
+            // File báo cáo phải upload qua api/files trước; giá trị gửi lên rút về ObjectName.
+            ReportUrl = await _fileStorage.NormalizeForStorageAsync(request.ReportUrl, "reportUrl"),
             CreatedBy = request.CreatedBy,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -97,11 +100,22 @@ public class SurveyService : ISurveyService
             ?? throw new KeyNotFoundException($"Không tìm thấy survey với id {id}.");
 
         if (request.ConditionNote != null) survey.ConditionNote = request.ConditionNote;
-        if (request.ReportUrl != null) survey.ReportUrl = request.ReportUrl;
+
+        // File cũ bị thay thì dọn luôn object trên bucket (sau khi DB commit) để khỏi rác.
+        string? replacedReport = null;
+        if (request.ReportUrl != null)
+        {
+            var newReport = await _fileStorage.NormalizeForStorageAsync(request.ReportUrl, "reportUrl");
+            if (newReport != survey.ReportUrl) replacedReport = survey.ReportUrl;
+            survey.ReportUrl = newReport;
+        }
+
         survey.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(survey);
         await _unitOfWork.CommitAsync();
+
+        await _fileStorage.TryDeleteAsync(replacedReport);
 
         return SurveyResponse.From(survey);
     }

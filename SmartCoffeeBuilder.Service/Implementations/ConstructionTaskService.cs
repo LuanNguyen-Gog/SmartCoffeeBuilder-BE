@@ -13,11 +13,14 @@ public class ConstructionTaskService : IConstructionTaskService
 {
     private readonly IUnitOfWork<SmartCafeBuilderContext> _unitOfWork;
     private readonly IGenericRepository<ConstructionTask> _repository;
+    private readonly IFileStorageService _fileStorage;
 
-    public ConstructionTaskService(IUnitOfWork<SmartCafeBuilderContext> unitOfWork)
+    public ConstructionTaskService(
+        IUnitOfWork<SmartCafeBuilderContext> unitOfWork, IFileStorageService fileStorage)
     {
         _unitOfWork = unitOfWork;
         _repository = unitOfWork.GetRepository<ConstructionTask>();
+        _fileStorage = fileStorage;
     }
 
     public async Task<PaginationResponse<ConstructionTaskResponse>> GetAllAsync(
@@ -73,7 +76,8 @@ public class ConstructionTaskService : IConstructionTaskService
             ConstructionItemId = item.Id,
             Name = request.Name,
             Description = request.Description,
-            ImageUrl = request.ImageUrl,
+            // Ảnh phải upload qua api/files trước; giá trị gửi lên được rút về ObjectName.
+            ImageUrl = await _fileStorage.NormalizeForStorageAsync(request.ImageUrl, "imageUrl"),
             EstimateAt = request.EstimateAt,
             Status = ItemStatus.pending,
             CreatedBy = request.CreatedBy,
@@ -97,13 +101,24 @@ public class ConstructionTaskService : IConstructionTaskService
 
         if (request.Name != null) task.Name = request.Name;
         if (request.Description != null) task.Description = request.Description;
-        if (request.ImageUrl != null) task.ImageUrl = request.ImageUrl;
+
+        // Ảnh cũ bị thay thì dọn luôn object trên bucket (sau khi DB commit) để khỏi rác.
+        string? replacedImage = null;
+        if (request.ImageUrl != null)
+        {
+            var newImage = await _fileStorage.NormalizeForStorageAsync(request.ImageUrl, "imageUrl");
+            if (newImage != task.ImageUrl) replacedImage = task.ImageUrl;
+            task.ImageUrl = newImage;
+        }
+
         if (request.EstimateAt.HasValue) task.EstimateAt = request.EstimateAt.Value;
         if (request.Reason != null) task.Reason = request.Reason;
         task.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(task);
         await _unitOfWork.CommitAsync();
+
+        await _fileStorage.TryDeleteAsync(replacedImage);
 
         return ConstructionTaskResponse.From(task);
     }
@@ -144,5 +159,8 @@ public class ConstructionTaskService : IConstructionTaskService
 
         _repository.Delete(task);
         await _unitOfWork.CommitAsync();
+
+        // Dọn ảnh hiện trường trên bucket sau khi DB đã commit.
+        await _fileStorage.TryDeleteAsync(task.ImageUrl);
     }
 }
