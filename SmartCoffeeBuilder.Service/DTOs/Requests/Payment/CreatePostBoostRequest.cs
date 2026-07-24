@@ -5,4 +5,7 @@ public class CreatePostBoostRequest
 {
     public long PostId { get; set; }
     public int Days { get; set; }
+
+    /// <summary>"web" (mặc định) hoặc "mobile" — quyết định cặp returnUrl/cancelUrl gửi cho payOS.</summary>
+    public string? Platform { get; set; }
 }

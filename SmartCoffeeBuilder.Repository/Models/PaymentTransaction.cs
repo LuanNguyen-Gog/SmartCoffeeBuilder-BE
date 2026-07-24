@@ -17,6 +17,12 @@ public class PaymentTransaction
     public long? PostId { get; set; }
     public int? BoostDays { get; set; }
     public long OrderCode { get; set; }
+
+    /// <summary>
+    /// Nền tảng đã tạo link này. Lưu lại để KHÔNG tái sử dụng link của web cho mobile (và ngược lại) —
+    /// returnUrl nhúng trong link payOS trỏ về sai domain thì FE bên kia không bắt được điểm quay về.
+    /// </summary>
+    public PaymentPlatform Platform { get; set; } = PaymentPlatform.web;
     public string PaymentLinkId { get; set; } = null!;
     public string CheckoutUrl { get; set; } = null!;
     public string QrCode { get; set; } = null!;

@@ -57,11 +57,15 @@ public class PaymentService : IPaymentService
 
         var expirationSeconds = _configuration.GetValue("PayOs:ExpirationSeconds", 900);
 
+        // Phân giải sớm để platform sai / config thiếu thì fail trước khi tạo subscription pending.
+        var platform = ParsePlatform(request.Platform);
+        var (returnUrl, cancelUrl) = GetRedirectUrls(platform);
+
         // Đã có link thanh toán còn hạn cho đúng gói này → trả lại link cũ thay vì tạo giao dịch mới.
         // Chống trường hợp bấm "Thanh toán" nhiều lần, hoặc bấm cancel rồi bấm thanh toán lại trước
         // khi hết 15 phút — cả hai đều sinh ra nhiều mã/nhiều subscription pending nếu không có bước này.
         var reusable = await FindReusablePendingTransactionAsync(
-            accountId, PaymentPurpose.subscription, planId: plan.Id, postId: null, expirationSeconds);
+            accountId, PaymentPurpose.subscription, platform, planId: plan.Id, postId: null, expirationSeconds);
         if (reusable != null)
         {
             _logger.LogInformation(
@@ -83,7 +87,7 @@ public class PaymentService : IPaymentService
         await _unitOfWork.CommitAsync();
 
         var payOs = CreatePayOsClient();
-        var orderCode = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var orderCode = await GenerateUniqueOrderCodeAsync();
         var description = TruncateForPayOs(plan.Name);
         var expiredAt = DateTimeOffset.UtcNow.AddSeconds(expirationSeconds).ToUnixTimeSeconds();
 
@@ -92,8 +96,8 @@ public class PaymentService : IPaymentService
             amount: (int)plan.Price,
             description: description,
             items: new List<ItemData> { new(plan.Name, 1, (int)plan.Price) },
-            returnUrl: GetRequiredSetting("PayOs:ReturnUrl"),
-            cancelUrl: GetRequiredSetting("PayOs:CancelUrl"),
+            returnUrl: returnUrl,
+            cancelUrl: cancelUrl,
             expiredAt: expiredAt);
 
         CreatePaymentResult link;
@@ -117,6 +121,7 @@ public class PaymentService : IPaymentService
             SubscriptionId = subscription.Id,
             AccountId = accountId,
             Purpose = PaymentPurpose.subscription,
+            Platform = platform,
             OrderCode = orderCode,
             PaymentLinkId = link.paymentLinkId,
             CheckoutUrl = link.checkoutUrl,
@@ -162,10 +167,12 @@ public class PaymentService : IPaymentService
             throw new InvalidOperationException($"Bài đăng đang ở trạng thái '{post.Status}', chỉ đẩy được bài đang mở.");
 
         var expirationSeconds = _configuration.GetValue("PayOs:ExpirationSeconds", 900);
+        var platform = ParsePlatform(request.Platform);
+        var (returnUrl, cancelUrl) = GetRedirectUrls(platform);
 
         // Đã có link thanh toán còn hạn cho đúng bài đăng này → trả lại link cũ, không tạo mã mới.
         var reusable = await FindReusablePendingTransactionAsync(
-            accountId, PaymentPurpose.post_boost, planId: null, postId: post.Id, expirationSeconds);
+            accountId, PaymentPurpose.post_boost, platform, planId: null, postId: post.Id, expirationSeconds);
         if (reusable != null)
         {
             _logger.LogInformation(
@@ -178,7 +185,7 @@ public class PaymentService : IPaymentService
         var amount = pricePerDay * request.Days;
 
         var payOs = CreatePayOsClient();
-        var orderCode = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var orderCode = await GenerateUniqueOrderCodeAsync();
         var description = TruncateForPayOs($"Day bai #{post.Id}");
         var expiredAt = DateTimeOffset.UtcNow.AddSeconds(expirationSeconds).ToUnixTimeSeconds();
 
@@ -187,8 +194,8 @@ public class PaymentService : IPaymentService
             amount: (int)amount,
             description: description,
             items: new List<ItemData> { new($"Đẩy bài {request.Days} ngày", 1, (int)amount) },
-            returnUrl: GetRequiredSetting("PayOs:ReturnUrl"),
-            cancelUrl: GetRequiredSetting("PayOs:CancelUrl"),
+            returnUrl: returnUrl,
+            cancelUrl: cancelUrl,
             expiredAt: expiredAt);
 
         CreatePaymentResult link;
@@ -206,6 +213,7 @@ public class PaymentService : IPaymentService
         {
             AccountId = accountId,
             Purpose = PaymentPurpose.post_boost,
+            Platform = platform,
             PostId = post.Id,
             BoostDays = request.Days,
             OrderCode = orderCode,
@@ -356,6 +364,19 @@ public class PaymentService : IPaymentService
         var isPaid = webhook.success
             && string.Equals(webhook.code, "00", StringComparison.OrdinalIgnoreCase)
             && string.Equals(data.code, "00", StringComparison.OrdinalIgnoreCase);
+
+        // Số tiền payOS báo đã nhận phải khớp số tiền chốt lúc tạo link. Lệch nghĩa là có gì đó sai
+        // (đọc nhầm giao dịch, đơn giá đổi giữa chừng, hoặc payload bị can thiệp) — TUYỆT ĐỐI không
+        // kích hoạt quyền lợi. Giữ nguyên trạng thái pending để con người vào đối soát; job dọn dẹp
+        // sẽ huỷ giao dịch này sau khi quá hạn, và tiền (nếu có thật) phải hoàn thủ công qua payOS.
+        if (isPaid && data.amount != (int)transaction.Amount)
+        {
+            _logger.LogError(
+                "payOS webhook LỆCH SỐ TIỀN — KHÔNG kích hoạt quyền lợi. OrderCode {OrderCode}, payOS báo {WebhookAmount}, hệ thống ghi {ExpectedAmount}. Cần đối soát thủ công.",
+                transaction.OrderCode, data.amount, transaction.Amount);
+
+            return "Số tiền không khớp với giao dịch nội bộ — giao dịch được giữ lại để đối soát thủ công.";
+        }
 
         // KHÔNG early-return dựa trên transaction.Status đọc được ở trên — giá trị này có thể stale
         // nếu một webhook khác (payOS retry gửi trùng) đang xử lý đồng thời. Quyền xử lý được "chốt"
@@ -571,15 +592,21 @@ public class PaymentService : IPaymentService
     /// (planId cho subscription / postId cho post_boost) — dùng để tái sử dụng link cũ thay vì gọi
     /// payOS tạo giao dịch mới mỗi lần user bấm "Thanh toán" (double-click, hoặc bấm cancel rồi bấm
     /// lại trong lúc link cũ vẫn còn hạn).
+    ///
+    /// Lọc thêm theo platform: returnUrl/cancelUrl được nhúng cứng vào link payOS lúc tạo, nên link
+    /// sinh từ web trả về domain web. Nếu đem link đó dùng lại cho app mobile thì WebView không bao
+    /// giờ thấy URL quay về để đóng → user kẹt ở màn thanh toán dù đã trả tiền xong.
     /// </summary>
     private Task<PaymentTransaction?> FindReusablePendingTransactionAsync(
-        long accountId, PaymentPurpose purpose, long? planId, long? postId, int expirationSeconds)
+        long accountId, PaymentPurpose purpose, PaymentPlatform platform,
+        long? planId, long? postId, int expirationSeconds)
     {
         var notExpiredAfter = DateTime.UtcNow.AddSeconds(-expirationSeconds);
 
         return _unitOfWork.GetRepository<PaymentTransaction>().SingleOrDefaultAsync(
             predicate: t => t.AccountId == accountId
                 && t.Purpose == purpose
+                && t.Platform == platform
                 && t.Status == PaymentTransactionStatus.pending
                 && t.CreatedAt > notExpiredAfter
                 && (planId == null || (t.Subscription != null && t.Subscription.PlanId == planId))
@@ -613,6 +640,28 @@ public class PaymentService : IPaymentService
                 .Include(t => t.Post));
     }
 
+    /// <summary>
+    /// Sinh orderCode duy nhất cho payOS. Mốc mili-giây đơn thuần là KHÔNG đủ: API chạy nhiều instance
+    /// (Cloud Run) nên hai request rơi đúng cùng một mili-giây sẽ sinh trùng mã, vi phạm unique index
+    /// `payment_transactions.order_code` — lỗi này nổ ra *sau khi* link payOS đã tạo xong, để lại link
+    /// mồ côi bên payOS mà hệ thống không có giao dịch nào đối chiếu.
+    /// Nhân 1000 rồi cộng nhiễu ngẫu nhiên (vẫn dưới trần 9.007e15 payOS cho phép) + kiểm tra DB trước
+    /// khi dùng. Unique index vẫn là chốt chặn cuối.
+    /// </summary>
+    private async Task<long> GenerateUniqueOrderCodeAsync()
+    {
+        var repo = _unitOfWork.GetRepository<PaymentTransaction>();
+
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            var candidate = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() * 1000 + Random.Shared.Next(1000);
+            if (await repo.CountAsync(t => t.OrderCode == candidate) == 0)
+                return candidate;
+        }
+
+        throw new InvalidOperationException("Không sinh được orderCode duy nhất cho payOS sau 5 lần thử.");
+    }
+
     private static string TruncateForPayOs(string value) =>
         value.Length > PayOsDescriptionMaxLength ? value[..PayOsDescriptionMaxLength] : value;
 
@@ -623,4 +672,49 @@ public class PaymentService : IPaymentService
 
     private string GetRequiredSetting(string key) =>
         _configuration[key] ?? throw new InvalidOperationException($"Missing configuration: {key}");
+
+    /// <summary>
+    /// Ép chuỗi platform do FE gửi về enum. Bỏ trống = web để FE web hiện tại không phải sửa gì.
+    /// KHÔNG nhận URL do FE truyền vào — chỉ nhận tên nền tảng rồi tự map sang config, nếu không
+    /// payOS sẽ thành bàn đạp open redirect (kẻ tấn công gửi returnUrl trỏ về site của họ).
+    /// </summary>
+    private static PaymentPlatform ParsePlatform(string? platform)
+    {
+        if (string.IsNullOrWhiteSpace(platform)) return PaymentPlatform.web;
+
+        return platform.Trim().ToLowerInvariant() switch
+        {
+            "web" => PaymentPlatform.web,
+            "mobile" => PaymentPlatform.mobile,
+            _ => throw new ArgumentException(
+                $"Platform '{platform}' không hợp lệ, chỉ nhận 'web' hoặc 'mobile'.")
+        };
+    }
+
+    /// <summary>
+    /// Lấy cặp returnUrl/cancelUrl của nền tảng tương ứng. Validate ngay tại đây vì payOS từ chối
+    /// URL không phải http/https tuyệt đối — sai config thì phải fail với thông báo rõ ràng ở BE,
+    /// thay vì để payOS trả về lỗi khó truy nguyên sau khi đã tạo subscription pending.
+    /// </summary>
+    private (string ReturnUrl, string CancelUrl) GetRedirectUrls(PaymentPlatform platform)
+    {
+        var (returnKey, cancelKey) = platform == PaymentPlatform.mobile
+            ? ("PayOs:MobileReturnUrl", "PayOs:MobileCancelUrl")
+            : ("PayOs:ReturnUrl", "PayOs:CancelUrl");
+
+        return (RequireAbsoluteHttpUrl(returnKey), RequireAbsoluteHttpUrl(cancelKey));
+    }
+
+    private string RequireAbsoluteHttpUrl(string key)
+    {
+        var value = GetRequiredSetting(key);
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        {
+            throw new InvalidOperationException(
+                $"Cấu hình {key} phải là URL http/https tuyệt đối (payOS không nhận deep link dạng 'app://'). Giá trị hiện tại: '{value}'.");
+        }
+
+        return value;
+    }
 }

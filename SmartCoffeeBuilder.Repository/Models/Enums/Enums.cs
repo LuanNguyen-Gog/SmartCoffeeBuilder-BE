@@ -54,4 +54,10 @@ public enum PaymentTransactionStatus { pending, paid, cancelled, failed }
 /// hay trả phí đẩy bài đăng tuyển provider lên đầu danh sách (post_boost).
 /// </summary>
 public enum PaymentPurpose { subscription, post_boost }
+
+/// <summary>
+/// Nền tảng khởi tạo giao dịch — quyết định cặp returnUrl/cancelUrl gửi cho payOS.
+/// Web và mobile nằm trên hai domain khác nhau nên link đã tạo cho bên này KHÔNG dùng lại được cho bên kia.
+/// </summary>
+public enum PaymentPlatform { web, mobile }
 #pragma warning restore CS8981

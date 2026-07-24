@@ -85,6 +85,7 @@ public class SmartCafeBuilderContext : DbContext
         configurationBuilder.Properties<SubscriptionStatus>().HaveConversion<string>().HaveMaxLength(30);
         configurationBuilder.Properties<PaymentTransactionStatus>().HaveConversion<string>().HaveMaxLength(30);
         configurationBuilder.Properties<PaymentPurpose>().HaveConversion<string>().HaveMaxLength(30);
+        configurationBuilder.Properties<PaymentPlatform>().HaveConversion<string>().HaveMaxLength(30);
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
