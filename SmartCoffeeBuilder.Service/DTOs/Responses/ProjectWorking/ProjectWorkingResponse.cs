@@ -1,4 +1,38 @@
+using SmartCoffeeBuilder.Service.Utils;
+using ContractModel = SmartCoffeeBuilder.Repository.Models.Contract;
+using ContractStatusEnum = SmartCoffeeBuilder.Repository.Models.Enums.ContractStatus;
+using ProjectWorkingModel = SmartCoffeeBuilder.Repository.Models.ProjectWorking;
+
 namespace SmartCoffeeBuilder.Service.DTOs.Responses.ProjectWorking;
+
+/// <summary>
+/// Contract hiện hành của engagement, đính kèm trong <see cref="ProjectWorkingResponse"/>.
+/// Chỉ chứa giá trị vô hướng — KHÔNG trỏ ngược về ProjectWorking nên không có vòng lặp
+/// khi serialize (ContractResponse đầy đủ vẫn lấy qua api/contracts).
+/// </summary>
+public class EngagementContractSummary
+{
+    public long Id { get; set; }
+    public string Title { get; set; } = null!;
+    public decimal? AgreedValue { get; set; }
+    /// <summary>URL public tuyệt đối của file hợp đồng — FE dùng thẳng để xem/tải.</summary>
+    public string? DocumentViewUrl { get; set; }
+    /// <summary>drafted | pending_otp | confirmed | cancelled</summary>
+    public string Status { get; set; } = null!;
+    public DateTime? ConfirmedAt { get; set; }
+    public DateTime CreatedAt { get; set; }
+
+    public static EngagementContractSummary From(ContractModel c) => new()
+    {
+        Id = c.Id,
+        Title = c.Title,
+        AgreedValue = c.AgreedValue,
+        DocumentViewUrl = MediaUrl.Resolve(c.DocumentUrl),
+        Status = c.Status.ToString(),
+        ConfirmedAt = c.ConfirmedAt,
+        CreatedAt = c.CreatedAt
+    };
+}
 
 public class ProjectWorkingResponse
 {
@@ -16,19 +50,43 @@ public class ProjectWorkingResponse
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
-    public static ProjectWorkingResponse From(SmartCoffeeBuilder.Repository.Models.ProjectWorking e) => new()
+    /// <summary>
+    /// Contract hiện hành CỦA RIÊNG engagement này — null nếu chưa lập hợp đồng.
+    /// Ưu tiên bản 'confirmed', sau đó tới bản mới nhất chưa bị huỷ.
+    /// </summary>
+    public EngagementContractSummary? Contract { get; set; }
+
+    /// <summary>
+    /// true = engagement đã ký (có contract 'confirmed') — mốc mở khoá design/construction_item.
+    /// FE dùng cờ này thay vì tự suy từ provider_status.
+    /// </summary>
+    public bool HasConfirmedContract { get; set; }
+
+    public static ProjectWorkingResponse From(ProjectWorkingModel e)
     {
-        Id = e.Id,
-        ProjectShopOwnerId = e.ProjectShopOwnerId,
-        ProjectName = e.ProjectShopOwner?.Name,
-        ServiceProviderProfileId = e.ServiceProviderProfileId,
-        ProviderDisplayName = e.ServiceProviderProfile?.DisplayName,
-        ApplyId = e.ApplyId,
-        ContractType = e.ContractType.ToString(),
-        Status = e.Status.ToString(),
-        RequestMessage = e.RequestMessage,
-        StartedAt = e.StartedAt,
-        CreatedAt = e.CreatedAt,
-        UpdatedAt = e.UpdatedAt
-    };
+        // Contracts phải được Include; không Include thì coi như chưa có dữ liệu contract.
+        var current = e.Contracts
+            .Where(c => c.Status != ContractStatusEnum.cancelled)
+            .OrderByDescending(c => c.Status == ContractStatusEnum.confirmed)
+            .ThenByDescending(c => c.CreatedAt)
+            .FirstOrDefault();
+
+        return new ProjectWorkingResponse
+        {
+            Id = e.Id,
+            ProjectShopOwnerId = e.ProjectShopOwnerId,
+            ProjectName = e.ProjectShopOwner?.Name,
+            ServiceProviderProfileId = e.ServiceProviderProfileId,
+            ProviderDisplayName = e.ServiceProviderProfile?.DisplayName,
+            ApplyId = e.ApplyId,
+            ContractType = e.ContractType.ToString(),
+            Status = e.Status.ToString(),
+            RequestMessage = e.RequestMessage,
+            StartedAt = e.StartedAt,
+            CreatedAt = e.CreatedAt,
+            UpdatedAt = e.UpdatedAt,
+            Contract = current != null ? EngagementContractSummary.From(current) : null,
+            HasConfirmedContract = current?.Status == ContractStatusEnum.confirmed
+        };
+    }
 }

@@ -47,7 +47,9 @@ public class ProjectWorkingService : IProjectWorkingService
                 e => (projectShopOwnerId == null || e.ProjectShopOwnerId == projectShopOwnerId)
                      && (serviceProviderProfileId == null || e.ServiceProviderProfileId == serviceProviderProfileId)
                      && (st == null || e.Status == st),
-                include: q => q.Include(e => e.ProjectShopOwner).Include(e => e.ServiceProviderProfile))
+                include: q => q.Include(e => e.ProjectShopOwner)
+                               .Include(e => e.ServiceProviderProfile)
+                               .Include(e => e.Contracts))
             .OrderByDescending(e => e.CreatedAt);
 
         var paged = await query.ToPaginationResponseAsync(pageNumber, pageSize);
@@ -61,7 +63,9 @@ public class ProjectWorkingService : IProjectWorkingService
     {
         var engagement = await _repository.SingleOrDefaultAsync(
             predicate: e => e.Id == id,
-            include: q => q.Include(e => e.ProjectShopOwner).Include(e => e.ServiceProviderProfile))
+            include: q => q.Include(e => e.ProjectShopOwner)
+                           .Include(e => e.ServiceProviderProfile)
+                           .Include(e => e.Contracts))
             ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {id}.");
 
         return ProjectWorkingResponse.From(engagement);
@@ -122,7 +126,9 @@ public class ProjectWorkingService : IProjectWorkingService
 
         var engagement = await _repository.SingleOrDefaultAsync(
             predicate: e => e.Id == id,
-            include: q => q.Include(e => e.ProjectShopOwner).Include(e => e.ServiceProviderProfile))
+            include: q => q.Include(e => e.ProjectShopOwner)
+                           .Include(e => e.ServiceProviderProfile)
+                           .Include(e => e.Contracts))
             ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {id}.");
 
         ValidateTransition(engagement, target);
