@@ -78,9 +78,9 @@ public class PostService : IPostService
             throw new ArgumentException(
                 $"ServiceKind '{request.ServiceKind}' không hợp lệ. Cho phép: design, construction, both.");
 
-        var deadline = ToUtc(request.SubmissionDeadline);
+        var deadline = ToDeadlineUtc(request.SubmissionDeadline);
         if (deadline.HasValue && deadline.Value <= DateTime.UtcNow)
-            throw new ArgumentException("SubmissionDeadline phải nằm trong tương lai.");
+            throw new ArgumentException("SubmissionDeadline phải là ngày hôm nay trở đi (theo giờ Việt Nam).");
 
         var post = new Post
         {
@@ -127,11 +127,11 @@ public class PostService : IPostService
             post.Status = status;
         }
 
-        var deadline = ToUtc(request.SubmissionDeadline);
+        var deadline = ToDeadlineUtc(request.SubmissionDeadline);
         if (deadline.HasValue)
         {
             if (deadline.Value <= DateTime.UtcNow)
-                throw new ArgumentException("SubmissionDeadline phải nằm trong tương lai.");
+                throw new ArgumentException("SubmissionDeadline phải là ngày hôm nay trở đi (theo giờ Việt Nam).");
             post.SubmissionDeadline = deadline;
         }
 
@@ -151,16 +151,15 @@ public class PostService : IPostService
         await _unitOfWork.CommitAsync();
     }
 
-    // Cột submission_deadline là `timestamp with time zone` — Npgsql chỉ ghi được DateTime Kind=Utc.
-    // JSON từ client có thể ra Kind=Local ("...+07:00") hoặc Unspecified ("...T00:00:00" không có Z),
-    // để nguyên sẽ ném InvalidCastException lúc SaveChanges. Unspecified coi như đã là UTC.
-    private static DateTime? ToUtc(DateTime? value) => value?.Kind switch
-    {
-        null => null,
-        DateTimeKind.Utc => value,
-        DateTimeKind.Local => value.Value.ToUniversalTime(),
-        _ => DateTime.SpecifyKind(value.Value, DateTimeKind.Utc)
-    };
+    /// <summary>Việt Nam không có DST nên offset cố định +07:00.</summary>
+    private static readonly TimeSpan VietNamOffset = TimeSpan.FromHours(7);
+
+    // Client chỉ gửi ngày (yyyy-MM-dd) → hạn chốt vào 23:59:59 cuối ngày đó theo giờ VN.
+    // Trả về DateTime Kind=Utc vì cột submission_deadline là `timestamp with time zone`,
+    // Npgsql chỉ ghi được Kind=Utc (Local/Unspecified ném InvalidCastException lúc SaveChanges).
+    private static DateTime? ToDeadlineUtc(DateOnly? date) => date is null
+        ? null
+        : new DateTimeOffset(date.Value.ToDateTime(new TimeOnly(23, 59, 59)), VietNamOffset).UtcDateTime;
 
     private static ServiceKind? ParseServiceKind(string? value)
     {

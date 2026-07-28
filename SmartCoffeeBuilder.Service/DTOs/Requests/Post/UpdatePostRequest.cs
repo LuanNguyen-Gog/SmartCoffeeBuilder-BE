@@ -15,5 +15,9 @@ public class UpdatePostRequest
     /// <summary>open | closed | cancelled</summary>
     public string? Status { get; set; }
 
-    public DateTime? SubmissionDeadline { get; set; }
+    /// <summary>
+    /// Ngày hết hạn nộp hồ sơ, định dạng yyyy-MM-dd (vd 2026-08-30).
+    /// Hạn thực tế được chốt vào 23:59:59 cuối ngày đó theo giờ Việt Nam.
+    /// </summary>
+    public DateOnly? SubmissionDeadline { get; set; }
 }
