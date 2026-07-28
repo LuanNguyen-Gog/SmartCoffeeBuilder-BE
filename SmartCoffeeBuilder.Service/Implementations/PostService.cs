@@ -78,7 +78,8 @@ public class PostService : IPostService
             throw new ArgumentException(
                 $"ServiceKind '{request.ServiceKind}' không hợp lệ. Cho phép: design, construction, both.");
 
-        if (request.SubmissionDeadline.HasValue && request.SubmissionDeadline.Value <= DateTime.UtcNow)
+        var deadline = ToUtc(request.SubmissionDeadline);
+        if (deadline.HasValue && deadline.Value <= DateTime.UtcNow)
             throw new ArgumentException("SubmissionDeadline phải nằm trong tương lai.");
 
         var post = new Post
@@ -88,7 +89,7 @@ public class PostService : IPostService
             Title = request.Title,
             Description = request.Description,
             Status = PostStatus.open,
-            SubmissionDeadline = request.SubmissionDeadline,
+            SubmissionDeadline = deadline,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -126,11 +127,12 @@ public class PostService : IPostService
             post.Status = status;
         }
 
-        if (request.SubmissionDeadline.HasValue)
+        var deadline = ToUtc(request.SubmissionDeadline);
+        if (deadline.HasValue)
         {
-            if (request.SubmissionDeadline.Value <= DateTime.UtcNow)
+            if (deadline.Value <= DateTime.UtcNow)
                 throw new ArgumentException("SubmissionDeadline phải nằm trong tương lai.");
-            post.SubmissionDeadline = request.SubmissionDeadline;
+            post.SubmissionDeadline = deadline;
         }
 
         post.UpdatedAt = DateTime.UtcNow;
@@ -148,6 +150,17 @@ public class PostService : IPostService
         _repository.Delete(post);
         await _unitOfWork.CommitAsync();
     }
+
+    // Cột submission_deadline là `timestamp with time zone` — Npgsql chỉ ghi được DateTime Kind=Utc.
+    // JSON từ client có thể ra Kind=Local ("...+07:00") hoặc Unspecified ("...T00:00:00" không có Z),
+    // để nguyên sẽ ném InvalidCastException lúc SaveChanges. Unspecified coi như đã là UTC.
+    private static DateTime? ToUtc(DateTime? value) => value?.Kind switch
+    {
+        null => null,
+        DateTimeKind.Utc => value,
+        DateTimeKind.Local => value.Value.ToUniversalTime(),
+        _ => DateTime.SpecifyKind(value.Value, DateTimeKind.Utc)
+    };
 
     private static ServiceKind? ParseServiceKind(string? value)
     {
