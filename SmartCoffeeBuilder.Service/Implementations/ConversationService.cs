@@ -221,7 +221,8 @@ public class ConversationService : IConversationService
         var messageRepo = _unitOfWork.GetRepository<MessageModel>();
         var lastMessages = await messageRepo.GetListAsync(
             predicate: m => convIds.Contains(m.ConversationId),
-            orderBy: q => q.OrderByDescending(m => m.SentAt).ThenByDescending(m => m.Id));
+            orderBy: q => q.OrderByDescending(m => m.SentAt).ThenByDescending(m => m.Id),
+            include: q => q.Include(m => m.Sender).Include(m => m.Attachments));
         var groupedLast = lastMessages
             .GroupBy(m => m.ConversationId)
             .ToDictionary(g => g.Key, g => g.First());
