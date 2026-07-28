@@ -50,6 +50,7 @@ public class SmartCafeBuilderContext : DbContext
     // Nhóm 8 — Giao tiếp
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<Message> Messages => Set<Message>();
+    public DbSet<MessageAttachment> MessageAttachments => Set<MessageAttachment>();
     public DbSet<Notification> Notifications => Set<Notification>();
 
     // Nhóm 9 — Đánh giá
@@ -355,24 +356,42 @@ public class SmartCafeBuilderContext : DbContext
         });
 
         // ───────── Nhóm 8 — Giao tiếp ─────────
+        // Conversation = thread trong một engagement; Message là tin nhắn trong thread;
+        // MessageAttachment là file/ảnh đính kèm (nhiều file / 1 message).
         modelBuilder.Entity<Conversation>(e =>
         {
-            e.Property(x => x.ProjectWorkingId).HasColumnName("project_provider_id");
-            e.HasIndex(x => x.ProjectWorkingId).HasDatabaseName("ix_conversations_project_provider_id");
+            e.Property(x => x.ProjectWorkingId).HasColumnName("project_working_id");
+            e.HasIndex(x => x.ProjectWorkingId).HasDatabaseName("ix_conversations_project_working_id");
             e.Property(x => x.Topic).HasMaxLength(200);
             e.HasOne(x => x.ProjectWorking).WithMany(p => p.Conversations)
                 .HasForeignKey(x => x.ProjectWorkingId).OnDelete(DeleteBehavior.Cascade)
-                .HasConstraintName("fk_conversations_project_providers_project_provider_id");
+                .HasConstraintName("fk_conversations_project_workings_project_working_id");
+            e.HasOne(x => x.CreatedByAccount).WithMany()
+                .HasForeignKey(x => x.CreatedBy).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Message>(e =>
         {
+            e.Property(x => x.Body).HasColumnName("body");
             e.HasIndex(x => x.ConversationId);
             e.HasIndex(x => x.SenderId);
             e.HasOne(x => x.Conversation).WithMany(c => c.Messages)
-                .HasForeignKey(x => x.ConversationId).OnDelete(DeleteBehavior.Cascade);
+                .HasForeignKey(x => x.ConversationId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_messages_conversations_conversation_id");
             e.HasOne(x => x.Sender).WithMany()
-                .HasForeignKey(x => x.SenderId).OnDelete(DeleteBehavior.Restrict);
+                .HasForeignKey(x => x.SenderId).OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("fk_messages_accounts_sender_id");
+        });
+
+        modelBuilder.Entity<MessageAttachment>(e =>
+        {
+            e.Property(x => x.Url).HasColumnName("url").HasMaxLength(500);
+            e.Property(x => x.FileName).HasMaxLength(255);
+            e.Property(x => x.ContentType).HasMaxLength(100);
+            e.HasIndex(x => x.MessageId);
+            e.HasOne(x => x.Message).WithMany(m => m.Attachments)
+                .HasForeignKey(x => x.MessageId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_message_attachments_messages_message_id");
         });
 
         modelBuilder.Entity<Notification>(e =>
