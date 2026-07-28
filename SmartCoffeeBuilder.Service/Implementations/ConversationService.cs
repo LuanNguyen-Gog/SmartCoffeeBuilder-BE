@@ -39,7 +39,8 @@ public class ConversationService : IConversationService
         var engagement = await EnsureMemberAsync(accountId, projectWorkingId);
 
         var conversations = await _unitOfWork.GetRepository<ConversationModel>().GetListAsync(
-            predicate: c => c.ProjectWorkingId == engagement.Id);
+            predicate: c => c.ProjectWorkingId == engagement.Id,
+            include: q => q.Include(c => c.CreatedByAccount));
 
         // Sort theo UpdatedAt DESC; các thread cùng UpdatedAt ổn định theo CreatedAt DESC.
         var sorted = conversations
