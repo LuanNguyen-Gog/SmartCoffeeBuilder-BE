@@ -20,6 +20,8 @@ using SmartCoffeeBuilder.Service.Messaging;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Configuration.AddJsonFile("/secrets/appsettings.json", optional: true, reloadOnChange: false);
+
 // Database
 builder.Services.AddDbContext<SmartCafeBuilderContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
