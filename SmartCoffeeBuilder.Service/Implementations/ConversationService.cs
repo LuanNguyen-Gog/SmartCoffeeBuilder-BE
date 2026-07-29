@@ -40,8 +40,16 @@ public class ConversationService : IConversationService
 
         var engagement = await EnsureMemberAsync(accountId, projectWorkingId);
 
+        // Lấy tất cả engagement (ProjectWorking) của cùng project để cả owner + các provider accepted
+        // đều thấy thread của nhau — thread gắn với project, không gắn với từng engagement.
+        var pwRepo = _unitOfWork.GetRepository<ProjectWorkingModel>();
+        var allEngagementIds = (await pwRepo.GetListAsync(
+            predicate: p => p.ProjectShopOwnerId == engagement.ProjectShopOwnerId))
+            .Select(p => p.Id)
+            .ToList();
+
         var conversations = await _unitOfWork.GetRepository<ConversationModel>().GetListAsync(
-            predicate: c => c.ProjectWorkingId == engagement.Id,
+            predicate: c => allEngagementIds.Contains(c.ProjectWorkingId),
             include: q => q.Include(c => c.CreatedByAccount));
 
         // Sort theo UpdatedAt DESC; các thread cùng UpdatedAt ổn định theo CreatedAt DESC.
@@ -99,9 +107,15 @@ public class ConversationService : IConversationService
     {
         var engagement = await EnsureMemberAsync(accountId, request.ProjectWorkingId);
 
-        // Tính số thread hiện tại của engagement → auto-name "Thread #N" nếu topic rỗng.
+        // Đếm tất cả thread của project (mọi engagement) để auto-name "Thread #N" không trùng.
+        var pwRepo = _unitOfWork.GetRepository<ProjectWorkingModel>();
+        var allEngagementIds = (await pwRepo.GetListAsync(
+            predicate: p => p.ProjectShopOwnerId == engagement.ProjectShopOwnerId))
+            .Select(p => p.Id)
+            .ToList();
+
         var existingCount = await _unitOfWork.GetRepository<ConversationModel>()
-            .CountAsync(c => c.ProjectWorkingId == engagement.Id);
+            .CountAsync(c => allEngagementIds.Contains(c.ProjectWorkingId));
 
         var topic = string.IsNullOrWhiteSpace(request.Topic)
             ? $"Thread #{existingCount + 1}"
