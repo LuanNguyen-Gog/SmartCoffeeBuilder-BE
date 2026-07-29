@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using SmartCoffeeBuilder.Repository.DBContext;
 using SmartCoffeeBuilder.Repository.Interfaces;
+using SmartCoffeeBuilder.Repository.Models;
+using SmartCoffeeBuilder.Repository.Models.Enums;
 using ConversationModel = SmartCoffeeBuilder.Repository.Models.Conversation;
 using MessageModel = SmartCoffeeBuilder.Repository.Models.Message;
 using ProjectWorkingModel = SmartCoffeeBuilder.Repository.Models.ProjectWorking;
@@ -180,15 +182,22 @@ public class ConversationService : IConversationService
     /// </summary>
     private async Task<ProjectWorkingModel> EnsureMemberAsync(long accountId, long projectWorkingId)
     {
+        // Load engagement để trả về thông tin project.
         var pw = await _unitOfWork.GetRepository<ProjectWorkingModel>().SingleOrDefaultAsync(
             predicate: p => p.Id == projectWorkingId,
-            include: q => q.Include(p => p.ProjectShopOwner).ThenInclude(s => s.Owner)
-                           .Include(p => p.ServiceProviderProfile))
+            include: q => q.Include(p => p.ProjectShopOwner).ThenInclude(s => s.Owner))
             ?? throw new KeyNotFoundException($"Không tìm thấy engagement với id {projectWorkingId}.");
 
-        var isMember = pw.ProjectShopOwner.Owner.AccountId == accountId
-                       || pw.ServiceProviderProfile.AccountId == accountId;
-        if (!isMember)
+        // Owner: luôn là member.
+        if (pw.ProjectShopOwner.Owner.AccountId == accountId)
+            return pw;
+
+        // Provider: phải có ProjectWorking accepted cho cùng project này và accountId khớp.
+        var otherPws = await _unitOfWork.GetRepository<ProjectWorkingModel>().GetListAsync(
+            predicate: p => p.ProjectShopOwnerId == pw.ProjectShopOwnerId
+                            && p.ServiceProviderProfile.AccountId == accountId
+                            && p.Status == ProviderStatus.accepted);
+        if (!otherPws.Any())
             throw new UnauthorizedAccessException(
                 "Account không thuộc engagement này — không có quyền truy cập thread chat.");
 
