@@ -67,6 +67,7 @@ builder.Services.AddScoped<IIssueTypeService, IssueTypeService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddScoped<IContractService, ContractService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
 
 // Chat theo thread (group chat kiểu Discord) — polling thay vì SignalR.
 builder.Services.AddScoped<IConversationService, ConversationService>();
