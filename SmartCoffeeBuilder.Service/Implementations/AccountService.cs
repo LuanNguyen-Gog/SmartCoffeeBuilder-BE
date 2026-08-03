@@ -110,4 +110,56 @@ public class AccountService : IAccountService
         _repository.Update(account);
         await _unitOfWork.CommitAsync();
     }
+
+    public async Task<PaginationResponse<AccountResponse>> SearchAsync(
+        int pageNumber = 1, int pageSize = 10,
+        string? role = null, string? status = null, string? search = null, bool includeDeleted = false)
+    {
+        AccountRole? roleFilter = null;
+        if (!string.IsNullOrWhiteSpace(role))
+        {
+            if (!Enum.TryParse<AccountRole>(role, ignoreCase: true, out var parsedRole))
+                throw new ArgumentException($"Role '{role}' không hợp lệ. Cho phép: owner, provider, admin.");
+            roleFilter = parsedRole;
+        }
+
+        AccountStatus? statusFilter = null;
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            if (!Enum.TryParse<AccountStatus>(status, ignoreCase: true, out var parsedStatus))
+                throw new ArgumentException($"Status '{status}' không hợp lệ. Cho phép: active, inactive, banned, pending.");
+            statusFilter = parsedStatus;
+        }
+
+        var term = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
+
+        var paged = await _repository
+            .GetQueryable(a =>
+                (includeDeleted || a.DeletedAt == null)
+                && (roleFilter == null || a.Role == roleFilter)
+                && (statusFilter == null || a.Status == statusFilter)
+                && (term == null || a.Email.Contains(term) || (a.Phone != null && a.Phone.Contains(term))))
+            .OrderByDescending(a => a.CreatedAt)
+            .ToPaginationResponseAsync(pageNumber, pageSize);
+
+        return new PaginationResponse<AccountResponse>(
+            paged.Items.Select(AccountResponse.From),
+            paged.TotalItems, paged.PageNumber, paged.PageSize);
+    }
+
+    public async Task<AccountResponse> SetStatusAsync(long id, string status)
+    {
+        if (!Enum.TryParse<AccountStatus>(status, ignoreCase: true, out var parsedStatus))
+            throw new ArgumentException($"Status '{status}' không hợp lệ. Cho phép: active, inactive, banned, pending.");
+
+        var account = await _repository.SingleOrDefaultAsync(predicate: a => a.Id == id && a.DeletedAt == null)
+            ?? throw new KeyNotFoundException($"Không tìm thấy account với id {id}.");
+
+        account.Status = parsedStatus;
+        account.UpdatedAt = DateTime.UtcNow;
+        _repository.Update(account);
+        await _unitOfWork.CommitAsync();
+
+        return AccountResponse.From(account);
+    }
 }

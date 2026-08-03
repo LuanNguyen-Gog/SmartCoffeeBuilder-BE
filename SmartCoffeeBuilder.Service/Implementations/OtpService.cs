@@ -14,6 +14,8 @@ namespace SmartCoffeeBuilder.Service.Implementations;
 /// Mỗi mã sống 1 chu kỳ (Otp:StepSeconds = 60s); mã chu kỳ trước được chấp nhận
 /// thêm Otp:FlexSeconds (5s) sau khi đổi chu kỳ. Hangfire gọi RefreshOtpsAsync
 /// mỗi phút để cập nhật mã trong DB và dọn các OTP đã dùng / hết hạn.
+/// Khi gửi, nếu chu kỳ hiện tại còn ≤ Otp:LookAheadSeconds (30s) thì gửi luôn mã chu kỳ
+/// KẾ TIẾP (và verify cũng chấp nhận mã đó) để tránh mã hết hạn trước khi người dùng kịp nhập.
 /// </summary>
 public class OtpService : IOtpService
 {
@@ -45,6 +47,8 @@ public class OtpService : IOtpService
     private int StepSeconds => int.Parse(_configuration["Otp:StepSeconds"] ?? "60");
     private int FlexSeconds => int.Parse(_configuration["Otp:FlexSeconds"] ?? "5");
     private int RequestExpiryMinutes => int.Parse(_configuration["Otp:RequestExpiryMinutes"] ?? "5");
+    // Nếu chu kỳ hiện tại còn ≤ ngần này giây thì gửi mã chu kỳ kế tiếp (tránh mã hết hạn ngay khi vừa gửi).
+    private int LookAheadSeconds => int.Parse(_configuration["Otp:LookAheadSeconds"] ?? "30");
 
     public async Task SendOtpAsync(string email)
     {
@@ -62,12 +66,12 @@ public class OtpService : IOtpService
                 CreatedAt = DateTime.UtcNow,
                 ExpiresAt = DateTime.UtcNow.AddMinutes(RequestExpiryMinutes)
             };
-            RefreshCodes(otp);
+            SetDeliveryCode(otp);
             await _otpRepository.AddAsync(otp);
         }
         else
         {
-            RefreshCodes(otp);
+            SetDeliveryCode(otp);
             await _otpRepository.SaveChangesAsync();
         }
 
@@ -95,7 +99,7 @@ public class OtpService : IOtpService
 
         // Verify tính TOTP trực tiếp từ secret + accountId (không phụ thuộc job refresh chạy đúng giờ):
         // nhận mã chu kỳ hiện tại, hoặc mã chu kỳ trước trong FlexSeconds đầu chu kỳ mới.
-        if (!TotpGenerator.VerifyWithFlex(AppSecretKey, account.Id, code, StepSeconds, CodeLength, FlexSeconds))
+        if (!TotpGenerator.VerifyWithFlex(AppSecretKey, account.Id, code, StepSeconds, CodeLength, FlexSeconds, LookAheadSeconds))
         {
             otp.FailedAttempts++;
             if (otp.FailedAttempts >= MaxVerifyAttempts)
@@ -142,6 +146,21 @@ public class OtpService : IOtpService
     }
 
     // ──────────────────────────────────────────────────────────────
+    /// <summary>
+    /// Gán mã để GỬI cho người dùng: nếu chu kỳ hiện tại sắp hết (còn ≤ LookAheadSeconds giây)
+    /// thì dùng mã chu kỳ KẾ TIẾP để người dùng có đủ thời gian nhập. Giữ mã cũ vào PreviousCode.
+    /// </summary>
+    private void SetDeliveryCode(Otp otp)
+    {
+        var (code, stepStart, _) = TotpGenerator.ComputeDeliveryCode(
+            AppSecretKey, otp.AccountId, StepSeconds, CodeLength, LookAheadSeconds);
+        if (code == otp.CurrentCode) return;
+
+        otp.PreviousCode = string.IsNullOrEmpty(otp.CurrentCode) ? null : otp.CurrentCode;
+        otp.CurrentCode = code;
+        otp.CodeRefreshedAt = stepStart;
+    }
+
     /// <summary>Cập nhật CurrentCode theo chu kỳ TOTP hiện tại, giữ mã cũ vào PreviousCode.</summary>
     private void RefreshCodes(Otp otp)
     {

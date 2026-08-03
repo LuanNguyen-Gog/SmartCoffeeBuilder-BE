@@ -67,6 +67,11 @@ builder.Services.AddScoped<IIssueTypeService, IssueTypeService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddScoped<IContractService, ContractService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
+
+// Chat theo thread (group chat kiểu Discord) — polling thay vì SignalR.
+builder.Services.AddScoped<IConversationService, ConversationService>();
+builder.Services.AddScoped<IChatMessageService, ChatMessageService>();
 
 // Thanh toán phí nền tảng qua payOS (config section "PayOs" — ClientId/ApiKey/ChecksumKey/ReturnUrl/CancelUrl).
 builder.Services.AddScoped<IPaymentService, PaymentService>();
@@ -79,8 +84,10 @@ builder.Services.AddSingleton<IFileStorageService, GcsFileStorageService>();
 SmartCoffeeBuilder.Service.Utils.MediaUrl.Configure(builder.Configuration);
 
 // Nới giới hạn request body theo Gcs:MaxFileSizeMb (+1MB headroom cho phần multipart boundary/header)
-// — mặc định Kestrel ~28MB sẽ chặn upload trước khi tới service.
-var maxUploadBytes = (builder.Configuration.GetValue("Gcs:MaxFileSizeMb", 10L) + 1) * 1024 * 1024;
+// — mặc định Kestrel ~28MB sẽ chặn upload trước khi tới service. Chat cho phép multi-file
+// trong 1 request nên đặt tối thiểu 50MB nếu cấu hình nhỏ hơn.
+var gcsMaxMb = Math.Max(builder.Configuration.GetValue("Gcs:MaxFileSizeMb", 10L), 50L);
+var maxUploadBytes = (gcsMaxMb + 1) * 1024 * 1024;
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = maxUploadBytes);
 builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
     options.MultipartBodyLengthLimit = maxUploadBytes);
