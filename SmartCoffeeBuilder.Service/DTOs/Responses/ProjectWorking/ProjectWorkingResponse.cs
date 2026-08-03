@@ -2,6 +2,7 @@ using SmartCoffeeBuilder.Service.Utils;
 using ContractModel = SmartCoffeeBuilder.Repository.Models.Contract;
 using ContractStatusEnum = SmartCoffeeBuilder.Repository.Models.Enums.ContractStatus;
 using ProjectWorkingModel = SmartCoffeeBuilder.Repository.Models.ProjectWorking;
+using ProviderStatusEnum = SmartCoffeeBuilder.Repository.Models.Enums.ProviderStatus;
 
 namespace SmartCoffeeBuilder.Service.DTOs.Responses.ProjectWorking;
 
@@ -50,6 +51,19 @@ public class ProjectWorkingResponse
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
+    /// <summary>Mốc provider xin nghiệm thu — null nếu provider chưa báo xong việc.</summary>
+    public DateTime? CompletionRequestedAt { get; set; }
+
+    /// <summary>Ghi chú bàn giao provider gửi kèm khi xin nghiệm thu.</summary>
+    public string? CompletionRequestNote { get; set; }
+
+    /// <summary>
+    /// true = provider đã báo xong việc và đang chờ owner bấm nghiệm thu.
+    /// DERIVED (status 'accepted' + có completionRequestedAt) — không phải trạng thái lưu trong DB.
+    /// FE dùng cờ này để hiện nút "Nghiệm thu" cho owner.
+    /// </summary>
+    public bool IsAwaitingAcceptance { get; set; }
+
     /// <summary>
     /// Contract hiện hành CỦA RIÊNG engagement này — null nếu chưa lập hợp đồng.
     /// Ưu tiên bản 'confirmed', sau đó tới bản mới nhất chưa bị huỷ.
@@ -85,6 +99,9 @@ public class ProjectWorkingResponse
             StartedAt = e.StartedAt,
             CreatedAt = e.CreatedAt,
             UpdatedAt = e.UpdatedAt,
+            CompletionRequestedAt = e.CompletionRequestedAt,
+            CompletionRequestNote = e.CompletionRequestNote,
+            IsAwaitingAcceptance = e.Status == ProviderStatusEnum.accepted && e.CompletionRequestedAt != null,
             Contract = current != null ? EngagementContractSummary.From(current) : null,
             HasConfirmedContract = current?.Status == ContractStatusEnum.confirmed
         };

@@ -223,6 +223,9 @@ public class SmartCafeBuilderContext : DbContext
             e.Property(x => x.ProjectShopOwnerId).HasColumnName("project_id");
             e.Property(x => x.ServiceProviderProfileId).HasColumnName("provider_id");
             e.Property(x => x.ApplyId).HasColumnName("application_id");
+            // Cột mới v5 — engagement chưa từng đổi tên nên để snake_case tự sinh
+            // (completion_requested_at / completion_request_note).
+            e.Property(x => x.CompletionRequestNote).HasMaxLength(1000);
             e.HasIndex(x => x.ProjectShopOwnerId).HasDatabaseName("ix_project_providers_project_id");
             e.HasIndex(x => x.ServiceProviderProfileId).HasDatabaseName("ix_project_providers_provider_id");
             e.HasIndex(x => x.ApplyId).HasDatabaseName("ix_project_providers_application_id");

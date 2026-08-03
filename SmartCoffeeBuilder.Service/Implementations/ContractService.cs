@@ -198,6 +198,9 @@ public class ContractService : IContractService
         contract.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(contract);
+        await MarkEngagementStartedAsync(contract.ProjectWorkingId);
+
+        // Một SaveChanges → ký hợp đồng và mốc bắt đầu của engagement/dự án là atomic.
         await _unitOfWork.CommitAsync();
 
         return ContractResponse.From(contract);
@@ -239,6 +242,36 @@ public class ContractService : IContractService
         if (!allowed)
             throw new InvalidOperationException(
                 $"Không thể chuyển contract từ '{current}' sang '{target}'.");
+    }
+
+    /// <summary>
+    /// Hợp đồng được ký = engagement chạy thật. Đặt mốc started_at cho engagement và đẩy dự án
+    /// briefed → in_progress (chỉ lần đầu — hợp đồng thứ hai trở đi không đổi gì).
+    /// KHÔNG đụng provider_status: "đang thực hiện" vẫn là trạng thái derived theo v5.
+    /// Chỉ ghi vào change tracker; caller CommitAsync chung một transaction.
+    /// </summary>
+    private async Task MarkEngagementStartedAsync(long projectWorkingId)
+    {
+        var engagementRepo = _unitOfWork.GetRepository<ProjectWorking>();
+        var engagement = await engagementRepo.SingleOrDefaultAsync(
+            predicate: e => e.Id == projectWorkingId,
+            include: q => q.Include(e => e.ProjectShopOwner));
+        if (engagement == null) return;
+
+        if (engagement.StartedAt == null)
+        {
+            engagement.StartedAt = DateTime.UtcNow;
+            engagement.UpdatedAt = DateTime.UtcNow;
+            engagementRepo.Update(engagement);
+        }
+
+        var project = engagement.ProjectShopOwner;
+        if (project is { Status: ProjectStatus.briefed })
+        {
+            project.Status = ProjectStatus.in_progress;
+            project.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.GetRepository<ProjectShopOwner>().Update(project);
+        }
     }
 
     /// <summary>Lấy email owner của engagement để gửi OTP ký hợp đồng.</summary>

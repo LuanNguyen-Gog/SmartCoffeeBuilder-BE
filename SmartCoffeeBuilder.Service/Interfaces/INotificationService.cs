@@ -29,4 +29,26 @@ public interface INotificationService
 
     /// <summary>Provider nhận noti khi hồ sơ được chấp nhận (accepted=true) hoặc từ chối (false).</summary>
     Task NotifyApplicationDecisionAsync(long applicationId, bool accepted);
+
+    // ── Luồng đóng engagement / đóng dự án ──
+
+    /// <summary>Owner nhận noti khi provider báo đã xong việc và xin nghiệm thu.</summary>
+    Task NotifyEngagementCompletionRequestedAsync(long projectWorkingId);
+
+    /// <summary>Provider nhận noti khi owner nghiệm thu engagement — kèm nhắc dự án đã mở khoá review.</summary>
+    Task NotifyEngagementCompletedAsync(long projectWorkingId);
+
+    /// <summary>
+    /// Bên CÒN LẠI nhận noti khi engagement bị huỷ ngang.
+    /// <paramref name="terminatedByOwner"/> = true khi owner là người huỷ (noti gửi provider), ngược lại gửi owner.
+    /// </summary>
+    Task NotifyEngagementTerminatedAsync(long projectWorkingId, bool terminatedByOwner);
+
+    /// <summary>
+    /// Các provider liên quan nhận noti khi owner đóng (cancelled=false) hoặc huỷ (true) dự án.
+    /// Người nhận lấy từ <paramref name="affectedProjectWorkingIds"/> — caller biết chính xác
+    /// engagement nào vừa bị ảnh hưởng nên không gửi nhầm provider đã bị từ chối từ lâu.
+    /// </summary>
+    Task NotifyProjectClosedAsync(
+        long projectShopOwnerId, bool cancelled, IReadOnlyCollection<long> affectedProjectWorkingIds);
 }

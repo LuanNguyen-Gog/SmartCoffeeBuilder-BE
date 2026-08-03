@@ -15,12 +15,30 @@ public static class NotificationTypes
     /// <summary>Gửi cho PROVIDER khi hồ sơ ứng tuyển bị từ chối.</summary>
     public const string ApplicationRejected = "application_rejected";
 
+    // ───────── Luồng đóng engagement / đóng dự án ─────────
+
+    /// <summary>Gửi cho OWNER khi provider báo đã xong việc và xin nghiệm thu.</summary>
+    public const string EngagementCompletionRequested = "engagement_completion_requested";
+
+    /// <summary>Gửi cho PROVIDER khi owner nghiệm thu engagement (mở khoá review).</summary>
+    public const string EngagementCompleted = "engagement_completed";
+
+    /// <summary>Gửi cho BÊN CÒN LẠI khi một bên huỷ ngang engagement đang chạy.</summary>
+    public const string EngagementTerminated = "engagement_terminated";
+
+    /// <summary>Gửi cho các PROVIDER đã tham gia khi owner đóng dự án.</summary>
+    public const string ProjectCompleted = "project_completed";
+
+    /// <summary>Gửi cho các PROVIDER đang hợp tác khi owner huỷ dự án.</summary>
+    public const string ProjectCancelled = "project_cancelled";
+
     /// <summary>Tên file template email (không đuôi .html) tương ứng mỗi loại.</summary>
     public static string TemplateFor(string type) => type switch
     {
         ApplicationReceived => "ApplicationReceivedEmail",
         ApplicationAccepted => "ApplicationAcceptedEmail",
         ApplicationRejected => "ApplicationRejectedEmail",
+        // Nhóm đóng engagement/dự án dùng template chung — nội dung đã đủ rõ trong Title/Content.
         _ => "NotificationEmail" // template chung dự phòng
     };
 
@@ -30,6 +48,11 @@ public static class NotificationTypes
         ApplicationReceived => "Hồ sơ ứng tuyển mới - Smart Coffee Builder",
         ApplicationAccepted => "Hồ sơ của bạn đã được chấp nhận - Smart Coffee Builder",
         ApplicationRejected => "Kết quả hồ sơ ứng tuyển - Smart Coffee Builder",
+        EngagementCompletionRequested => "Nhà cung cấp báo hoàn thành, chờ bạn nghiệm thu - Smart Coffee Builder",
+        EngagementCompleted => "Công việc của bạn đã được nghiệm thu - Smart Coffee Builder",
+        EngagementTerminated => "Hợp tác đã bị huỷ ngang - Smart Coffee Builder",
+        ProjectCompleted => "Dự án đã hoàn thành - Smart Coffee Builder",
+        ProjectCancelled => "Dự án đã bị huỷ - Smart Coffee Builder",
         _ => "Thông báo - Smart Coffee Builder"
     };
 }

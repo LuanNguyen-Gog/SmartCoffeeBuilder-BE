@@ -179,7 +179,135 @@ public class NotificationService : INotificationService
             title, content, referenceType: "project_application", referenceId: app.Id);
     }
 
+    public async Task NotifyEngagementCompletionRequestedAsync(long projectWorkingId)
+    {
+        var engagement = await LoadEngagementWithPartiesAsync(projectWorkingId);
+        var ownerAccount = engagement?.ProjectShopOwner?.Owner?.Account;
+        if (engagement is null || ownerAccount is null)
+        {
+            _logger.LogWarning(
+                "Bỏ qua noti engagement_completion_requested: không resolve được owner cho engagement #{Id}.",
+                projectWorkingId);
+            return;
+        }
+
+        var providerName = engagement.ServiceProviderProfile?.DisplayName ?? "Nhà cung cấp";
+        var projectName = engagement.ProjectShopOwner?.Name ?? "dự án của bạn";
+
+        var note = string.IsNullOrWhiteSpace(engagement.CompletionRequestNote)
+            ? string.Empty
+            : $" Ghi chú bàn giao: \"{engagement.CompletionRequestNote}\".";
+
+        await CreateAndDispatchAsync(
+            ownerAccount.Id, ownerAccount.Email, NotificationTypes.EngagementCompletionRequested,
+            title: "Nhà cung cấp báo hoàn thành, chờ bạn nghiệm thu",
+            content: $"\"{providerName}\" vừa báo đã hoàn thành phần việc ({engagement.ContractType}) " +
+                     $"thuộc dự án \"{projectName}\".{note} Vui lòng kiểm tra và bấm nghiệm thu để hoàn tất hợp tác.",
+            referenceType: EngagementReference, referenceId: engagement.Id);
+    }
+
+    public async Task NotifyEngagementCompletedAsync(long projectWorkingId)
+    {
+        var engagement = await LoadEngagementWithPartiesAsync(projectWorkingId);
+        var providerAccount = engagement?.ServiceProviderProfile?.Account;
+        if (engagement is null || providerAccount is null)
+        {
+            _logger.LogWarning(
+                "Bỏ qua noti engagement_completed: không resolve được provider cho engagement #{Id}.",
+                projectWorkingId);
+            return;
+        }
+
+        var projectName = engagement.ProjectShopOwner?.Name ?? "dự án";
+
+        await CreateAndDispatchAsync(
+            providerAccount.Id, providerAccount.Email, NotificationTypes.EngagementCompleted,
+            title: "Công việc của bạn đã được nghiệm thu",
+            content: $"Chủ quán đã nghiệm thu phần việc ({engagement.ContractType}) của bạn tại dự án " +
+                     $"\"{projectName}\". Hợp tác hoàn tất — chủ quán có thể gửi đánh giá cho bạn từ lúc này.",
+            referenceType: EngagementReference, referenceId: engagement.Id);
+    }
+
+    public async Task NotifyEngagementTerminatedAsync(long projectWorkingId, bool terminatedByOwner)
+    {
+        var engagement = await LoadEngagementWithPartiesAsync(projectWorkingId);
+        if (engagement is null)
+        {
+            _logger.LogWarning("Bỏ qua noti engagement_terminated: không tìm thấy engagement #{Id}.", projectWorkingId);
+            return;
+        }
+
+        // Người huỷ đã biết rồi — chỉ báo cho bên còn lại.
+        var recipient = terminatedByOwner
+            ? engagement.ServiceProviderProfile?.Account
+            : engagement.ProjectShopOwner?.Owner?.Account;
+        if (recipient is null)
+        {
+            _logger.LogWarning(
+                "Bỏ qua noti engagement_terminated: không resolve được người nhận cho engagement #{Id}.",
+                projectWorkingId);
+            return;
+        }
+
+        var projectName = engagement.ProjectShopOwner?.Name ?? "dự án";
+        var actor = terminatedByOwner ? "Chủ quán" : "Nhà cung cấp";
+
+        await CreateAndDispatchAsync(
+            recipient.Id, recipient.Email, NotificationTypes.EngagementTerminated,
+            title: "Hợp tác đã bị huỷ ngang",
+            content: $"{actor} đã huỷ ngang hợp tác ({engagement.ContractType}) tại dự án \"{projectName}\". " +
+                     "Các công việc liên quan của hợp tác này dừng lại từ thời điểm hiện tại.",
+            referenceType: EngagementReference, referenceId: engagement.Id);
+    }
+
+    public async Task NotifyProjectClosedAsync(
+        long projectShopOwnerId, bool cancelled, IReadOnlyCollection<long> affectedProjectWorkingIds)
+    {
+        if (affectedProjectWorkingIds.Count == 0) return;
+
+        var project = await _unitOfWork.GetRepository<ProjectShopOwner>()
+            .SingleOrDefaultAsync(predicate: p => p.Id == projectShopOwnerId);
+        var projectName = project?.Name ?? "dự án";
+
+        var engagements = await _unitOfWork.GetRepository<ProjectWorking>().GetListAsync(
+            predicate: e => affectedProjectWorkingIds.Contains(e.Id),
+            include: q => q.Include(e => e.ServiceProviderProfile).ThenInclude(p => p.Account));
+
+        var type = cancelled ? NotificationTypes.ProjectCancelled : NotificationTypes.ProjectCompleted;
+        var title = cancelled ? "Dự án đã bị huỷ" : "Dự án đã hoàn thành";
+
+        // Một provider có thể có nhiều engagement trong cùng dự án — chỉ gửi 1 noti cho mỗi tài khoản.
+        var recipients = engagements
+            .Select(e => e.ServiceProviderProfile?.Account)
+            .Where(a => a != null)
+            .GroupBy(a => a!.Id)
+            .Select(g => g.First()!);
+
+        foreach (var account in recipients)
+        {
+            var content = cancelled
+                ? $"Chủ quán đã huỷ dự án \"{projectName}\". Các hợp tác đang mở của bạn tại dự án này đã được đóng lại."
+                : $"Dự án \"{projectName}\" đã được chủ quán đóng và hoàn thành. Cảm ơn bạn đã đồng hành.";
+
+            await CreateAndDispatchAsync(
+                account.Id, account.Email, type, title, content,
+                referenceType: ProjectReference, referenceId: projectShopOwnerId);
+        }
+    }
+
     // ──────────────────────────────── Helpers ────────────────────────────────
+
+    /// <summary>ReferenceType cho FE deep-link — dùng tên BẢNG DB để đồng bộ với noti sẵn có.</summary>
+    private const string EngagementReference = "project_provider";
+    private const string ProjectReference = "project";
+
+    /// <summary>Nạp engagement kèm tài khoản của cả hai bên (owner + provider).</summary>
+    private Task<ProjectWorking?> LoadEngagementWithPartiesAsync(long projectWorkingId) =>
+        _unitOfWork.GetRepository<ProjectWorking>().SingleOrDefaultAsync(
+            predicate: e => e.Id == projectWorkingId,
+            include: q => q
+                .Include(e => e.ProjectShopOwner).ThenInclude(p => p.Owner).ThenInclude(o => o.Account)
+                .Include(e => e.ServiceProviderProfile).ThenInclude(p => p.Account));
 
     /// <summary>Tạo bản ghi noti (lưu trước để làm lịch sử), rồi cố gắng gửi email (best-effort).</summary>
     private async Task CreateAndDispatchAsync(

@@ -17,6 +17,7 @@ public class ProjectWorkingService : IProjectWorkingService
 {
     private readonly IUnitOfWork<SmartCafeBuilderContext> _unitOfWork;
     private readonly IGenericRepository<ProjectWorking> _repository;
+    private readonly INotificationService _notificationService;
 
     // Trạng thái coi là "đang hoạt động" — chặn thuê trùng, cho phép terminate.
     private static readonly ProviderStatus[] ActiveStatuses =
@@ -24,10 +25,13 @@ public class ProjectWorkingService : IProjectWorkingService
         ProviderStatus.requested, ProviderStatus.accepted
     ];
 
-    public ProjectWorkingService(IUnitOfWork<SmartCafeBuilderContext> unitOfWork)
+    public ProjectWorkingService(
+        IUnitOfWork<SmartCafeBuilderContext> unitOfWork,
+        INotificationService notificationService)
     {
         _unitOfWork = unitOfWork;
         _repository = unitOfWork.GetRepository<ProjectWorking>();
+        _notificationService = notificationService;
     }
 
     public async Task<PaginationResponse<ProjectWorkingResponse>> GetAllAsync(
@@ -119,36 +123,167 @@ public class ProjectWorkingService : IProjectWorkingService
         return ProjectWorkingResponse.From(engagement);
     }
 
-    public async Task<ProjectWorkingResponse> UpdateStatusAsync(long id, UpdateProjectWorkingStatusRequest request)
+    public Task<ProjectWorkingResponse> AcceptAsync(long accountId, long id) =>
+        TransitionAsync(accountId, id, ProviderStatus.accepted);
+
+    public Task<ProjectWorkingResponse> RejectAsync(long accountId, long id) =>
+        TransitionAsync(accountId, id, ProviderStatus.rejected);
+
+    public Task<ProjectWorkingResponse> CompleteAsync(long accountId, long id) =>
+        TransitionAsync(accountId, id, ProviderStatus.completed);
+
+    public Task<ProjectWorkingResponse> TerminateAsync(long accountId, long id) =>
+        TransitionAsync(accountId, id, ProviderStatus.terminated);
+
+    public async Task<ProjectWorkingResponse> UpdateStatusAsync(
+        long accountId, long id, UpdateProjectWorkingStatusRequest request)
     {
         if (!Enum.TryParse<ProviderStatus>(request.Status, ignoreCase: true, out var target))
             throw new ArgumentException($"Status '{request.Status}' không hợp lệ.");
 
-        var engagement = await _repository.SingleOrDefaultAsync(
-            predicate: e => e.Id == id,
-            include: q => q.Include(e => e.ProjectShopOwner)
-                           .Include(e => e.ServiceProviderProfile)
-                           .Include(e => e.Contracts))
-            ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {id}.");
+        // Endpoint tổng chỉ là cửa vào — mọi kiểm tra nằm trong TransitionAsync để một luật duy nhất.
+        return await TransitionAsync(accountId, id, target);
+    }
 
-        ValidateTransition(engagement, target);
+    public async Task<ProjectWorkingResponse> RequestCompletionAsync(
+        long accountId, long id, RequestEngagementCompletionRequest request)
+    {
+        var engagement = await LoadForActionAsync(id);
 
-        // Nghiệm thu: engagement phải đã chạy thật (có contract confirmed) mới completed được.
-        if (target == ProviderStatus.completed)
-        {
-            var hasConfirmedContract = await _unitOfWork.GetRepository<Contract>()
-                .CountAsync(c => c.ProjectWorkingId == engagement.Id && c.Status == ContractStatus.confirmed) > 0;
-            if (!hasConfirmedContract)
-                throw new InvalidOperationException(
-                    "Engagement chưa có contract 'confirmed' — chưa bắt đầu thực hiện nên không thể nghiệm thu.");
-        }
+        var actor = await ResolveActorAsync(accountId, engagement);
+        EnsureActor(actor, "báo hoàn thành phần việc", EngagementActor.Provider);
 
-        engagement.Status = target;
+        if (engagement.Status != ProviderStatus.accepted)
+            throw new InvalidOperationException(
+                $"Engagement đang ở trạng thái '{engagement.Status}' — chỉ báo hoàn thành khi engagement 'accepted'.");
+
+        await EnsureConfirmedContractAsync(engagement);
+        await EnsureDeliverablesReadyAsync(engagement, "chưa thể báo hoàn thành");
+
+        // Gửi lại được (cập nhật ghi chú + mốc thời gian) khi owner chưa nghiệm thu.
+        engagement.CompletionRequestedAt = DateTime.UtcNow;
+        engagement.CompletionRequestNote = request.Note;
         engagement.UpdatedAt = DateTime.UtcNow;
+
         _repository.Update(engagement);
         await _unitOfWork.CommitAsync();
 
+        // Sau khi lưu (giống ApplyService) — noti dùng chung UnitOfWork nên không commit đè lên nghiệp vụ.
+        await _notificationService.NotifyEngagementCompletionRequestedAsync(engagement.Id);
+
         return ProjectWorkingResponse.From(engagement);
+    }
+
+    // Một cửa duy nhất cho mọi đổi trạng thái quan hệ: quyền → transition → guard nghiệp vụ.
+    private async Task<ProjectWorkingResponse> TransitionAsync(long accountId, long id, ProviderStatus target)
+    {
+        var engagement = await LoadForActionAsync(id);
+
+        var actor = await ResolveActorAsync(accountId, engagement);
+        switch (target)
+        {
+            // Nhận/từ chối lời mời là quyết định của provider được mời.
+            case ProviderStatus.accepted:
+            case ProviderStatus.rejected:
+                EnsureActor(actor, $"chuyển engagement sang '{target}'", EngagementActor.Provider);
+                break;
+
+            // Nghiệm thu là hành động của owner (v5) — mở khoá review.
+            case ProviderStatus.completed:
+                EnsureActor(actor, "nghiệm thu engagement", EngagementActor.Owner);
+                break;
+
+            // Huỷ ngang: cả hai bên đều có thể dừng hợp tác đang chạy.
+            case ProviderStatus.terminated:
+                EnsureActor(actor, "huỷ ngang engagement", EngagementActor.Owner, EngagementActor.Provider);
+                break;
+
+            default:
+                throw new ArgumentException($"Status '{target}' không phải trạng thái đích hợp lệ.");
+        }
+
+        ValidateTransition(engagement, target);
+
+        if (target == ProviderStatus.completed)
+        {
+            // Nghiệm thu: engagement phải đã chạy thật (có contract confirmed) mới completed được.
+            await EnsureConfirmedContractAsync(engagement);
+
+            // Owner nghiệm thu khi provider ĐÃ báo xong, HOẶC khi sản phẩm bàn giao thực sự đã xong
+            // (design approved / mọi milestone completed) — không cho nghiệm thu một engagement trống.
+            if (engagement.CompletionRequestedAt == null)
+                await EnsureDeliverablesReadyAsync(
+                    engagement, "chưa thể nghiệm thu (hoặc chờ nhà cung cấp bấm báo hoàn thành)");
+        }
+
+        engagement.Status = target;
+        // Huỷ ngang thì yêu cầu nghiệm thu đang treo không còn ý nghĩa.
+        if (target == ProviderStatus.terminated) engagement.CompletionRequestedAt = null;
+        engagement.UpdatedAt = DateTime.UtcNow;
+
+        _repository.Update(engagement);
+        await _unitOfWork.CommitAsync();
+
+        // Sau khi lưu — báo cho bên còn lại biết kết quả.
+        if (target == ProviderStatus.completed)
+            await _notificationService.NotifyEngagementCompletedAsync(engagement.Id);
+        else if (target == ProviderStatus.terminated)
+            await _notificationService.NotifyEngagementTerminatedAsync(
+                engagement.Id, terminatedByOwner: actor != EngagementActor.Provider);
+
+        return ProjectWorkingResponse.From(engagement);
+    }
+
+    private async Task<ProjectWorking> LoadForActionAsync(long id) =>
+        await _repository.SingleOrDefaultAsync(
+            predicate: e => e.Id == id,
+            include: q => q.Include(e => e.ProjectShopOwner).ThenInclude(p => p.Owner)
+                           .Include(e => e.ServiceProviderProfile)
+                           .Include(e => e.Contracts))
+        ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {id}.");
+
+    private async Task EnsureConfirmedContractAsync(ProjectWorking engagement)
+    {
+        var hasConfirmedContract = await _unitOfWork.GetRepository<Contract>()
+            .CountAsync(c => c.ProjectWorkingId == engagement.Id && c.Status == ContractStatus.confirmed) > 0;
+        if (!hasConfirmedContract)
+            throw new InvalidOperationException(
+                "Engagement chưa có contract 'confirmed' — chưa bắt đầu thực hiện nên không thể nghiệm thu.");
+    }
+
+    /// <summary>
+    /// Sản phẩm bàn giao đã thực sự xong theo contract_type:
+    /// design → có ít nhất 1 bản 'approved' (bản approved luôn đã qua submit nên chắc chắn có file);
+    /// construction → có milestone và mọi milestone ở 'completed'.
+    /// Dùng cho cả hai phía: provider xin nghiệm thu, và owner nghiệm thu khi provider chưa kịp báo.
+    /// </summary>
+    /// <param name="blockedAction">Vế sau của thông báo lỗi, mô tả việc đang bị chặn.</param>
+    private async Task EnsureDeliverablesReadyAsync(ProjectWorking engagement, string blockedAction)
+    {
+        if (engagement.ContractType is ServiceKind.design or ServiceKind.both)
+        {
+            var designRepo = _unitOfWork.GetRepository<Design>();
+            var approved = await designRepo.CountAsync(
+                d => d.ProjectWorkingId == engagement.Id && d.Status == DesignStatus.approved);
+            if (approved == 0)
+                throw new InvalidOperationException(
+                    $"Chưa có bản design nào được duyệt ('approved') — {blockedAction}.");
+        }
+
+        if (engagement.ContractType is ServiceKind.construction or ServiceKind.both)
+        {
+            var itemRepo = _unitOfWork.GetRepository<ConstructionItem>();
+            var total = await itemRepo.CountAsync(i => i.ProjectWorkingId == engagement.Id);
+            if (total == 0)
+                throw new InvalidOperationException(
+                    $"Chưa có hạng mục thi công nào — {blockedAction}.");
+
+            var unfinished = await itemRepo.CountAsync(
+                i => i.ProjectWorkingId == engagement.Id && i.Status != ItemStatus.completed);
+            if (unfinished > 0)
+                throw new InvalidOperationException(
+                    $"Còn {unfinished} hạng mục thi công chưa 'completed' — {blockedAction}.");
+        }
     }
 
     public async Task<DesignBriefResponse> GetBriefAsync(long id)
@@ -236,5 +371,37 @@ public class ProjectWorkingService : IProjectWorkingService
         if (!allowed)
             throw new InvalidOperationException(
                 $"Không thể chuyển từ '{current}' sang '{target}' (contract type: {engagement.ContractType}).");
+    }
+
+    // ───────── Phân quyền theo vai trò trong chính engagement ─────────
+
+    /// <summary>Vai trò của tài khoản đang đăng nhập ĐỐI VỚI engagement đang thao tác.</summary>
+    private enum EngagementActor { Owner, Provider, Admin }
+
+    /// <summary>
+    /// Xác định người gọi là owner của project hay provider của engagement (admin đi cửa riêng).
+    /// Engagement phải được load kèm ProjectShopOwner.Owner và ServiceProviderProfile.
+    /// </summary>
+    /// <exception cref="UnauthorizedAccessException">Không liên quan tới engagement (HTTP 401).</exception>
+    private async Task<EngagementActor> ResolveActorAsync(long accountId, ProjectWorking engagement)
+    {
+        if (engagement.ProjectShopOwner?.Owner?.AccountId == accountId) return EngagementActor.Owner;
+        if (engagement.ServiceProviderProfile?.AccountId == accountId) return EngagementActor.Provider;
+
+        var account = await _unitOfWork.GetRepository<Account>()
+            .SingleOrDefaultAsync(predicate: a => a.Id == accountId && a.DeletedAt == null);
+        if (account?.Role == AccountRole.admin) return EngagementActor.Admin;
+
+        throw new UnauthorizedAccessException(
+            "Tài khoản đang đăng nhập không phải owner hay provider của engagement này.");
+    }
+
+    /// <summary>Admin luôn được phép; còn lại phải nằm trong danh sách vai trò cho phép.</summary>
+    private static void EnsureActor(EngagementActor actual, string action, params EngagementActor[] allowed)
+    {
+        if (actual == EngagementActor.Admin || allowed.Contains(actual)) return;
+
+        var who = string.Join(" hoặc ", allowed.Select(a => a == EngagementActor.Owner ? "owner" : "provider"));
+        throw new UnauthorizedAccessException($"Chỉ {who} của engagement mới được {action}.");
     }
 }
