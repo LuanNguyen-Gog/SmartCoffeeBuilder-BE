@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartCoffeeBuilder.Service.DTOs.Requests.ProjectWorking;
 using SmartCoffeeBuilder.Service.Interfaces;
+using SmartCoffeeBuilder.Service.Utils;
 
 namespace SmartCoffeeBuilder.API.Controllers;
 
@@ -81,8 +82,7 @@ public class ProjectWorkingController : ControllerBase
     [HttpPost("{id:long}/accept")]
     public async Task<IActionResult> Accept(long id)
     {
-        var result = await _projectWorkingService.UpdateStatusAsync(
-            id, new UpdateProjectWorkingStatusRequest { Status = "accepted" });
+        var result = await _projectWorkingService.AcceptAsync(User.GetAccountId(), id);
         return Ok(result);
     }
 
@@ -90,20 +90,53 @@ public class ProjectWorkingController : ControllerBase
     [HttpPost("{id:long}/reject")]
     public async Task<IActionResult> Reject(long id)
     {
-        var result = await _projectWorkingService.UpdateStatusAsync(
-            id, new UpdateProjectWorkingStatusRequest { Status = "rejected" });
+        var result = await _projectWorkingService.RejectAsync(User.GetAccountId(), id);
         return Ok(result);
     }
 
     /// <summary>
-    /// [QUAN HỆ] Chuyển trạng thái engagement (v5 — không phải tiến độ):
+    /// [PROVIDER — BÁO XONG VIỆC] Designer/constructor báo đã hoàn thành phần việc, mời owner nghiệm thu.
+    /// KHÔNG đổi provider_status (vẫn 'accepted') — chỉ đặt mốc completionRequestedAt để FE hiện
+    /// nút "Nghiệm thu" cho owner (cờ isAwaitingAcceptance).
+    /// Điều kiện: engagement 'accepted', có contract 'confirmed', và deliverable đã xong
+    /// (design: ít nhất 1 bản 'approved'; construction: mọi milestone 'completed').
+    /// </summary>
+    [HttpPost("{id:long}/request-completion")]
+    public async Task<IActionResult> RequestCompletion(
+        long id, [FromBody] RequestEngagementCompletionRequest request)
+    {
+        var result = await _projectWorkingService.RequestCompletionAsync(User.GetAccountId(), id, request);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// [OWNER — NGHIỆM THU] Owner xác nhận hoàn thành hợp tác với provider (accepted → completed).
+    /// Cần contract 'confirmed'. Sau bước này review mới mở khoá.
+    /// </summary>
+    [HttpPost("{id:long}/complete")]
+    public async Task<IActionResult> Complete(long id)
+    {
+        var result = await _projectWorkingService.CompleteAsync(User.GetAccountId(), id);
+        return Ok(result);
+    }
+
+    /// <summary>[HUỶ NGANG] Owner hoặc provider dừng hợp tác đang chạy (accepted → terminated).</summary>
+    [HttpPost("{id:long}/terminate")]
+    public async Task<IActionResult> Terminate(long id)
+    {
+        var result = await _projectWorkingService.TerminateAsync(User.GetAccountId(), id);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// [QUAN HỆ] Endpoint tổng, giữ cho tương thích ngược — nên dùng các shortcut ở trên.
     /// accepted → completed (owner nghiệm thu, cần contract confirmed) | terminated (huỷ ngang).
     /// Tiến độ design/construction là derived từ design/construction_item — không set ở đây.
     /// </summary>
     [HttpPut("{id:long}/status")]
     public async Task<IActionResult> UpdateStatus(long id, [FromBody] UpdateProjectWorkingStatusRequest request)
     {
-        var result = await _projectWorkingService.UpdateStatusAsync(id, request);
+        var result = await _projectWorkingService.UpdateStatusAsync(User.GetAccountId(), id, request);
         return Ok(result);
     }
 }

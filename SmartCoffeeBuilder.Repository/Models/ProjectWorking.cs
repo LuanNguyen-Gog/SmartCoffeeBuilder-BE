@@ -14,6 +14,17 @@ public class ProjectWorking
     public ProviderStatus Status { get; set; } = ProviderStatus.requested;
     public string? RequestMessage { get; set; }
     public DateTime? StartedAt { get; set; }
+
+    /// <summary>
+    /// Mốc provider bấm "đã xong việc, mời owner nghiệm thu". null = chưa xin nghiệm thu.
+    /// KHÔNG phải một trạng thái mới — ProviderStatus vẫn giữ đúng 5 giá trị v5;
+    /// "chờ nghiệm thu" là DERIVED: status = accepted và cột này khác null.
+    /// </summary>
+    public DateTime? CompletionRequestedAt { get; set; }
+
+    /// <summary>Ghi chú bàn giao provider gửi kèm khi xin nghiệm thu.</summary>
+    public string? CompletionRequestNote { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

@@ -8,7 +8,6 @@ public class ConfirmContractOtpRequest
     [Required]
     public string OtpCode { get; set; } = null!;
 
-    /// <summary>Account id của owner xác nhận (ghi vào confirmed_by).</summary>
-    [Required]
-    public long ConfirmedBy { get; set; }
+    // confirmed_by lấy từ JWT của người đang đăng nhập — KHÔNG nhận từ body:
+    // chữ ký hợp đồng phải là bằng chứng do BE xác định, không để client tự khai.
 }

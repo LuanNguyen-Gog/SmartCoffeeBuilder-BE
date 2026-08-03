@@ -18,8 +18,12 @@ public interface IContractService
     /// <summary>Sinh OTP ký hợp đồng, gửi email cho owner, chuyển drafted → pending_otp.</summary>
     Task<ContractResponse> SendOtpAsync(long id);
 
-    /// <summary>Xác nhận OTP ký hợp đồng, chuyển pending_otp → confirmed.</summary>
-    Task<ContractResponse> ConfirmOtpAsync(long id, ConfirmContractOtpRequest request);
+    /// <summary>
+    /// Owner xác nhận OTP ký hợp đồng, chuyển pending_otp → confirmed.
+    /// <paramref name="accountId"/> lấy từ JWT — phải là owner của dự án, và chính account này
+    /// được ghi vào confirmed_by (không nhận từ body để chữ ký không giả mạo được).
+    /// </summary>
+    Task<ContractResponse> ConfirmOtpAsync(long accountId, long id, ConfirmContractOtpRequest request);
 
     /// <summary>Huỷ hợp đồng khi chưa confirmed (drafted/pending_otp → cancelled).</summary>
     Task<ContractResponse> CancelAsync(long id);

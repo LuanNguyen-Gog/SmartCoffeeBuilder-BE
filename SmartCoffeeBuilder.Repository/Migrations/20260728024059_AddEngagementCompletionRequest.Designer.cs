@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SmartCoffeeBuilder.Repository.DBContext;
@@ -11,9 +12,11 @@ using SmartCoffeeBuilder.Repository.DBContext;
 namespace SmartCoffeeBuilder.Repository.Migrations
 {
     [DbContext(typeof(SmartCafeBuilderContext))]
-    partial class SmartCafeBuilderContextModelSnapshot : ModelSnapshot
+    [Migration("20260728024059_AddEngagementCompletionRequest")]
+    partial class AddEngagementCompletionRequest
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -678,33 +681,20 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
-                    b.Property<long>("CreatedBy")
-                        .HasColumnType("bigint")
-                        .HasColumnName("created_by");
-
                     b.Property<long>("ProjectWorkingId")
                         .HasColumnType("bigint")
-                        .HasColumnName("project_working_id");
+                        .HasColumnName("project_provider_id");
 
                     b.Property<string>("Topic")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("topic");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at")
-                        .HasDefaultValueSql("now()");
-
                     b.HasKey("Id")
                         .HasName("pk_conversations");
 
-                    b.HasIndex("CreatedBy")
-                        .HasDatabaseName("ix_conversations_created_by");
-
                     b.HasIndex("ProjectWorkingId")
-                        .HasDatabaseName("ix_conversations_project_working_id");
+                        .HasDatabaseName("ix_conversations_project_provider_id");
 
                     b.ToTable("conversations", (string)null);
                 });
@@ -1164,6 +1154,7 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
                     b.Property<string>("Body")
+                        .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("body");
 
@@ -1191,54 +1182,6 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasDatabaseName("ix_messages_sender_id");
 
                     b.ToTable("messages", (string)null);
-                });
-
-            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.MessageAttachment", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<string>("ContentType")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("content_type");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<string>("FileName")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("file_name");
-
-                    b.Property<long>("MessageId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("message_id");
-
-                    b.Property<long?>("SizeBytes")
-                        .HasColumnType("bigint")
-                        .HasColumnName("size_bytes");
-
-                    b.Property<string>("Url")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("url");
-
-                    b.HasKey("Id")
-                        .HasName("pk_message_attachments");
-
-                    b.HasIndex("MessageId")
-                        .HasDatabaseName("ix_message_attachments_message_id");
-
-                    b.ToTable("message_attachments", (string)null);
                 });
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Notification", b =>
@@ -2228,21 +2171,12 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Conversation", b =>
                 {
-                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Account", "CreatedByAccount")
-                        .WithMany()
-                        .HasForeignKey("CreatedBy")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_conversations_accounts_created_by");
-
                     b.HasOne("SmartCoffeeBuilder.Repository.Models.ProjectWorking", "ProjectWorking")
                         .WithMany("Conversations")
                         .HasForeignKey("ProjectWorkingId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_conversations_project_workings_project_working_id");
-
-                    b.Navigation("CreatedByAccount");
+                        .HasConstraintName("fk_conversations_project_providers_project_provider_id");
 
                     b.Navigation("ProjectWorking");
                 });
@@ -2396,18 +2330,6 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     b.Navigation("Conversation");
 
                     b.Navigation("Sender");
-                });
-
-            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.MessageAttachment", b =>
-                {
-                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Message", "Message")
-                        .WithMany("Attachments")
-                        .HasForeignKey("MessageId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_message_attachments_messages_message_id");
-
-                    b.Navigation("Message");
                 });
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Notification", b =>
@@ -2670,11 +2592,6 @@ namespace SmartCoffeeBuilder.Repository.Migrations
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.IssueType", b =>
                 {
                     b.Navigation("Issues");
-                });
-
-            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Message", b =>
-                {
-                    b.Navigation("Attachments");
                 });
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Post", b =>
