@@ -146,23 +146,23 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
 
         EnsureTransition(project.Status, ProjectStatus.completed);
 
-        var engagementRepo = _unitOfWork.GetRepository<ProjectWorking>();
-
+        // Engagement/post lấy thẳng từ graph LoadForActionAsync đã nạp — query lại sẽ tạo
+        // instance thứ hai của cùng một dòng (reads đều AsNoTracking) và làm hỏng change tracker.
         // Không cho đóng khi còn hợp tác dang dở — owner phải nghiệm thu/huỷ từng engagement trước.
-        var openCount = await engagementRepo.CountAsync(
-            e => e.ProjectShopOwnerId == project.Id && OpenEngagementStatuses.Contains(e.Status));
+        var openCount = project.ProjectWorkings.Count(e => OpenEngagementStatuses.Contains(e.Status));
         if (openCount > 0)
             throw new InvalidOperationException(
                 $"Còn {openCount} engagement chưa đóng (requested/accepted) — nghiệm thu hoặc huỷ ngang từng provider trước khi đóng dự án.");
 
         // Phải có ít nhất một provider được nghiệm thu, tránh "đóng" một dự án chưa chạy gì.
-        var completedEngagements = await engagementRepo.GetListAsync(
-            predicate: e => e.ProjectShopOwnerId == project.Id && e.Status == ProviderStatus.completed);
+        var completedEngagements = project.ProjectWorkings
+            .Where(e => e.Status == ProviderStatus.completed)
+            .ToList();
         if (completedEngagements.Count == 0)
             throw new InvalidOperationException(
                 "Dự án chưa có engagement nào được nghiệm thu ('completed') — chưa thể đóng dự án.");
 
-        await CloseOpenPostsAsync(project.Id);
+        CloseOpenPosts(project);
 
         project.Status = ProjectStatus.completed;
         project.UpdatedAt = DateTime.UtcNow;
@@ -187,9 +187,10 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
 
         // Huỷ dự án thì mọi hợp tác đang mở chấm dứt theo, đúng state machine của engagement:
         // requested → rejected (chưa nhận việc), accepted → terminated (đang chạy thì huỷ ngang).
-        var engagementRepo = _unitOfWork.GetRepository<ProjectWorking>();
-        var openEngagements = await engagementRepo.GetListAsync(
-            predicate: e => e.ProjectShopOwnerId == project.Id && OpenEngagementStatuses.Contains(e.Status));
+        // Lấy từ graph đã nạp, không query lại (xem ghi chú ở CompleteAsync).
+        var openEngagements = project.ProjectWorkings
+            .Where(e => OpenEngagementStatuses.Contains(e.Status))
+            .ToList();
 
         foreach (var engagement in openEngagements)
         {
@@ -199,9 +200,9 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
             engagement.CompletionRequestedAt = null;
             engagement.UpdatedAt = DateTime.UtcNow;
         }
-        engagementRepo.UpdateRange(openEngagements);
+        _unitOfWork.GetRepository<ProjectWorking>().UpdateRange(openEngagements);
 
-        await CloseOpenPostsAsync(project.Id);
+        CloseOpenPosts(project);
 
         project.Status = ProjectStatus.cancelled;
         project.UpdatedAt = DateTime.UtcNow;
@@ -253,13 +254,14 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
                 $"Không thể chuyển dự án từ '{current}' sang '{target}'.");
     }
 
-    /// <summary>Đóng dự án thì không nhận hồ sơ nữa — post còn 'open' chuyển sang 'closed'.</summary>
-    private async Task CloseOpenPostsAsync(long projectId)
+    /// <summary>
+    /// Đóng dự án thì không nhận hồ sơ nữa — post còn 'open' chuyển sang 'closed'.
+    /// Duyệt trên chính collection <c>project.Posts</c> đã nạp: response trả về phản ánh đúng
+    /// trạng thái mới, và không sinh instance Post thứ hai cho cùng một dòng.
+    /// </summary>
+    private void CloseOpenPosts(ProjectShopOwner project)
     {
-        var postRepo = _unitOfWork.GetRepository<Post>();
-        var openPosts = await postRepo.GetListAsync(
-            predicate: p => p.ProjectShopOwnerId == projectId && p.Status == PostStatus.open);
-
+        var openPosts = project.Posts.Where(p => p.Status == PostStatus.open).ToList();
         if (openPosts.Count == 0) return;
 
         foreach (var post in openPosts)
@@ -267,7 +269,7 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
             post.Status = PostStatus.closed;
             post.UpdatedAt = DateTime.UtcNow;
         }
-        postRepo.UpdateRange(openPosts);
+        _unitOfWork.GetRepository<Post>().UpdateRange(openPosts);
     }
 
     // Include đủ như GetByIdAsync: response sau khi đóng/huỷ phải phản ánh luôn engagement và

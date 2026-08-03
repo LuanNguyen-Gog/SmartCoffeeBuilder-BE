@@ -178,8 +178,12 @@ public class ContractService : IContractService
         var contract = await _repository.SingleOrDefaultAsync(predicate: c => c.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy contract với id {id}.");
 
+        // Nạp engagement đúng MỘT lần rồi dùng lại cho cả check quyền lẫn mốc started_at —
+        // nạp hai lần sẽ có hai instance cùng khoá trong một context (reads đều AsNoTracking).
+        var engagement = await LoadEngagementForSigningAsync(contract.ProjectWorkingId);
+
         // Quyền trước, OTP sau — không để người ngoài dò mã trên hợp đồng của người khác.
-        await EnsureOwnerOfEngagementAsync(accountId, contract.ProjectWorkingId);
+        EnsureOwnerOfEngagement(accountId, engagement);
 
         EnsureTransition(contract.Status, ContractStatus.confirmed);
 
@@ -198,7 +202,7 @@ public class ContractService : IContractService
         contract.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(contract);
-        await MarkEngagementStartedAsync(contract.ProjectWorkingId);
+        MarkEngagementStarted(engagement);
 
         // Một SaveChanges → ký hợp đồng và mốc bắt đầu của engagement/dự án là atomic.
         await _unitOfWork.CommitAsync();
@@ -250,19 +254,13 @@ public class ContractService : IContractService
     /// KHÔNG đụng provider_status: "đang thực hiện" vẫn là trạng thái derived theo v5.
     /// Chỉ ghi vào change tracker; caller CommitAsync chung một transaction.
     /// </summary>
-    private async Task MarkEngagementStartedAsync(long projectWorkingId)
+    private void MarkEngagementStarted(ProjectWorking engagement)
     {
-        var engagementRepo = _unitOfWork.GetRepository<ProjectWorking>();
-        var engagement = await engagementRepo.SingleOrDefaultAsync(
-            predicate: e => e.Id == projectWorkingId,
-            include: q => q.Include(e => e.ProjectShopOwner));
-        if (engagement == null) return;
-
         if (engagement.StartedAt == null)
         {
             engagement.StartedAt = DateTime.UtcNow;
             engagement.UpdatedAt = DateTime.UtcNow;
-            engagementRepo.Update(engagement);
+            _unitOfWork.GetRepository<ProjectWorking>().Update(engagement);
         }
 
         var project = engagement.ProjectShopOwner;
@@ -274,19 +272,21 @@ public class ContractService : IContractService
         }
     }
 
+    /// <summary>Nạp engagement kèm project + owner cho luồng ký hợp đồng (một lần cho cả request).</summary>
+    private async Task<ProjectWorking> LoadEngagementForSigningAsync(long projectWorkingId) =>
+        await _unitOfWork.GetRepository<ProjectWorking>()
+            .SingleOrDefaultAsync(
+                predicate: e => e.Id == projectWorkingId,
+                include: q => q.Include(e => e.ProjectShopOwner).ThenInclude(p => p.Owner))
+        ?? throw new KeyNotFoundException(
+            $"Không tìm thấy project provider với id {projectWorkingId}.");
+
     /// <summary>
     /// Chỉ owner của chính dự án mới ký được hợp đồng của engagement đó.
     /// Sai người → UnauthorizedAccessException (401).
     /// </summary>
-    private async Task EnsureOwnerOfEngagementAsync(long accountId, long projectWorkingId)
+    private static void EnsureOwnerOfEngagement(long accountId, ProjectWorking engagement)
     {
-        var engagement = await _unitOfWork.GetRepository<ProjectWorking>()
-            .SingleOrDefaultAsync(
-                predicate: e => e.Id == projectWorkingId,
-                include: q => q.Include(e => e.ProjectShopOwner).ThenInclude(p => p.Owner))
-            ?? throw new KeyNotFoundException(
-                $"Không tìm thấy project provider với id {projectWorkingId}.");
-
         if (engagement.ProjectShopOwner?.Owner?.AccountId != accountId)
             throw new UnauthorizedAccessException(
                 "Chỉ chủ quán của dự án này mới xác nhận được hợp đồng.");
