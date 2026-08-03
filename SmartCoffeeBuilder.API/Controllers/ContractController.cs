@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartCoffeeBuilder.Service.DTOs.Requests.Contract;
 using SmartCoffeeBuilder.Service.Interfaces;
+using SmartCoffeeBuilder.Service.Utils;
 
 namespace SmartCoffeeBuilder.API.Controllers;
 
@@ -63,11 +64,14 @@ public class ContractController : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Owner xác nhận OTP ký hợp đồng (pending_otp → confirmed).</summary>
+    /// <summary>
+    /// Owner xác nhận OTP ký hợp đồng (pending_otp → confirmed).
+    /// Người ký lấy từ token — chỉ owner của chính dự án mới gọi được.
+    /// </summary>
     [HttpPost("{id:long}/confirm-otp")]
     public async Task<IActionResult> ConfirmOtp(long id, [FromBody] ConfirmContractOtpRequest request)
     {
-        var result = await _contractService.ConfirmOtpAsync(id, request);
+        var result = await _contractService.ConfirmOtpAsync(User.GetAccountId(), id, request);
         return Ok(result);
     }
 
