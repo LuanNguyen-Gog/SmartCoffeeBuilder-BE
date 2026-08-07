@@ -15,6 +15,17 @@ public static class NotificationTypes
     /// <summary>Gửi cho PROVIDER khi hồ sơ ứng tuyển bị từ chối.</summary>
     public const string ApplicationRejected = "application_rejected";
 
+    // ───────── Lời mời hợp tác trực tiếp (direct-hire) ─────────
+
+    /// <summary>Gửi cho PROVIDER khi owner mời hợp tác trực tiếp (thuê thẳng, không qua bài đăng).</summary>
+    public const string EngagementInvited = "engagement_invited";
+
+    /// <summary>Gửi cho OWNER khi provider NHẬN lời mời hợp tác trực tiếp.</summary>
+    public const string EngagementInviteAccepted = "engagement_invite_accepted";
+
+    /// <summary>Gửi cho OWNER khi provider TỪ CHỐI lời mời hợp tác trực tiếp.</summary>
+    public const string EngagementInviteRejected = "engagement_invite_rejected";
+
     // ───────── Luồng đóng engagement / đóng dự án ─────────
 
     /// <summary>Gửi cho OWNER khi provider báo đã xong việc và xin nghiệm thu.</summary>
@@ -48,6 +59,9 @@ public static class NotificationTypes
         ApplicationReceived => "Hồ sơ ứng tuyển mới - Smart Coffee Builder",
         ApplicationAccepted => "Hồ sơ của bạn đã được chấp nhận - Smart Coffee Builder",
         ApplicationRejected => "Kết quả hồ sơ ứng tuyển - Smart Coffee Builder",
+        EngagementInvited => "Bạn nhận được lời mời hợp tác - Smart Coffee Builder",
+        EngagementInviteAccepted => "Nhà cung cấp đã nhận lời mời hợp tác - Smart Coffee Builder",
+        EngagementInviteRejected => "Nhà cung cấp đã từ chối lời mời hợp tác - Smart Coffee Builder",
         EngagementCompletionRequested => "Nhà cung cấp báo hoàn thành, chờ bạn nghiệm thu - Smart Coffee Builder",
         EngagementCompleted => "Công việc của bạn đã được nghiệm thu - Smart Coffee Builder",
         EngagementTerminated => "Hợp tác đã bị huỷ ngang - Smart Coffee Builder",

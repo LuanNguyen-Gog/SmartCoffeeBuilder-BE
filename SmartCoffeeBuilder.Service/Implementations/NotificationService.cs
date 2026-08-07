@@ -179,6 +179,70 @@ public class NotificationService : INotificationService
             title, content, referenceType: "project_application", referenceId: app.Id);
     }
 
+    public async Task NotifyEngagementInvitedAsync(long projectWorkingId)
+    {
+        var engagement = await LoadEngagementWithPartiesAsync(projectWorkingId);
+        var providerAccount = engagement?.ServiceProviderProfile?.Account;
+        if (engagement is null || providerAccount is null)
+        {
+            _logger.LogWarning(
+                "Bỏ qua noti engagement_invited: không resolve được provider cho engagement #{Id}.",
+                projectWorkingId);
+            return;
+        }
+
+        var shopName = engagement.ProjectShopOwner?.Owner?.ShopName;
+        var ownerLabel = string.IsNullOrWhiteSpace(shopName) ? "Một chủ quán" : $"\"{shopName}\"";
+        var projectName = engagement.ProjectShopOwner?.Name ?? "một dự án";
+
+        var note = string.IsNullOrWhiteSpace(engagement.RequestMessage)
+            ? string.Empty
+            : $" Lời nhắn: \"{engagement.RequestMessage}\".";
+
+        await CreateAndDispatchAsync(
+            providerAccount.Id, providerAccount.Email, NotificationTypes.EngagementInvited,
+            title: "Bạn nhận được lời mời hợp tác trực tiếp",
+            content: $"{ownerLabel} vừa mời bạn hợp tác ({engagement.ContractType}) cho dự án \"{projectName}\".{note} " +
+                     "Vui lòng phản hồi (nhận hoặc từ chối) lời mời.",
+            referenceType: EngagementReference, referenceId: engagement.Id);
+    }
+
+    public async Task NotifyEngagementInviteDecisionAsync(long projectWorkingId, bool accepted)
+    {
+        var engagement = await LoadEngagementWithPartiesAsync(projectWorkingId);
+        var ownerAccount = engagement?.ProjectShopOwner?.Owner?.Account;
+        if (engagement is null || ownerAccount is null)
+        {
+            _logger.LogWarning(
+                "Bỏ qua noti engagement_invite decision: không resolve được owner cho engagement #{Id}.",
+                projectWorkingId);
+            return;
+        }
+
+        var providerName = engagement.ServiceProviderProfile?.DisplayName ?? "Nhà cung cấp";
+        var projectName = engagement.ProjectShopOwner?.Name ?? "dự án của bạn";
+
+        string type, title, content;
+        if (accepted)
+        {
+            type = NotificationTypes.EngagementInviteAccepted;
+            title = "Nhà cung cấp đã nhận lời mời hợp tác";
+            content = $"\"{providerName}\" đã đồng ý lời mời hợp tác ({engagement.ContractType}) " +
+                      $"cho dự án \"{projectName}\". Hai bên có thể bắt đầu (ký hợp đồng, khảo sát...).";
+        }
+        else
+        {
+            type = NotificationTypes.EngagementInviteRejected;
+            title = "Nhà cung cấp đã từ chối lời mời hợp tác";
+            content = $"\"{providerName}\" đã từ chối lời mời hợp tác ({engagement.ContractType}) " +
+                      $"cho dự án \"{projectName}\". Bạn có thể mời một nhà cung cấp khác.";
+        }
+
+        await CreateAndDispatchAsync(
+            ownerAccount.Id, ownerAccount.Email, type, title, content,
+            referenceType: EngagementReference, referenceId: engagement.Id);
+    }
+
     public async Task NotifyEngagementCompletionRequestedAsync(long projectWorkingId)
     {
         var engagement = await LoadEngagementWithPartiesAsync(projectWorkingId);

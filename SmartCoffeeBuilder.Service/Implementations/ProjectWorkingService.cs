@@ -118,6 +118,9 @@ public class ProjectWorkingService : IProjectWorkingService
         await _repository.InsertAsync(engagement);
         await _unitOfWork.CommitAsync();
 
+        // Sau khi lưu — báo cho PROVIDER biết họ vừa được mời hợp tác trực tiếp.
+        await _notificationService.NotifyEngagementInvitedAsync(engagement.Id);
+
         engagement.ProjectShopOwner = project;
         engagement.ServiceProviderProfile = provider;
         return ProjectWorkingResponse.From(engagement);
@@ -225,7 +228,12 @@ public class ProjectWorkingService : IProjectWorkingService
         await _unitOfWork.CommitAsync();
 
         // Sau khi lưu — báo cho bên còn lại biết kết quả.
-        if (target == ProviderStatus.completed)
+        // requested → accepted/rejected chỉ xảy ra ở lời mời trực tiếp (direct-hire) do provider phản hồi;
+        // báo cho OWNER (người gửi lời mời) biết provider đã nhận hay từ chối.
+        if (target == ProviderStatus.accepted || target == ProviderStatus.rejected)
+            await _notificationService.NotifyEngagementInviteDecisionAsync(
+                engagement.Id, accepted: target == ProviderStatus.accepted);
+        else if (target == ProviderStatus.completed)
             await _notificationService.NotifyEngagementCompletedAsync(engagement.Id);
         else if (target == ProviderStatus.terminated)
             await _notificationService.NotifyEngagementTerminatedAsync(

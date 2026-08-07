@@ -30,6 +30,17 @@ public interface INotificationService
     /// <summary>Provider nhận noti khi hồ sơ được chấp nhận (accepted=true) hoặc từ chối (false).</summary>
     Task NotifyApplicationDecisionAsync(long applicationId, bool accepted);
 
+    // ── Lời mời hợp tác trực tiếp (direct-hire) ──
+
+    /// <summary>Provider nhận noti khi owner mời hợp tác trực tiếp (thuê thẳng).</summary>
+    Task NotifyEngagementInvitedAsync(long projectWorkingId);
+
+    /// <summary>
+    /// Owner (người gửi lời mời) nhận noti khi provider phản hồi lời mời hợp tác trực tiếp:
+    /// <paramref name="accepted"/> = true (nhận) hoặc false (từ chối).
+    /// </summary>
+    Task NotifyEngagementInviteDecisionAsync(long projectWorkingId, bool accepted);
+
     // ── Luồng đóng engagement / đóng dự án ──
 
     /// <summary>Owner nhận noti khi provider báo đã xong việc và xin nghiệm thu.</summary>
