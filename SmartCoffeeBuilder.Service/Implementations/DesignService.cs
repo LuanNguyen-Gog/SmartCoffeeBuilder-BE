@@ -303,12 +303,13 @@ public class DesignService : IDesignService
         _ = await GetDesignAsync(designId);
 
         // Full history: mỗi submit/approve đều sinh 1 bản — phân trang để không load hết khi version nhiều.
-        // Sắp xếp: bản mới nhất trước (theo snapshotted_at).
+        // Sắp xếp: bản mới nhất trước (theo snapshotted_at). GetQueryable không có orderBy,
+        // nên chain OrderByDescending sau khi Include.
         var paged = await _unitOfWork.GetRepository<DesignVersion>()
             .GetQueryable(
                 predicate: v => v.DesignId == designId,
-                include: q => q.Include(v => v.Images),
-                orderBy: q => q.OrderByDescending(v => v.SnapshottedAt))
+                include: q => q.Include(v => v.Images))
+            .OrderByDescending(v => v.SnapshottedAt)
             .ToPaginationResponseAsync(pageNumber, pageSize);
 
         return new PaginationResponse<DesignVersionResponse>(

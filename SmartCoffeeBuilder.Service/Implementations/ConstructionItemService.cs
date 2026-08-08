@@ -172,7 +172,7 @@ public class ConstructionItemService : IConstructionItemService
         // Cascade xoá comment gắn vào milestone này (FK mềm — không tự cascade theo DB).
         var commentRepo = _unitOfWork.GetRepository<Comment>();
         var comments = await commentRepo.GetListAsync(
-            c => c.TargetType == CommentTargetType.construction_item && c.TargetId == id);
+            predicate: c => c.TargetType == CommentTargetType.construction_item && c.TargetId == id);
         commentRepo.DeleteRange(comments);
 
         _repository.Delete(item); // task con cascade; issue liên quan set null construction_item_id.
