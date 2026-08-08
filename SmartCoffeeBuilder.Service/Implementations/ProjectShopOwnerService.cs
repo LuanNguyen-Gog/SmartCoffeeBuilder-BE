@@ -229,6 +229,10 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
             throw new InvalidOperationException(
                 $"Còn {openCount} engagement chưa đóng — huỷ dự án (POST /cancel) trước khi xoá.");
 
+        if (project.Status == ProjectStatus.in_progress)
+            throw new InvalidOperationException(
+                "Dự án đang 'in_progress' — nghiệm thu (POST /complete) hoặc huỷ (POST /cancel) trước khi xoá.");
+
         project.DeletedAt = DateTime.UtcNow;
         _repository.Update(project);
         await _unitOfWork.CommitAsync();

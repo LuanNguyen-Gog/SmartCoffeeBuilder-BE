@@ -37,7 +37,8 @@ public class PostService : IPostService
         var now = DateTime.UtcNow;
         var query = _repository
             .GetQueryable(
-                p => (projectShopOwnerId == null || p.ProjectShopOwnerId == projectShopOwnerId)
+                p => p.ProjectShopOwner.DeletedAt == null // ẩn bài của dự án đã xoá mềm
+                     && (projectShopOwnerId == null || p.ProjectShopOwnerId == projectShopOwnerId)
                      && (kind == null || p.ServiceKind == kind)
                      && (st == null || p.Status == st)
                      && (st != PostStatus.open || p.SubmissionDeadline == null || p.SubmissionDeadline > now)
@@ -57,7 +58,7 @@ public class PostService : IPostService
     public async Task<PostResponse> GetByIdAsync(long id)
     {
         var post = await _repository.SingleOrDefaultAsync(
-            predicate: p => p.Id == id,
+            predicate: p => p.Id == id && p.ProjectShopOwner.DeletedAt == null,
             include: q => q.Include(p => p.ProjectShopOwner))
             ?? throw new KeyNotFoundException($"Không tìm thấy bài đăng với id {id}.");
 

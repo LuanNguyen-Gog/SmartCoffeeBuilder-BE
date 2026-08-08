@@ -141,6 +141,13 @@ public class ServiceProviderProfileService : IServiceProviderProfileService
         if (provider == null || provider.DeletedAt != null)
             throw new KeyNotFoundException($"Không tìm thấy service provider với id {id}.");
 
+        var activeEngagements = await _unitOfWork.GetRepository<SmartCoffeeBuilder.Repository.Models.ProjectWorking>()
+            .CountAsync(e => e.ServiceProviderProfileId == id
+                             && (e.Status == ProviderStatus.requested || e.Status == ProviderStatus.accepted));
+        if (activeEngagements > 0)
+            throw new InvalidOperationException(
+                $"Provider còn {activeEngagements} engagement đang hoạt động — đóng/huỷ hết trước khi xoá hồ sơ.");
+
         provider.DeletedAt = DateTime.UtcNow;
         _repository.Update(provider);
         await _unitOfWork.CommitAsync();

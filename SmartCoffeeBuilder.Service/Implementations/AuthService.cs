@@ -70,6 +70,9 @@ public class AuthService : IAuthService
         if (!stored.IsActive)
             throw new UnauthorizedAccessException("Refresh token đã hết hạn hoặc bị thu hồi.");
 
+        if (stored.Account is null || stored.Account.DeletedAt != null)
+            throw new UnauthorizedAccessException("Refresh token không hợp lệ.");
+
         await _authRepository.RevokeRefreshTokenAsync(stored);
 
         return await IssueTokensAsync(stored.Account);
@@ -108,6 +111,7 @@ public class AuthService : IAuthService
     // ──────────────────────────────────────────────────────────────
     public async Task<MeResponse> GetMeAsync(long accountId)
     {
+        // GetByIdAsync đã lọc DeletedAt == null nên tài khoản đã xoá mềm sẽ trả null → 404.
         var account = await _authRepository.GetByIdAsync(accountId)
             ?? throw new KeyNotFoundException("Tài khoản không tồn tại.");
 

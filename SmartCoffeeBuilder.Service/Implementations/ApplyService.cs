@@ -40,7 +40,9 @@ public class ApplyService : IApplyService
 
         var query = _repository
             .GetQueryable(
-                a => (postId == null || a.PostId == postId)
+                a => a.ServiceProviderProfile.DeletedAt == null      // ẩn hồ sơ của provider đã xoá mềm
+                     && a.Post.ProjectShopOwner.DeletedAt == null     // và của bài thuộc dự án đã xoá mềm
+                     && (postId == null || a.PostId == postId)
                      && (serviceProviderProfileId == null || a.ServiceProviderProfileId == serviceProviderProfileId)
                      && (st == null || a.Status == st),
                 include: q => q.Include(a => a.Post).Include(a => a.ServiceProviderProfile))
@@ -56,7 +58,9 @@ public class ApplyService : IApplyService
     public async Task<ApplyResponse> GetByIdAsync(long id)
     {
         var application = await _repository.SingleOrDefaultAsync(
-            predicate: a => a.Id == id,
+            predicate: a => a.Id == id
+                            && a.ServiceProviderProfile.DeletedAt == null
+                            && a.Post.ProjectShopOwner.DeletedAt == null,
             include: q => q.Include(a => a.Post).Include(a => a.ServiceProviderProfile))
             ?? throw new KeyNotFoundException($"Không tìm thấy application với id {id}.");
 

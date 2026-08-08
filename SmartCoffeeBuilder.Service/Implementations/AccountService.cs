@@ -106,9 +106,32 @@ public class AccountService : IAccountService
         if (account == null || account.DeletedAt != null)
             throw new KeyNotFoundException($"Không tìm thấy account với id {id}.");
 
+        var activeEngagements = await _unitOfWork.GetRepository<ProjectWorking>().CountAsync(
+            e => (e.Status == ProviderStatus.requested || e.Status == ProviderStatus.accepted)
+                 && (e.ServiceProviderProfile.AccountId == id || e.ProjectShopOwner.Owner.AccountId == id));
+        if (activeEngagements > 0)
+            throw new InvalidOperationException(
+                $"Tài khoản còn {activeEngagements} engagement đang hoạt động — đóng/huỷ hết trước khi xoá tài khoản.");
+
+        // Owner còn dự án đang 'in_progress' (đã bắt đầu chạy) thì phải nghiệm thu/huỷ trước.
+        var inProgressProjects = await _unitOfWork.GetRepository<ProjectShopOwner>().CountAsync(
+            p => p.DeletedAt == null && p.Owner.AccountId == id && p.Status == ProjectStatus.in_progress);
+        if (inProgressProjects > 0)
+            throw new InvalidOperationException(
+                $"Tài khoản còn {inProgressProjects} dự án đang 'in_progress' — nghiệm thu/huỷ trước khi xoá tài khoản.");
+
         account.DeletedAt = DateTime.UtcNow;
         _repository.Update(account);
-        await _unitOfWork.CommitAsync();
+
+        // Thu hồi mọi refresh token còn hiệu lực → khoá phiên đăng nhập ngay
+        // (access token cũ vẫn sống tới khi hết hạn ≤ Jwt:AccessTokenExpirationMinutes).
+        var tokenRepo = _unitOfWork.GetRepository<RefreshToken>();
+        var activeTokens = await tokenRepo.GetListAsync(
+            predicate: rt => rt.AccountId == id && rt.RevokedAt == null);
+        foreach (var t in activeTokens) t.RevokedAt = DateTime.UtcNow;
+        tokenRepo.UpdateRange(activeTokens);
+
+        await _unitOfWork.CommitAsync(); // account + tokens trong một transaction
     }
 
     public async Task<PaginationResponse<AccountResponse>> SearchAsync(

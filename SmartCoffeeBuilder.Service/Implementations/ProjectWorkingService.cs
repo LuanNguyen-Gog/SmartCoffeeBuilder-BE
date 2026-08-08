@@ -48,7 +48,9 @@ public class ProjectWorkingService : IProjectWorkingService
 
         var query = _repository
             .GetQueryable(
-                e => (projectShopOwnerId == null || e.ProjectShopOwnerId == projectShopOwnerId)
+                e => e.ProjectShopOwner.DeletedAt == null            // ẩn engagement của dự án đã xoá mềm
+                     && e.ServiceProviderProfile.DeletedAt == null    // hoặc của provider đã xoá mềm
+                     && (projectShopOwnerId == null || e.ProjectShopOwnerId == projectShopOwnerId)
                      && (serviceProviderProfileId == null || e.ServiceProviderProfileId == serviceProviderProfileId)
                      && (st == null || e.Status == st),
                 include: q => q.Include(e => e.ProjectShopOwner)
@@ -66,7 +68,9 @@ public class ProjectWorkingService : IProjectWorkingService
     public async Task<ProjectWorkingResponse> GetByIdAsync(long id)
     {
         var engagement = await _repository.SingleOrDefaultAsync(
-            predicate: e => e.Id == id,
+            predicate: e => e.Id == id
+                            && e.ProjectShopOwner.DeletedAt == null
+                            && e.ServiceProviderProfile.DeletedAt == null,
             include: q => q.Include(e => e.ProjectShopOwner)
                            .Include(e => e.ServiceProviderProfile)
                            .Include(e => e.Contracts))
