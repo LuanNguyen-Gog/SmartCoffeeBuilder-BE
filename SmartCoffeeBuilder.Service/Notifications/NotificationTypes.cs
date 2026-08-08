@@ -37,6 +37,12 @@ public static class NotificationTypes
     /// <summary>Gửi cho BÊN CÒN LẠI khi một bên huỷ ngang engagement đang chạy.</summary>
     public const string EngagementTerminated = "engagement_terminated";
 
+    /// <summary>
+    /// Gửi cho OWNER khi engagement mở cuối cùng của dự án vừa đóng lại và dự án đã đủ điều kiện
+    /// nghiệm thu — nhắc owner bấm đóng dự án (POST /api/project-shop-owners/{id}/complete).
+    /// </summary>
+    public const string ProjectReadyToClose = "project_ready_to_close";
+
     /// <summary>Gửi cho các PROVIDER đã tham gia khi owner đóng dự án.</summary>
     public const string ProjectCompleted = "project_completed";
 
@@ -65,6 +71,7 @@ public static class NotificationTypes
         EngagementCompletionRequested => "Nhà cung cấp báo hoàn thành, chờ bạn nghiệm thu - Smart Coffee Builder",
         EngagementCompleted => "Công việc của bạn đã được nghiệm thu - Smart Coffee Builder",
         EngagementTerminated => "Hợp tác đã bị huỷ ngang - Smart Coffee Builder",
+        ProjectReadyToClose => "Dự án đã xong, chờ bạn đóng - Smart Coffee Builder",
         ProjectCompleted => "Dự án đã hoàn thành - Smart Coffee Builder",
         ProjectCancelled => "Dự án đã bị huỷ - Smart Coffee Builder",
         _ => "Thông báo - Smart Coffee Builder"

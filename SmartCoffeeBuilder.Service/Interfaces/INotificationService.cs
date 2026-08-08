@@ -56,6 +56,12 @@ public interface INotificationService
     Task NotifyEngagementTerminatedAsync(long projectWorkingId, bool terminatedByOwner);
 
     /// <summary>
+    /// OWNER nhận noti nhắc đóng dự án khi engagement mở cuối cùng vừa khép lại và dự án đã đủ
+    /// điều kiện nghiệm thu. Không đủ điều kiện thì không gửi gì — caller cứ gọi vô tư.
+    /// </summary>
+    Task NotifyProjectReadyToCloseAsync(long projectShopOwnerId);
+
+    /// <summary>
     /// Các provider liên quan nhận noti khi owner đóng (cancelled=false) hoặc huỷ (true) dự án.
     /// Người nhận lấy từ <paramref name="affectedProjectWorkingIds"/> — caller biết chính xác
     /// engagement nào vừa bị ảnh hưởng nên không gửi nhầm provider đã bị từ chối từ lâu.
