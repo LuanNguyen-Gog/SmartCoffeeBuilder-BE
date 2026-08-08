@@ -2,6 +2,11 @@ using SmartCoffeeBuilder.Repository.Models;
 
 namespace SmartCoffeeBuilder.Service.DTOs.Responses.Comment;
 
+// Lưu ý: tên folder "Comment" làm cho `Comment` ở đây trở thành namespace con (CS0118),
+// che mất class SmartCoffeeBuilder.Repository.Models.Comment. Phải fully qualify.
+using CommentEntity = SmartCoffeeBuilder.Repository.Models.Comment;
+using AccountEntity = SmartCoffeeBuilder.Repository.Models.Account;
+
 public class CommentResponse
 {
     public long Id { get; set; }
@@ -19,7 +24,7 @@ public class CommentResponse
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
-    public static CommentResponse From(Comment c) => new()
+    public static CommentResponse From(CommentEntity c) => new()
     {
         Id = c.Id,
         TargetType = c.TargetType.ToString(),
@@ -31,7 +36,7 @@ public class CommentResponse
         UpdatedAt = c.UpdatedAt
     };
 
-    private static string? ResolveDisplayName(Account? account)
+    private static string? ResolveDisplayName(AccountEntity? account)
     {
         if (account == null) return null;
 
