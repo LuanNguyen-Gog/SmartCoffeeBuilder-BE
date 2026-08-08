@@ -440,6 +440,89 @@ public static class DbSeeder
             },
         };
 
+        // ───────── Comment threads (seed mẫu để FE có dữ liệu hiển thị ngay) ─────────
+        // Thread trên milestone "Đóng nội thất gỗ" (itemFurniture): owner hỏi + constructor trả lời.
+        var commentsMilestone = new List<Comment>
+        {
+            new()
+            {
+                TargetType = CommentTargetType.construction_item,
+                TargetId = itemFurniture.Id,
+                Body = "Anh ơi quầy bar có thể đổi vân gỗ sang tông sáng hơn không?",
+                CreatedByAccount = owner1Acc,
+                CreatedAt = At(3),
+                UpdatedAt = At(3),
+            },
+            new()
+            {
+                TargetType = CommentTargetType.construction_item,
+                TargetId = itemFurniture.Id,
+                Body = "Dạ được, bên em sẽ chọn ván MDF phủ melamine tông oak nhạt, báo lại trong 1 ngày.",
+                CreatedByAccount = constructorAcc,
+                CreatedAt = At(2),
+                UpdatedAt = At(2),
+            },
+            new()
+            {
+                TargetType = CommentTargetType.construction_item,
+                TargetId = itemFurniture.Id,
+                Body = "OK em, chốt vậy nhé.",
+                CreatedByAccount = owner1Acc,
+                CreatedAt = At(1),
+                UpdatedAt = At(1),
+            },
+        };
+
+        // Thread trên design (target = design). Lấy design đầu tiên trong ppDesign.
+        var firstDesign = ppDesign.Designs.First();
+        var commentsDesign = new List<Comment>
+        {
+            new()
+            {
+                TargetType = CommentTargetType.design,
+                TargetId = firstDesign.Id,
+                Body = "Mình thấy khu vực quầy bar nên làm nổi bật hơn, có thể đẩy ra trung tâm không?",
+                CreatedByAccount = owner1Acc,
+                CreatedAt = At(38),
+                UpdatedAt = At(38),
+            },
+            new()
+            {
+                TargetType = CommentTargetType.design,
+                TargetId = firstDesign.Id,
+                Body = "Dạ vâng, bên em sẽ chỉnh phương án mới — quầy bar trung tâm + đèn thả.",
+                CreatedByAccount = designerAcc,
+                CreatedAt = At(37),
+                UpdatedAt = At(37),
+            },
+        };
+
+        // ───────── DesignVersion snapshot (seed bản 'approved' cho design đầu tiên) ─────────
+        // Mục đích: FE có sẵn 1 bản snapshot khi test endpoint /api/designs/{id}/versions.
+        var designVersionApproved = new DesignVersion
+        {
+            DesignId = firstDesign.Id,
+            SnapshotKind = DesignVersionSnapshotKind.approved,
+            Version = firstDesign.Version,
+            Title = firstDesign.Title,
+            Type = firstDesign.Type,
+            Status = firstDesign.Status,
+            Reason = firstDesign.Reason,
+            CreatedByAccount = designerAcc,
+            SnapshottedByAccount = designerAcc,
+            CreatedAt = firstDesign.CreatedAt,
+            SnapshottedAt = At(20),
+            // Copy ảnh từ design gốc — ObjectName copy nguyên trạng.
+            Images = firstDesign.DesignImages.Select(img => new DesignVersionImage
+            {
+                OriginalImageId = img.Id,
+                ImageUrl = img.ImageUrl,
+                Caption = img.Caption,
+                UploadedByAccount = img.UploadedByAccount,
+                UploadedAt = img.CreatedAt,
+            }).ToList(),
+        };
+
         // ───────── Project 2 (mới brief, đơn giản) ─────────
         var project2 = new ProjectShopOwner
         {
@@ -501,6 +584,9 @@ public static class DbSeeder
         db.Docs.AddRange(docQuote, docDrawing);
         db.Conversations.Add(convo);
         db.Reviews.Add(review);
+        db.Comments.AddRange(commentsMilestone);
+        db.Comments.AddRange(commentsDesign);
+        db.DesignVersions.Add(designVersionApproved);
         db.Notifications.AddRange(notifications);
 
         await db.SaveChangesAsync(ct);

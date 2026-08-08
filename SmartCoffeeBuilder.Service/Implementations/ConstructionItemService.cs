@@ -169,6 +169,12 @@ public class ConstructionItemService : IConstructionItemService
         if (hasChildren)
             throw new InvalidOperationException("Hạng mục còn milestone con — xoá/di chuyển con trước khi xoá.");
 
+        // Cascade xoá comment gắn vào milestone này (FK mềm — không tự cascade theo DB).
+        var commentRepo = _unitOfWork.GetRepository<Comment>();
+        var comments = await commentRepo.GetListAsync(
+            c => c.TargetType == CommentTargetType.construction_item && c.TargetId == id);
+        commentRepo.DeleteRange(comments);
+
         _repository.Delete(item); // task con cascade; issue liên quan set null construction_item_id.
         await _unitOfWork.CommitAsync();
     }

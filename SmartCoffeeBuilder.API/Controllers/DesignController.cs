@@ -130,4 +130,26 @@ public class DesignController : ControllerBase
         await _designService.RemoveFileAsync(id, fileId);
         return NoContent();
     }
+
+    /// <summary>
+    /// Danh sách version (snapshot) của design — full history (mỗi submit/approve đều sinh 1 bản mới).
+    /// Phân trang theo pageNumber / pageSize (mặc định 1 / 20).
+    /// </summary>
+    [HttpGet("{id:long}/versions")]
+    public async Task<IActionResult> GetVersions(
+        long id,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        var result = await _designService.GetVersionsAsync(id, pageNumber, pageSize);
+        return Ok(result);
+    }
+
+    /// <summary>Chi tiết 1 version kèm ảnh snapshot.</summary>
+    [HttpGet("{id:long}/versions/{versionId:long}")]
+    public async Task<IActionResult> GetVersion(long id, long versionId)
+    {
+        var result = await _designService.GetVersionByIdAsync(id, versionId);
+        return Ok(result);
+    }
 }

@@ -663,6 +663,56 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     b.ToTable("contracts", (string)null);
                 });
 
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Comment", b =>
+                {
+                    b.Property<string>("Body")
+                        .HasColumnType("text")
+                        .HasColumnName("body");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<long?>("CreatedBy")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by");
+
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("TargetId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("target_id");
+
+                    b.Property<string>("TargetType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("target_type");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.HasKey("Id")
+                        .HasName("pk_comments");
+
+                    b.HasIndex("CreatedBy")
+                        .HasDatabaseName("ix_comments_created_by");
+
+                    b.HasIndex(new[] { "TargetType", "TargetId" }, "ix_comments_target_type_target_id");
+
+                    b.ToTable("comments", (string)null);
+                });
+
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Conversation", b =>
                 {
                     b.Property<long>("Id")
@@ -891,6 +941,122 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasDatabaseName("ix_design_images_uploaded_by");
 
                     b.ToTable("design_images", (string)null);
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.DesignVersion", b =>
+                {
+                    b.Property<long?>("CreatedBy")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<long>("DesignId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("design_id");
+
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("text")
+                        .HasColumnName("reason");
+
+                    b.Property<string>("SnapshotKind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("snapshot_kind");
+
+                    b.Property<DateTime>("SnapshottedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("snapshotted_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<long?>("SnapshottedBy")
+                        .HasColumnType("bigint")
+                        .HasColumnName("snapshotted_by");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Title")
+                        .HasColumnType("text")
+                        .HasColumnName("title");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("type");
+
+                    b.Property<decimal>("Version")
+                        .HasPrecision(4, 1)
+                        .HasColumnType("numeric(4,1)")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_design_versions");
+
+                    b.HasIndex("DesignId")
+                        .HasDatabaseName("ix_design_versions_design_id");
+
+                    b.HasIndex(new[] { "DesignId", "SnapshotKind" }, "ix_design_versions_design_id_snapshot_kind");
+
+                    b.ToTable("design_versions", (string)null);
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.DesignVersionImage", b =>
+                {
+                    b.Property<string>("Caption")
+                        .HasColumnType("text")
+                        .HasColumnName("caption");
+
+                    b.Property<long>("DesignVersionId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("design_version_id");
+
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("ImageUrl")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("image_url");
+
+                    b.Property<long?>("OriginalImageId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("original_image_id");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("uploaded_at");
+
+                    b.Property<long?>("UploadedBy")
+                        .HasColumnType("bigint")
+                        .HasColumnName("uploaded_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_design_version_images");
+
+                    b.HasIndex("DesignVersionId")
+                        .HasDatabaseName("ix_design_version_images_design_version_id");
+
+                    b.ToTable("design_version_images", (string)null);
                 });
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.DesignerProfile", b =>
@@ -2226,6 +2392,17 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     b.Navigation("ProjectWorking");
                 });
 
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Comment", b =>
+                {
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Account", "CreatedByAccount")
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_comments_accounts_created_by");
+
+                    b.Navigation("CreatedByAccount");
+                });
+
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Conversation", b =>
                 {
                     b.HasOne("SmartCoffeeBuilder.Repository.Models.Account", "CreatedByAccount")
@@ -2295,6 +2472,62 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasConstraintName("fk_design_images_accounts_uploaded_by");
 
                     b.Navigation("Design");
+
+                    b.Navigation("UploadedByAccount");
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.DesignVersion", b =>
+                {
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Account", "CreatedByAccount")
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_design_versions_accounts_created_by");
+
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Design", "Design")
+                        .WithMany()
+                        .HasForeignKey("DesignId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_design_versions_designs_design_id");
+
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Account", "SnapshottedByAccount")
+                        .WithMany()
+                        .HasForeignKey("SnapshottedBy")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_design_versions_accounts_snapshotted_by");
+
+                    b.Navigation("CreatedByAccount");
+
+                    b.Navigation("Design");
+
+                    b.Navigation("SnapshottedByAccount");
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.DesignVersionImage", b =>
+                {
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.DesignVersion", "DesignVersion")
+                        .WithMany("Images")
+                        .HasForeignKey("DesignVersionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_design_version_images_design_versions_design_version_id");
+
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.DesignImage", "OriginalImage")
+                        .WithMany()
+                        .HasForeignKey("OriginalImageId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_design_version_images_design_images_original_image_id");
+
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Account", "UploadedByAccount")
+                        .WithMany()
+                        .HasForeignKey("UploadedBy")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_design_version_images_accounts_uploaded_by");
+
+                    b.Navigation("DesignVersion");
+
+                    b.Navigation("OriginalImage");
 
                     b.Navigation("UploadedByAccount");
                 });
@@ -2662,6 +2895,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     b.Navigation("AiRecommendations");
                 });
 
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.DesignVersion", b =>
+                {
+                    b.Navigation("Images");
+                });
+
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.DocType", b =>
                 {
                     b.Navigation("Docs");
@@ -2702,6 +2940,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     b.Navigation("Conversations");
 
                     b.Navigation("Designs");
+
+                    b.Navigation("DesignVersions");
 
                     b.Navigation("Docs");
 

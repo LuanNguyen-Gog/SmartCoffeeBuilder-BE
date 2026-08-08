@@ -24,4 +24,10 @@ public interface IDesignService
         long designId, Stream content, string fileName, string? contentType, long sizeBytes,
         string? caption = null, long? uploadedBy = null);
     Task RemoveFileAsync(long designId, long imageId);
+
+    // Lịch sử version (snapshot khi submit / approve) — dùng để truy nguyên sau revision.
+    // Mỗi submit / approve đều sinh 1 bản mới (full history), không upsert — có thể trả về nhiều bản.
+    Task<PaginationResponse<DesignVersionResponse>> GetVersionsAsync(
+        long designId, int pageNumber = 1, int pageSize = 20);
+    Task<DesignVersionResponse> GetVersionByIdAsync(long designId, long versionId);
 }

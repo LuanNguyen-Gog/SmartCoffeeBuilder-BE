@@ -34,6 +34,7 @@ public class ProjectWorking
 
     public ICollection<Survey> Surveys { get; set; } = new List<Survey>();
     public ICollection<Design> Designs { get; set; } = new List<Design>();
+    public ICollection<DesignVersion> DesignVersions { get; set; } = new List<DesignVersion>();
     public ICollection<ConstructionItem> ConstructionItems { get; set; } = new List<ConstructionItem>();
     public ICollection<Issue> Issues { get; set; } = new List<Issue>();
     public ICollection<Contract> Contracts { get; set; } = new List<Contract>();

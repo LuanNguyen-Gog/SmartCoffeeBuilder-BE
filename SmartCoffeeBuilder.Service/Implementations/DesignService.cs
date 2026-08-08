@@ -156,6 +156,9 @@ public class DesignService : IDesignService
         _repository.Update(design);
         await _unitOfWork.CommitAsync();
 
+        // Snapshot bản nộp — chạy NGOÀI transaction đổi status (best-effort, lỗi không rollback status).
+        await TrySnapshotAsync(design, DesignVersionSnapshotKind.submitted, snapshottedBy: design.CreatedBy);
+
         return DesignResponse.From(design);
     }
 
@@ -176,6 +179,10 @@ public class DesignService : IDesignService
 
         _repository.Update(design);
         await _unitOfWork.CommitAsync();
+
+        // Snapshot bản duyệt — chạy NGOÀI transaction đổi status. Mỗi lần approve sinh version mới
+        // (lưu trữ được nhiều bản approved nếu design được duyệt nhiều lần sau revision).
+        await TrySnapshotAsync(design, DesignVersionSnapshotKind.approved, snapshottedBy: design.CreatedBy);
 
         return DesignResponse.From(design);
     }
@@ -285,5 +292,101 @@ public class DesignService : IDesignService
             predicate: d => d.Id == id,
             include: q => q.Include(d => d.DesignImages))
             ?? throw new KeyNotFoundException($"Không tìm thấy design với id {id}.");
+    }
+
+    // ───────── Design versioning (snapshot khi submit / approve) ─────────
+
+    public async Task<PaginationResponse<DesignVersionResponse>> GetVersionsAsync(
+        long designId, int pageNumber = 1, int pageSize = 20)
+    {
+        // Xác nhận design tồn tại — trả 404 nếu id sai.
+        _ = await GetDesignAsync(designId);
+
+        // Full history: mỗi submit/approve đều sinh 1 bản — phân trang để không load hết khi version nhiều.
+        // Sắp xếp: bản mới nhất trước (theo snapshotted_at).
+        var paged = await _unitOfWork.GetRepository<DesignVersion>()
+            .GetQueryable(
+                predicate: v => v.DesignId == designId,
+                include: q => q.Include(v => v.Images),
+                orderBy: q => q.OrderByDescending(v => v.SnapshottedAt))
+            .ToPaginationResponseAsync(pageNumber, pageSize);
+
+        return new PaginationResponse<DesignVersionResponse>(
+            paged.Items.Select(DesignVersionResponse.From),
+            paged.TotalItems, paged.PageNumber, paged.PageSize);
+    }
+
+    public async Task<DesignVersionResponse> GetVersionByIdAsync(long designId, long versionId)
+    {
+        _ = await GetDesignAsync(designId);
+
+        var version = await _unitOfWork.GetRepository<DesignVersion>()
+            .SingleOrDefaultAsync(
+                predicate: v => v.Id == versionId && v.DesignId == designId,
+                include: q => q.Include(v => v.Images))
+            ?? throw new KeyNotFoundException(
+                $"Không tìm thấy design version với id {versionId} trong design {designId}.");
+
+        return DesignVersionResponse.From(version);
+    }
+
+    /// <summary>
+    /// Snapshot nguyên trạng Design + toàn bộ DesignImage hiện tại vào DesignVersion + DesignVersionImage.
+    /// Best-effort: bọc try/catch để lỗi snapshot KHÔNG rollback status đã đổi (status là quan trọng hơn lịch sử).
+    /// Mỗi lần submit/approve đều sinh 1 version MỚI (không upsert) → giữ đầy đủ full history cho truy nguyên.
+    ///
+    /// Copy ObjectName (image_url) chứ không reference ảnh gốc — khi ảnh gốc bị xoá sau này,
+    /// ảnh trong version vẫn còn truy cập được, chỉ cột original_image_id trở thành null.
+    /// </summary>
+    private async Task TrySnapshotAsync(Design design, DesignVersionSnapshotKind kind, long? snapshottedBy)
+    {
+        try
+        {
+            await _unitOfWork.ProcessInTransactionAsync(async () =>
+            {
+                var versionRepo = _unitOfWork.GetRepository<DesignVersion>();
+                var imageRepo = _unitOfWork.GetRepository<DesignVersionImage>();
+
+                // Luôn insert version mới — KHÔNG upsert. Mỗi submit/approve đều sinh 1 bản riêng.
+                // Full history → FE có thể duyệt lại từng mốc.
+                var version = new DesignVersion
+                {
+                    DesignId = design.Id,
+                    SnapshotKind = kind,
+                    Version = design.Version,
+                    Title = design.Title,
+                    Type = design.Type,
+                    Status = design.Status,
+                    Reason = design.Reason,
+                    CreatedBy = design.CreatedBy,
+                    SnapshottedBy = snapshottedBy,
+                    CreatedAt = design.CreatedAt,
+                    SnapshottedAt = DateTime.UtcNow
+                };
+                await versionRepo.InsertAsync(version);
+                await _unitOfWork.CommitAsync();
+
+                foreach (var img in design.DesignImages)
+                {
+                    await imageRepo.InsertAsync(new DesignVersionImage
+                    {
+                        DesignVersionId = version.Id,
+                        OriginalImageId = img.Id,
+                        ImageUrl = img.ImageUrl, // COPY ObjectName — sống độc lập với ảnh gốc.
+                        Caption = img.Caption,
+                        UploadedBy = img.UploadedBy,
+                        UploadedAt = img.CreatedAt
+                    });
+                }
+                await _unitOfWork.CommitAsync();
+            });
+        }
+        catch (Exception ex)
+        {
+            // Snapshot fail KHÔNG rollback status đã đổi — chỉ log warning.
+            // Dùng Console vì project không inject ILogger; thay bằng logger khi có DI logging.
+            Console.WriteLine(
+                $"[DesignService] Snapshot failed for design {design.Id} kind={kind}: {ex.Message}");
+        }
     }
 }

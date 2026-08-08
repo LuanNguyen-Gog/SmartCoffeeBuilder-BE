@@ -60,4 +60,17 @@ public enum PaymentPurpose { subscription, post_boost }
 /// Web và mobile nằm trên hai domain khác nhau nên link đã tạo cho bên này KHÔNG dùng lại được cho bên kia.
 /// </summary>
 public enum PaymentPlatform { web, mobile }
+
+/// <summary>
+/// Loại entity mà một <c>Comment</c> neo vào. Dùng FK mềm (target_type + target_id) để một bảng
+/// <c>comments</c> phục vụ thread cho nhiều entity (ConstructionItem, Design) — không phải 2 bảng rồi UNION.
+/// Mở rộng thêm giá trị khi cần comment cho entity mới.
+/// </summary>
+public enum CommentTargetType { construction_item, design }
+
+/// <summary>
+/// Loại snapshot của <c>DesignVersion</c>. <c>submitted</c> lưu bản nộp gần nhất (upsert khi resubmit);
+/// <c>approved</c> lưu bản đã duyệt (có thể nhiều bản nếu design được approve nhiều lần sau revision).
+/// </summary>
+public enum DesignVersionSnapshotKind { submitted, approved }
 #pragma warning restore CS8981

@@ -35,6 +35,11 @@ public class SmartCafeBuilderContext : DbContext
     public DbSet<Survey> Surveys => Set<Survey>();
     public DbSet<Design> Designs => Set<Design>();
     public DbSet<DesignImage> DesignImages => Set<DesignImage>();
+    public DbSet<DesignVersion> DesignVersions => Set<DesignVersion>();
+    public DbSet<DesignVersionImage> DesignVersionImages => Set<DesignVersionImage>();
+
+    // Nhóm 5.1 — Thread comment (FK mềm vào ConstructionItem + Design; mở rộng thêm entity khác sau).
+    public DbSet<Comment> Comments => Set<Comment>();
 
     // Nhóm 6 — Thi công
     public DbSet<ConstructionItem> ConstructionItems => Set<ConstructionItem>();
@@ -87,6 +92,8 @@ public class SmartCafeBuilderContext : DbContext
         configurationBuilder.Properties<PaymentTransactionStatus>().HaveConversion<string>().HaveMaxLength(30);
         configurationBuilder.Properties<PaymentPurpose>().HaveConversion<string>().HaveMaxLength(30);
         configurationBuilder.Properties<PaymentPlatform>().HaveConversion<string>().HaveMaxLength(30);
+        configurationBuilder.Properties<CommentTargetType>().HaveConversion<string>().HaveMaxLength(30);
+        configurationBuilder.Properties<DesignVersionSnapshotKind>().HaveConversion<string>().HaveMaxLength(20);
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -273,6 +280,54 @@ public class SmartCafeBuilderContext : DbContext
                 .HasForeignKey(x => x.DesignId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.UploadedByAccount).WithMany()
                 .HasForeignKey(x => x.UploadedBy).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // FK mềm: target_type + target_id không có FK cứng tới entity cha — service phải tự cascade xoá.
+        // Index (target_type, target_id) phục vụ list comment theo thread.
+        modelBuilder.Entity<Comment>(e =>
+        {
+            e.HasIndex(x => new { x.TargetType, x.TargetId })
+                .HasDatabaseName("ix_comments_target_type_target_id");
+            e.HasIndex(x => x.CreatedBy)
+                .HasDatabaseName("ix_comments_created_by");
+            e.HasOne(x => x.CreatedByAccount).WithMany()
+                .HasForeignKey(x => x.CreatedBy).OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("fk_comments_accounts_created_by");
+        });
+
+        // DesignVersion: mỗi submit / approve đều sinh 1 bản mới (full history) — không unique,
+        // chỉ index thường để query nhanh.
+        modelBuilder.Entity<DesignVersion>(e =>
+        {
+            e.Property(x => x.Version).HasPrecision(4, 1);
+            e.HasIndex(x => new { x.DesignId, x.SnapshotKind })
+                .HasDatabaseName("ix_design_versions_design_id_snapshot_kind");
+            e.HasIndex(x => x.DesignId)
+                .HasDatabaseName("ix_design_versions_design_id");
+            e.HasOne(x => x.Design).WithMany()
+                .HasForeignKey(x => x.DesignId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_design_versions_designs_design_id");
+            e.HasOne(x => x.CreatedByAccount).WithMany()
+                .HasForeignKey(x => x.CreatedBy).OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("fk_design_versions_accounts_created_by");
+            e.HasOne(x => x.SnapshottedByAccount).WithMany()
+                .HasForeignKey(x => x.SnapshottedBy).OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("fk_design_versions_accounts_snapshotted_by");
+        });
+
+        modelBuilder.Entity<DesignVersionImage>(e =>
+        {
+            e.HasIndex(x => x.DesignVersionId)
+                .HasDatabaseName("ix_design_version_images_design_version_id");
+            e.HasOne(x => x.DesignVersion).WithMany(v => v.Images)
+                .HasForeignKey(x => x.DesignVersionId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_design_version_images_design_versions_design_version_id");
+            e.HasOne(x => x.OriginalImage).WithMany()
+                .HasForeignKey(x => x.OriginalImageId).OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("fk_design_version_images_design_images_original_image_id");
+            e.HasOne(x => x.UploadedByAccount).WithMany()
+                .HasForeignKey(x => x.UploadedBy).OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("fk_design_version_images_accounts_uploaded_by");
         });
 
         // ───────── Nhóm 6 — Thi công ─────────
