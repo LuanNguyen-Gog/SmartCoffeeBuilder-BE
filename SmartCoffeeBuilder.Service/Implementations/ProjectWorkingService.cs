@@ -239,6 +239,12 @@ public class ProjectWorkingService : IProjectWorkingService
             await _notificationService.NotifyEngagementTerminatedAsync(
                 engagement.Id, terminatedByOwner: actor != EngagementActor.Provider);
 
+        // Đóng một engagement có thể là mảnh ghép cuối của cả dự án — nhắc owner bấm đóng dự án,
+        // nếu không dự án nằm mãi ở 'in_progress' dù mọi hợp tác đã xong. Điều kiện đủ do
+        // NotificationService tự xét (trùng guard của ProjectShopOwnerService.CompleteAsync).
+        if (target is ProviderStatus.completed or ProviderStatus.terminated)
+            await _notificationService.NotifyProjectReadyToCloseAsync(engagement.ProjectShopOwnerId);
+
         return ProjectWorkingResponse.From(engagement);
     }
 

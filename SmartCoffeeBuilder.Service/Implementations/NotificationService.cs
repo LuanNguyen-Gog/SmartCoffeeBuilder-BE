@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using SmartCoffeeBuilder.Repository.DBContext;
 using SmartCoffeeBuilder.Repository.Interfaces;
 using SmartCoffeeBuilder.Repository.Models;
+using SmartCoffeeBuilder.Repository.Models.Enums;
 using SmartCoffeeBuilder.Service.ApiResponse;
 using SmartCoffeeBuilder.Service.DTOs.Responses.Notification;
 using SmartCoffeeBuilder.Service.Interfaces;
@@ -322,6 +323,48 @@ public class NotificationService : INotificationService
             content: $"{actor} đã huỷ ngang hợp tác ({engagement.ContractType}) tại dự án \"{projectName}\". " +
                      "Các công việc liên quan của hợp tác này dừng lại từ thời điểm hiện tại.",
             referenceType: EngagementReference, referenceId: engagement.Id);
+    }
+
+    public async Task NotifyProjectReadyToCloseAsync(long projectShopOwnerId)
+    {
+        var project = await _unitOfWork.GetRepository<ProjectShopOwner>().SingleOrDefaultAsync(
+            predicate: p => p.Id == projectShopOwnerId && p.DeletedAt == null,
+            include: q => q.Include(p => p.Owner).ThenInclude(o => o.Account)
+                           .Include(p => p.ProjectWorkings));
+        if (project is null) return;
+
+        // Dự án đã đóng/huỷ rồi thì không còn gì để nhắc.
+        if (project.Status is not (ProjectStatus.briefed or ProjectStatus.in_progress)) return;
+
+        // Cùng bộ điều kiện với ProjectShopOwnerService.CompleteAsync: không còn hợp tác dang dở,
+        // và có ít nhất một hợp tác đã nghiệm thu. Chưa đủ thì im lặng — caller không cần biết.
+        var openCount = project.ProjectWorkings.Count(
+            e => e.Status is ProviderStatus.requested or ProviderStatus.accepted);
+        if (openCount > 0) return;
+
+        var completedCount = project.ProjectWorkings.Count(e => e.Status == ProviderStatus.completed);
+        if (completedCount == 0) return;
+
+        var ownerAccount = project.Owner?.Account;
+        if (ownerAccount is null)
+        {
+            _logger.LogWarning(
+                "Bỏ qua noti project_ready_to_close: không resolve được owner cho dự án #{Id}.",
+                projectShopOwnerId);
+            return;
+        }
+
+        // KHÔNG chặn theo "đã có noti chưa đọc": owner có thể mời thêm provider sau khi được nhắc,
+        // lúc đó lời nhắc cũ thành sai và phải có lời nhắc mới khi hợp tác mới khép lại. Mỗi lần
+        // gửi ứng với đúng một lần dự án chuyển sang trạng thái đóng được, nên không sinh trùng.
+        var plural = completedCount > 1 ? $"cả {completedCount} hợp tác" : "hợp tác";
+
+        await CreateAndDispatchAsync(
+            ownerAccount.Id, ownerAccount.Email, NotificationTypes.ProjectReadyToClose,
+            title: "Dự án đã xong, chờ bạn đóng",
+            content: $"Dự án \"{project.Name}\" đã nghiệm thu xong {plural} và không còn hợp tác nào " +
+                     "đang chạy. Vào dự án bấm \"Hoàn thành dự án\" để đóng lại và kết thúc.",
+            referenceType: ProjectReference, referenceId: projectShopOwnerId);
     }
 
     public async Task NotifyProjectClosedAsync(
