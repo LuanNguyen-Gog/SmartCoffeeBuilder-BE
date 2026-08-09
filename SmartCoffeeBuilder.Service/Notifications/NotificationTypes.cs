@@ -37,6 +37,20 @@ public static class NotificationTypes
     /// <summary>Gửi cho BÊN CÒN LẠI khi một bên huỷ ngang engagement đang chạy.</summary>
     public const string EngagementTerminated = "engagement_terminated";
 
+    // ───────── Huỷ ngang cần đồng thuận hai bên ─────────
+
+    /// <summary>Gửi cho BÊN CÒN LẠI khi một bên đề nghị huỷ ngang — cần bên kia đồng ý.</summary>
+    public const string EngagementTerminationRequested = "engagement_termination_requested";
+
+    /// <summary>Gửi cho BÊN ĐỀ NGHỊ khi bên kia ĐỒNG Ý huỷ ngang (engagement chuyển 'terminated').</summary>
+    public const string EngagementTerminationApproved = "engagement_termination_approved";
+
+    /// <summary>Gửi cho BÊN ĐỀ NGHỊ khi bên kia TỪ CHỐI huỷ ngang (engagement giữ 'accepted').</summary>
+    public const string EngagementTerminationRejected = "engagement_termination_rejected";
+
+    /// <summary>Gửi cho BÊN CÒN LẠI khi bên đề nghị tự rút lại đề nghị huỷ ngang.</summary>
+    public const string EngagementTerminationCancelled = "engagement_termination_cancelled";
+
     /// <summary>
     /// Gửi cho OWNER khi engagement mở cuối cùng của dự án vừa đóng lại và dự án đã đủ điều kiện
     /// nghiệm thu — nhắc owner bấm đóng dự án (POST /api/project-shop-owners/{id}/complete).
@@ -71,6 +85,10 @@ public static class NotificationTypes
         EngagementCompletionRequested => "Nhà cung cấp báo hoàn thành, chờ bạn nghiệm thu - Smart Coffee Builder",
         EngagementCompleted => "Công việc của bạn đã được nghiệm thu - Smart Coffee Builder",
         EngagementTerminated => "Hợp tác đã bị huỷ ngang - Smart Coffee Builder",
+        EngagementTerminationRequested => "Đề nghị huỷ ngang hợp tác, chờ bạn phản hồi - Smart Coffee Builder",
+        EngagementTerminationApproved => "Hợp tác đã kết thúc theo thoả thuận hai bên - Smart Coffee Builder",
+        EngagementTerminationRejected => "Đề nghị huỷ ngang không được chấp thuận - Smart Coffee Builder",
+        EngagementTerminationCancelled => "Đề nghị huỷ ngang đã được rút lại - Smart Coffee Builder",
         ProjectReadyToClose => "Dự án đã xong, chờ bạn đóng - Smart Coffee Builder",
         ProjectCompleted => "Dự án đã hoàn thành - Smart Coffee Builder",
         ProjectCancelled => "Dự án đã bị huỷ - Smart Coffee Builder",

@@ -325,6 +325,62 @@ public class NotificationService : INotificationService
             referenceType: EngagementReference, referenceId: engagement.Id);
     }
 
+    public async Task NotifyEngagementTerminationRequestedAsync(long projectWorkingId, bool requestedByOwner)
+    {
+        var ctx = await LoadTerminationContextAsync(
+            projectWorkingId, requestedByOwner, toRequester: false, logFor: "engagement_termination_requested");
+        if (ctx is null) return;
+
+        var note = string.IsNullOrWhiteSpace(ctx.Engagement.TerminationRequestNote)
+            ? string.Empty
+            : $" Lý do: \"{ctx.Engagement.TerminationRequestNote}\".";
+
+        await CreateAndDispatchAsync(
+            ctx.Recipient.Id, ctx.Recipient.Email, NotificationTypes.EngagementTerminationRequested,
+            title: "Đề nghị huỷ ngang hợp tác, chờ bạn phản hồi",
+            content: $"{ctx.RequesterLabel} đề nghị huỷ ngang hợp tác ({ctx.ContractType}) tại dự án " +
+                     $"\"{ctx.ProjectName}\".{note} Hợp tác VẪN đang chạy cho tới khi bạn đồng ý — " +
+                     "vui lòng vào hợp tác để đồng ý hoặc từ chối đề nghị này.",
+            referenceType: EngagementReference, referenceId: projectWorkingId);
+    }
+
+    public async Task NotifyEngagementTerminationDecisionAsync(
+        long projectWorkingId, bool requestedByOwner, bool approved)
+    {
+        var ctx = await LoadTerminationContextAsync(
+            projectWorkingId, requestedByOwner, toRequester: true, logFor: "engagement_termination decision");
+        if (ctx is null) return;
+
+        var (type, title, content) = approved
+            ? (NotificationTypes.EngagementTerminationApproved,
+               "Hợp tác đã kết thúc theo thoả thuận hai bên",
+               $"{ctx.CounterpartLabel} đã đồng ý đề nghị huỷ ngang của bạn. Hợp tác ({ctx.ContractType}) " +
+               $"tại dự án \"{ctx.ProjectName}\" kết thúc từ thời điểm hiện tại. Hai bên có thể bắt đầu lại " +
+               "bằng một lời mời hợp tác mới hoặc qua bài đăng tuyển.")
+            : (NotificationTypes.EngagementTerminationRejected,
+               "Đề nghị huỷ ngang không được chấp thuận",
+               $"{ctx.CounterpartLabel} không đồng ý huỷ ngang hợp tác ({ctx.ContractType}) tại dự án " +
+               $"\"{ctx.ProjectName}\". Hợp tác vẫn tiếp tục — hai bên nên trao đổi lại để thống nhất.");
+
+        await CreateAndDispatchAsync(
+            ctx.Recipient.Id, ctx.Recipient.Email, type, title, content,
+            referenceType: EngagementReference, referenceId: projectWorkingId);
+    }
+
+    public async Task NotifyEngagementTerminationCancelledAsync(long projectWorkingId, bool requestedByOwner)
+    {
+        var ctx = await LoadTerminationContextAsync(
+            projectWorkingId, requestedByOwner, toRequester: false, logFor: "engagement_termination_cancelled");
+        if (ctx is null) return;
+
+        await CreateAndDispatchAsync(
+            ctx.Recipient.Id, ctx.Recipient.Email, NotificationTypes.EngagementTerminationCancelled,
+            title: "Đề nghị huỷ ngang đã được rút lại",
+            content: $"{ctx.RequesterLabel} đã rút lại đề nghị huỷ ngang hợp tác ({ctx.ContractType}) tại dự án " +
+                     $"\"{ctx.ProjectName}\". Bạn không cần phản hồi nữa, hợp tác tiếp tục như bình thường.",
+            referenceType: EngagementReference, referenceId: projectWorkingId);
+    }
+
     public async Task NotifyProjectReadyToCloseAsync(long projectShopOwnerId)
     {
         var project = await _unitOfWork.GetRepository<ProjectShopOwner>().SingleOrDefaultAsync(
@@ -407,6 +463,54 @@ public class NotificationService : INotificationService
     /// <summary>ReferenceType cho FE deep-link — dùng tên BẢNG DB để đồng bộ với noti sẵn có.</summary>
     private const string EngagementReference = "project_provider";
     private const string ProjectReference = "project";
+
+    /// <summary>
+    /// Dữ liệu chung của 3 noti huỷ-ngang-đồng-thuận: engagement, người nhận, và nhãn hiển thị
+    /// của hai bên. <c>RequesterLabel</c> luôn là bên gửi đề nghị, <c>CounterpartLabel</c> là bên phản hồi.
+    /// </summary>
+    private sealed record TerminationNotificationContext(
+        ProjectWorking Engagement, Account Recipient,
+        string RequesterLabel, string CounterpartLabel, string ProjectName, string ContractType);
+
+    /// <summary>
+    /// Nạp engagement + chọn người nhận cho một noti huỷ ngang.
+    /// <paramref name="toRequester"/> = true gửi cho bên ĐỀ NGHỊ, false gửi cho bên CÒN LẠI.
+    /// Trả null (kèm log) khi không resolve được — noti là best-effort, không chặn nghiệp vụ.
+    /// </summary>
+    private async Task<TerminationNotificationContext?> LoadTerminationContextAsync(
+        long projectWorkingId, bool requestedByOwner, bool toRequester, string logFor)
+    {
+        var engagement = await LoadEngagementWithPartiesAsync(projectWorkingId);
+        if (engagement is null)
+        {
+            _logger.LogWarning("Bỏ qua noti {Type}: không tìm thấy engagement #{Id}.", logFor, projectWorkingId);
+            return null;
+        }
+
+        var ownerAccount = engagement.ProjectShopOwner?.Owner?.Account;
+        var providerAccount = engagement.ServiceProviderProfile?.Account;
+
+        // requestedByOwner quyết định ai là "bên đề nghị"; toRequester quyết định gửi về phía nào.
+        var recipient = (requestedByOwner == toRequester) ? ownerAccount : providerAccount;
+        if (recipient is null)
+        {
+            _logger.LogWarning(
+                "Bỏ qua noti {Type}: không resolve được người nhận cho engagement #{Id}.", logFor, projectWorkingId);
+            return null;
+        }
+
+        var ownerLabel = "Chủ quán";
+        var providerLabel = engagement.ServiceProviderProfile?.DisplayName is { Length: > 0 } name
+            ? $"Nhà cung cấp \"{name}\""
+            : "Nhà cung cấp";
+
+        return new TerminationNotificationContext(
+            engagement, recipient,
+            RequesterLabel: requestedByOwner ? ownerLabel : providerLabel,
+            CounterpartLabel: requestedByOwner ? providerLabel : ownerLabel,
+            ProjectName: engagement.ProjectShopOwner?.Name ?? "dự án",
+            ContractType: engagement.ContractType.ToString());
+    }
 
     /// <summary>Nạp engagement kèm tài khoản của cả hai bên (owner + provider).</summary>
     private Task<ProjectWorking?> LoadEngagementWithPartiesAsync(long projectWorkingId) =>

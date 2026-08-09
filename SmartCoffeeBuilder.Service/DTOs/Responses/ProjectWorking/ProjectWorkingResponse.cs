@@ -64,6 +64,25 @@ public class ProjectWorkingResponse
     /// </summary>
     public bool IsAwaitingAcceptance { get; set; }
 
+    /// <summary>Mốc một bên đề nghị huỷ ngang — null nếu không có đề nghị nào đang treo.</summary>
+    public DateTime? TerminationRequestedAt { get; set; }
+
+    /// <summary>Bên đã gửi đề nghị huỷ ngang: "owner" | "provider" | null.</summary>
+    public string? TerminationRequestedBy { get; set; }
+
+    /// <summary>Lý do huỷ ngang bên đề nghị gửi kèm.</summary>
+    public string? TerminationRequestNote { get; set; }
+
+    /// <summary>Mốc hai bên chốt huỷ ngang — null nếu engagement chưa 'terminated'.</summary>
+    public DateTime? TerminatedAt { get; set; }
+
+    /// <summary>
+    /// true = có đề nghị huỷ ngang đang chờ bên kia phản hồi.
+    /// DERIVED (status 'accepted' + có terminationRequestedAt) — không phải trạng thái lưu trong DB.
+    /// FE dùng cờ này để hiện nút "Đồng ý huỷ" / "Từ chối" cho bên còn lại.
+    /// </summary>
+    public bool IsAwaitingTerminationApproval { get; set; }
+
     /// <summary>
     /// Contract hiện hành CỦA RIÊNG engagement này — null nếu chưa lập hợp đồng.
     /// Ưu tiên bản 'confirmed', sau đó tới bản mới nhất chưa bị huỷ.
@@ -102,6 +121,12 @@ public class ProjectWorkingResponse
             CompletionRequestedAt = e.CompletionRequestedAt,
             CompletionRequestNote = e.CompletionRequestNote,
             IsAwaitingAcceptance = e.Status == ProviderStatusEnum.accepted && e.CompletionRequestedAt != null,
+            TerminationRequestedAt = e.TerminationRequestedAt,
+            TerminationRequestedBy = e.TerminationRequestedBy?.ToString(),
+            TerminationRequestNote = e.TerminationRequestNote,
+            TerminatedAt = e.TerminatedAt,
+            IsAwaitingTerminationApproval =
+                e.Status == ProviderStatusEnum.accepted && e.TerminationRequestedAt != null,
             Contract = current != null ? EngagementContractSummary.From(current) : null,
             HasConfirmedContract = current?.Status == ContractStatusEnum.confirmed
         };

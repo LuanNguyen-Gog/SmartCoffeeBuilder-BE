@@ -139,17 +139,199 @@ public class ProjectWorkingService : IProjectWorkingService
     public Task<ProjectWorkingResponse> CompleteAsync(long accountId, long id) =>
         TransitionAsync(accountId, id, ProviderStatus.completed);
 
-    public Task<ProjectWorkingResponse> TerminateAsync(long accountId, long id) =>
-        TransitionAsync(accountId, id, ProviderStatus.terminated);
-
     public async Task<ProjectWorkingResponse> UpdateStatusAsync(
         long accountId, long id, UpdateProjectWorkingStatusRequest request)
     {
         if (!Enum.TryParse<ProviderStatus>(request.Status, ignoreCase: true, out var target))
             throw new ArgumentException($"Status '{request.Status}' không hợp lệ.");
 
-        // Endpoint tổng chỉ là cửa vào — mọi kiểm tra nằm trong TransitionAsync để một luật duy nhất.
+        // Huỷ ngang KHÔNG đi thẳng qua state machine nữa — phải qua luồng đồng thuận hai bên.
+        if (target == ProviderStatus.terminated)
+            return await TerminateAsync(accountId, id);
+
+        // Còn lại: endpoint tổng chỉ là cửa vào — mọi kiểm tra nằm trong TransitionAsync để một luật duy nhất.
         return await TransitionAsync(accountId, id, target);
+    }
+
+    // ───────── Huỷ ngang cần ĐỒNG THUẬN HAI BÊN ─────────
+
+    public async Task<ProjectWorkingResponse> RequestTerminationAsync(
+        long accountId, long id, RequestEngagementTerminationRequest request)
+    {
+        var engagement = await LoadForActionAsync(id);
+        var actor = await ResolveActorAsync(accountId, engagement);
+        EnsureActor(actor, "đề nghị huỷ ngang engagement", EngagementActor.Owner, EngagementActor.Provider);
+        EnsureTerminable(engagement);
+
+        // Admin không phải một "bên" của engagement — can thiệp hành chính thì huỷ thẳng.
+        if (ToParty(actor) is not EngagementParty party)
+            return await ForceTerminateAsync(engagement);
+
+        if (engagement.TerminationRequestedAt != null)
+            throw new InvalidOperationException(
+                engagement.TerminationRequestedBy == party
+                    ? "Bạn đã gửi đề nghị huỷ ngang cho hợp tác này — đang chờ bên kia phản hồi."
+                    : "Bên kia đã đề nghị huỷ ngang — hãy đồng ý hoặc từ chối đề nghị đó thay vì gửi đề nghị mới.");
+
+        engagement.TerminationRequestedAt = DateTime.UtcNow;
+        engagement.TerminationRequestedBy = party;
+        engagement.TerminationRequestNote = request.Reason;
+        engagement.UpdatedAt = DateTime.UtcNow;
+
+        _repository.Update(engagement);
+        await _unitOfWork.CommitAsync();
+
+        // Sau khi lưu — bên còn lại nhận noti + email để vào đồng ý hoặc từ chối.
+        await _notificationService.NotifyEngagementTerminationRequestedAsync(
+            engagement.Id, requestedByOwner: party == EngagementParty.owner);
+
+        return ProjectWorkingResponse.From(engagement);
+    }
+
+    public async Task<ProjectWorkingResponse> RespondTerminationAsync(
+        long accountId, long id, RespondEngagementTerminationRequest request)
+    {
+        var engagement = await LoadForActionAsync(id);
+        var actor = await ResolveActorAsync(accountId, engagement);
+        EnsureActor(actor, "phản hồi đề nghị huỷ ngang", EngagementActor.Owner, EngagementActor.Provider);
+        EnsureTerminable(engagement);
+
+        var requester = EnsurePendingTerminationRequest(engagement);
+
+        // Người đề nghị không tự duyệt đề nghị của chính mình (admin phản hồi thay được).
+        if (ToParty(actor) is EngagementParty party && party == requester)
+            throw new InvalidOperationException(
+                "Bạn là bên gửi đề nghị huỷ ngang — chỉ bên còn lại mới được đồng ý hoặc từ chối. " +
+                "Muốn dừng lại thì rút đề nghị (DELETE /termination-request).");
+
+        var now = DateTime.UtcNow;
+        if (request.Approve)
+        {
+            // Đồng ý → chốt huỷ. Giữ nguyên termination_requested_* làm vết ai đã đề nghị.
+            CloseAsTerminated(engagement, now);
+        }
+        else
+        {
+            // Từ chối → xoá đề nghị, hợp tác chạy tiếp như chưa có gì.
+            ClearTerminationRequest(engagement);
+        }
+
+        engagement.UpdatedAt = now;
+        _repository.Update(engagement);
+        await _unitOfWork.CommitAsync();
+
+        // Sau khi lưu — bên ĐỀ NGHỊ nhận noti + email biết kết quả.
+        await _notificationService.NotifyEngagementTerminationDecisionAsync(
+            engagement.Id, requestedByOwner: requester == EngagementParty.owner, approved: request.Approve);
+
+        if (request.Approve)
+            await _notificationService.NotifyProjectReadyToCloseAsync(engagement.ProjectShopOwnerId);
+
+        return ProjectWorkingResponse.From(engagement);
+    }
+
+    public async Task<ProjectWorkingResponse> CancelTerminationRequestAsync(long accountId, long id)
+    {
+        var engagement = await LoadForActionAsync(id);
+        var actor = await ResolveActorAsync(accountId, engagement);
+        EnsureActor(actor, "rút lại đề nghị huỷ ngang", EngagementActor.Owner, EngagementActor.Provider);
+        EnsureTerminable(engagement);
+
+        var requester = EnsurePendingTerminationRequest(engagement);
+
+        if (ToParty(actor) is EngagementParty party && party != requester)
+            throw new InvalidOperationException(
+                "Chỉ bên đã gửi đề nghị mới rút lại được — bạn có thể từ chối đề nghị này thay vì rút.");
+
+        ClearTerminationRequest(engagement);
+        engagement.UpdatedAt = DateTime.UtcNow;
+
+        _repository.Update(engagement);
+        await _unitOfWork.CommitAsync();
+
+        // Sau khi lưu — bên còn lại biết là không cần phản hồi nữa.
+        await _notificationService.NotifyEngagementTerminationCancelledAsync(
+            engagement.Id, requestedByOwner: requester == EngagementParty.owner);
+
+        return ProjectWorkingResponse.From(engagement);
+    }
+
+    public async Task<ProjectWorkingResponse> TerminateAsync(long accountId, long id)
+    {
+        var engagement = await LoadForActionAsync(id);
+        var actor = await ResolveActorAsync(accountId, engagement);
+        EnsureActor(actor, "huỷ ngang engagement", EngagementActor.Owner, EngagementActor.Provider);
+        EnsureTerminable(engagement);
+
+        // Admin can thiệp hành chính — huỷ thẳng, không cần đồng thuận.
+        if (ToParty(actor) is not EngagementParty party)
+            return await ForceTerminateAsync(engagement);
+
+        // Bên kia đã đề nghị rồi → bấm "huỷ ngang" chính là đồng ý.
+        if (engagement.TerminationRequestedAt != null && engagement.TerminationRequestedBy != party)
+            return await RespondTerminationAsync(accountId, id, new RespondEngagementTerminationRequest { Approve = true });
+
+        // Còn lại (chưa có đề nghị, hoặc chính mình đã đề nghị) → RequestTermination tự trả lỗi đúng ngữ cảnh.
+        return await RequestTerminationAsync(accountId, id, new RequestEngagementTerminationRequest());
+    }
+
+    /// <summary>
+    /// Admin huỷ thẳng, bỏ qua đồng thuận. Cả hai bên đều nhận noti + email vì không bên nào chủ động.
+    /// </summary>
+    private async Task<ProjectWorkingResponse> ForceTerminateAsync(ProjectWorking engagement)
+    {
+        var now = DateTime.UtcNow;
+        CloseAsTerminated(engagement, now);
+        ClearTerminationRequest(engagement);
+        engagement.UpdatedAt = now;
+
+        _repository.Update(engagement);
+        await _unitOfWork.CommitAsync();
+
+        // Gọi hai lần = gửi cho cả provider (true) lẫn owner (false) — xem doc của method.
+        await _notificationService.NotifyEngagementTerminatedAsync(engagement.Id, terminatedByOwner: true);
+        await _notificationService.NotifyEngagementTerminatedAsync(engagement.Id, terminatedByOwner: false);
+        await _notificationService.NotifyProjectReadyToCloseAsync(engagement.ProjectShopOwnerId);
+
+        return ProjectWorkingResponse.From(engagement);
+    }
+
+    /// <summary>Huỷ ngang chỉ áp dụng cho hợp tác đang chạy.</summary>
+    private static void EnsureTerminable(ProjectWorking engagement)
+    {
+        if (engagement.Status != ProviderStatus.accepted)
+            throw new InvalidOperationException(
+                $"Engagement đang ở trạng thái '{engagement.Status}' — chỉ huỷ ngang được hợp tác 'accepted'.");
+    }
+
+    /// <summary>Phải có đề nghị đang treo mới phản hồi/rút được. Trả về bên đã gửi đề nghị.</summary>
+    private static EngagementParty EnsurePendingTerminationRequest(ProjectWorking engagement)
+    {
+        if (engagement.TerminationRequestedAt == null
+            || engagement.TerminationRequestedBy is not EngagementParty requester)
+            throw new InvalidOperationException("Hợp tác này không có đề nghị huỷ ngang nào đang chờ xử lý.");
+
+        return requester;
+    }
+
+    private static void ClearTerminationRequest(ProjectWorking engagement)
+    {
+        engagement.TerminationRequestedAt = null;
+        engagement.TerminationRequestedBy = null;
+        engagement.TerminationRequestNote = null;
+    }
+
+    /// <summary>
+    /// Chốt engagement sang 'terminated'. KHÔNG commit — caller gộp chung một SaveChanges.
+    /// Không đụng tới bài đăng/hồ sơ nguồn: huỷ ngang chỉ đóng đúng engagement này.
+    /// </summary>
+    private static void CloseAsTerminated(ProjectWorking engagement, DateTime now)
+    {
+        engagement.Status = ProviderStatus.terminated;
+        engagement.TerminatedAt = now;
+        // Yêu cầu nghiệm thu đang treo không còn ý nghĩa.
+        engagement.CompletionRequestedAt = null;
+        engagement.CompletionRequestNote = null;
     }
 
     public async Task<ProjectWorkingResponse> RequestCompletionAsync(
@@ -200,10 +382,12 @@ public class ProjectWorkingService : IProjectWorkingService
                 EnsureActor(actor, "nghiệm thu engagement", EngagementActor.Owner);
                 break;
 
-            // Huỷ ngang: cả hai bên đều có thể dừng hợp tác đang chạy.
+            // Huỷ ngang KHÔNG đi qua đây nữa: cần đồng thuận hai bên (RequestTermination →
+            // RespondTermination). UpdateStatusAsync đã chuyển hướng, nên tới được đây là gọi sai.
             case ProviderStatus.terminated:
-                EnsureActor(actor, "huỷ ngang engagement", EngagementActor.Owner, EngagementActor.Provider);
-                break;
+                throw new InvalidOperationException(
+                    "Huỷ ngang cần đồng thuận hai bên — dùng POST /{id}/termination-request rồi để bên còn lại " +
+                    "phản hồi qua POST /{id}/termination-response.");
 
             default:
                 throw new ArgumentException($"Status '{target}' không phải trạng thái đích hợp lệ.");
@@ -224,8 +408,8 @@ public class ProjectWorkingService : IProjectWorkingService
         }
 
         engagement.Status = target;
-        // Huỷ ngang thì yêu cầu nghiệm thu đang treo không còn ý nghĩa.
-        if (target == ProviderStatus.terminated) engagement.CompletionRequestedAt = null;
+        // Nghiệm thu xong thì đề nghị huỷ ngang đang treo (nếu có) không còn ý nghĩa.
+        if (target == ProviderStatus.completed) ClearTerminationRequest(engagement);
         engagement.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(engagement);
@@ -239,14 +423,12 @@ public class ProjectWorkingService : IProjectWorkingService
                 engagement.Id, accepted: target == ProviderStatus.accepted);
         else if (target == ProviderStatus.completed)
             await _notificationService.NotifyEngagementCompletedAsync(engagement.Id);
-        else if (target == ProviderStatus.terminated)
-            await _notificationService.NotifyEngagementTerminatedAsync(
-                engagement.Id, terminatedByOwner: actor != EngagementActor.Provider);
 
         // Đóng một engagement có thể là mảnh ghép cuối của cả dự án — nhắc owner bấm đóng dự án,
         // nếu không dự án nằm mãi ở 'in_progress' dù mọi hợp tác đã xong. Điều kiện đủ do
         // NotificationService tự xét (trùng guard của ProjectShopOwnerService.CompleteAsync).
-        if (target is ProviderStatus.completed or ProviderStatus.terminated)
+        // (Nhánh huỷ ngang gọi lời nhắc này trong RespondTerminationAsync/ForceTerminateAsync.)
+        if (target == ProviderStatus.completed)
             await _notificationService.NotifyProjectReadyToCloseAsync(engagement.ProjectShopOwnerId);
 
         return ProjectWorkingResponse.From(engagement);
@@ -413,6 +595,17 @@ public class ProjectWorkingService : IProjectWorkingService
         throw new UnauthorizedAccessException(
             "Tài khoản đang đăng nhập không phải owner hay provider của engagement này.");
     }
+
+    /// <summary>
+    /// Quy vai trò trong engagement về "bên" lưu trong DB. Admin trả null — admin đứng NGOÀI
+    /// hai bên nên không đề nghị/đồng ý huỷ ngang thay ai được, chỉ can thiệp huỷ thẳng.
+    /// </summary>
+    private static EngagementParty? ToParty(EngagementActor actor) => actor switch
+    {
+        EngagementActor.Owner => EngagementParty.owner,
+        EngagementActor.Provider => EngagementParty.provider,
+        _ => null
+    };
 
     /// <summary>Admin luôn được phép; còn lại phải nằm trong danh sách vai trò cho phép.</summary>
     private static void EnsureActor(EngagementActor actual, string action, params EngagementActor[] allowed)

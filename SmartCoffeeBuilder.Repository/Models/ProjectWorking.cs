@@ -25,6 +25,23 @@ public class ProjectWorking
     /// <summary>Ghi chú bàn giao provider gửi kèm khi xin nghiệm thu.</summary>
     public string? CompletionRequestNote { get; set; }
 
+    /// <summary>
+    /// Mốc một bên đề nghị huỷ ngang. null = không có đề nghị nào đang treo.
+    /// Huỷ ngang cần ĐỒNG THUẬN HAI BÊN: một bên đề nghị (đặt cột này), bên kia đồng ý thì
+    /// status mới chuyển sang 'terminated'. KHÔNG phải trạng thái mới — ProviderStatus vẫn giữ
+    /// đúng 5 giá trị v5; "chờ duyệt huỷ ngang" là DERIVED: accepted + cột này khác null.
+    /// </summary>
+    public DateTime? TerminationRequestedAt { get; set; }
+
+    /// <summary>Bên đã gửi đề nghị huỷ ngang (owner hay provider). Giữ lại sau khi huỷ để làm vết.</summary>
+    public EngagementParty? TerminationRequestedBy { get; set; }
+
+    /// <summary>Lý do huỷ ngang bên đề nghị gửi kèm.</summary>
+    public string? TerminationRequestNote { get; set; }
+
+    /// <summary>Mốc hai bên chốt huỷ ngang (bên còn lại bấm đồng ý). null = chưa huỷ.</summary>
+    public DateTime? TerminatedAt { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
@@ -34,7 +51,8 @@ public class ProjectWorking
 
     public ICollection<Survey> Surveys { get; set; } = new List<Survey>();
     public ICollection<Design> Designs { get; set; } = new List<Design>();
-    public ICollection<DesignVersion> DesignVersions { get; set; } = new List<DesignVersion>();
+    // KHÔNG có DesignVersions ở đây: design_version treo vào Design (design_id), không có FK về
+    // project_provider. Navigation cũ là rác — nó làm model snapshot không nạp được (EF 10).
     public ICollection<ConstructionItem> ConstructionItems { get; set; } = new List<ConstructionItem>();
     public ICollection<Issue> Issues { get; set; } = new List<Issue>();
     public ICollection<Contract> Contracts { get; set; } = new List<Contract>();

@@ -50,10 +50,28 @@ public interface INotificationService
     Task NotifyEngagementCompletedAsync(long projectWorkingId);
 
     /// <summary>
-    /// Bên CÒN LẠI nhận noti khi engagement bị huỷ ngang.
+    /// Bên CÒN LẠI nhận noti khi engagement bị huỷ ngang KHÔNG qua đồng thuận (admin can thiệp).
     /// <paramref name="terminatedByOwner"/> = true khi owner là người huỷ (noti gửi provider), ngược lại gửi owner.
+    /// Luồng huỷ ngang thông thường (hai bên đồng thuận) dùng bộ 3 method bên dưới.
     /// </summary>
     Task NotifyEngagementTerminatedAsync(long projectWorkingId, bool terminatedByOwner);
+
+    // ── Huỷ ngang cần đồng thuận hai bên ──
+
+    /// <summary>
+    /// Bên CÒN LẠI nhận noti + email khi một bên vừa đề nghị huỷ ngang — cần họ đồng ý/từ chối.
+    /// <paramref name="requestedByOwner"/> = true khi owner là bên đề nghị (noti gửi provider).
+    /// </summary>
+    Task NotifyEngagementTerminationRequestedAsync(long projectWorkingId, bool requestedByOwner);
+
+    /// <summary>
+    /// Bên ĐỀ NGHỊ nhận noti + email khi bên kia phản hồi đề nghị huỷ ngang.
+    /// <paramref name="approved"/> = true (đồng ý, engagement đã 'terminated') hoặc false (từ chối, giữ 'accepted').
+    /// </summary>
+    Task NotifyEngagementTerminationDecisionAsync(long projectWorkingId, bool requestedByOwner, bool approved);
+
+    /// <summary>Bên CÒN LẠI nhận noti + email khi bên đề nghị tự rút lại đề nghị huỷ ngang.</summary>
+    Task NotifyEngagementTerminationCancelledAsync(long projectWorkingId, bool requestedByOwner);
 
     /// <summary>
     /// OWNER nhận noti nhắc đóng dự án khi engagement mở cuối cùng vừa khép lại và dự án đã đủ

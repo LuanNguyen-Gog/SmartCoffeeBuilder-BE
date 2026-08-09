@@ -120,7 +120,49 @@ public class ProjectWorkingController : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>[HUỶ NGANG] Owner hoặc provider dừng hợp tác đang chạy (accepted → terminated).</summary>
+    /// <summary>
+    /// [HUỶ NGANG — BƯỚC 1] Owner hoặc provider ĐỀ NGHỊ dừng hợp tác đang chạy.
+    /// KHÔNG huỷ ngay: engagement vẫn 'accepted', chỉ đặt mốc terminationRequestedAt và gửi
+    /// noti + email cho bên còn lại. Chỉ khi bên kia đồng ý thì mới chuyển 'terminated'.
+    /// </summary>
+    [HttpPost("{id:long}/termination-request")]
+    public async Task<IActionResult> RequestTermination(
+        long id, [FromBody] RequestEngagementTerminationRequest request)
+    {
+        var result = await _projectWorkingService.RequestTerminationAsync(User.GetAccountId(), id, request);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// [HUỶ NGANG — BƯỚC 2] Bên CÒN LẠI phản hồi đề nghị huỷ ngang.
+    /// approve=true → accepted → terminated; approve=false → xoá đề nghị, hợp tác chạy tiếp.
+    /// Bên đề nghị nhận noti + email kết quả.
+    /// </summary>
+    [HttpPost("{id:long}/termination-response")]
+    public async Task<IActionResult> RespondTermination(
+        long id, [FromBody] RespondEngagementTerminationRequest request)
+    {
+        var result = await _projectWorkingService.RespondTerminationAsync(User.GetAccountId(), id, request);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// [HUỶ NGANG — RÚT LẠI] Bên đề nghị tự rút đề nghị của mình khi bên kia chưa phản hồi.
+    /// Bên còn lại nhận noti + email báo không cần phản hồi nữa.
+    /// </summary>
+    [HttpDelete("{id:long}/termination-request")]
+    public async Task<IActionResult> CancelTerminationRequest(long id)
+    {
+        var result = await _projectWorkingService.CancelTerminationRequestAsync(User.GetAccountId(), id);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// [HUỶ NGANG — MỘT CHẠM] Cửa vào gộp, giữ tương thích ngược cho FE cũ.
+    /// KHÔNG còn huỷ thẳng: chưa có đề nghị nào → tạo đề nghị (engagement vẫn 'accepted');
+    /// bên kia đã đề nghị → coi như đồng ý và chuyển 'terminated'. Đọc cờ isAwaitingTerminationApproval
+    /// trong response để biết đang ở bước nào. Admin gọi thì huỷ ngay (can thiệp hành chính).
+    /// </summary>
     [HttpPost("{id:long}/terminate")]
     public async Task<IActionResult> Terminate(long id)
     {
@@ -130,7 +172,8 @@ public class ProjectWorkingController : ControllerBase
 
     /// <summary>
     /// [QUAN HỆ] Endpoint tổng, giữ cho tương thích ngược — nên dùng các shortcut ở trên.
-    /// accepted → completed (owner nghiệm thu, cần contract confirmed) | terminated (huỷ ngang).
+    /// accepted → completed (owner nghiệm thu, cần contract confirmed).
+    /// status="terminated" được chuyển hướng sang luồng đồng thuận hai bên (như POST /terminate).
     /// Tiến độ design/construction là derived từ design/construction_item — không set ở đây.
     /// </summary>
     [HttpPut("{id:long}/status")]

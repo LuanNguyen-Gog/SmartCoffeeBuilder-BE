@@ -25,8 +25,17 @@ public enum ApplicationStatus { pending, accepted, rejected }
 /// - "Đang thực hiện" là DERIVED: accepted + tồn tại contract confirmed.
 /// - Pha design/construction là DERIVED: contract_type + trạng thái design / construction_item con.
 /// Transitions: requested → accepted | rejected; accepted → completed | terminated.
+/// - accepted → terminated cần ĐỒNG THUẬN HAI BÊN: một bên đề nghị (termination_requested_at/_by),
+///   bên còn lại đồng ý thì mới chuyển. Không bên nào tự huỷ thẳng được (admin can thiệp là ngoại lệ).
 /// </summary>
 public enum ProviderStatus { requested, accepted, completed, rejected, terminated }
+
+/// <summary>
+/// Bên tham gia một engagement — dùng để ghi "ai là người đề nghị huỷ ngang"
+/// (<c>project_provider.termination_requested_by</c>). KHÔNG phải role tài khoản:
+/// cùng một account có thể là owner ở engagement này và provider ở engagement khác.
+/// </summary>
+public enum EngagementParty { owner, provider }
 
 public enum DesignStatus { in_progress, submitted, revision, approved }
 
