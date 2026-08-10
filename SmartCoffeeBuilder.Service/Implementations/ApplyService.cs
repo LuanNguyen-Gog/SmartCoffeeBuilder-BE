@@ -8,6 +8,7 @@ using SmartCoffeeBuilder.Service.DTOs.Requests.Apply;
 using SmartCoffeeBuilder.Service.DTOs.Responses.Apply;
 using SmartCoffeeBuilder.Service.DTOs.Responses.ProjectWorking;
 using SmartCoffeeBuilder.Service.Interfaces;
+using SmartCoffeeBuilder.Service.Utils;
 
 namespace SmartCoffeeBuilder.Service.Implementations;
 
@@ -97,6 +98,12 @@ public class ApplyService : IApplyService
         if (alreadyApplied)
             throw new InvalidOperationException("ServiceProviderProfile đã nộp hồ sơ cho bài đăng này.");
 
+        // Chỗ của dự án đã có người giữ thì hồ sơ nộp vào cũng vô nghĩa — chặn ngay từ đây thay vì
+        // để provider chờ rồi bị từ chối ở bước accept. Xem ProjectSlotRules.
+        await EnsureProjectSlotFreeAsync(
+            post.ProjectShopOwnerId, post.ServiceKind,
+            $"nộp hồ sơ cho bài đăng phạm vi '{post.ServiceKind}'");
+
         var application = new Apply
         {
             PostId = post.Id,
@@ -153,6 +160,13 @@ public class ApplyService : IApplyService
         var post = application.Post;
         if (post.Status != PostStatus.open)
             throw new InvalidOperationException($"Bài đăng đang ở trạng thái '{post.Status}', không thể chấp nhận hồ sơ.");
+
+        // Kiểm lại chỗ NGAY TRƯỚC khi tạo engagement, không tin vào lần check lúc nộp hồ sơ:
+        // giữa hai thời điểm đó owner có thể đã mời trực tiếp một provider khác, hoặc đã accept
+        // một hồ sơ ở bài đăng khác cùng dự án.
+        await EnsureProjectSlotFreeAsync(
+            post.ProjectShopOwnerId, post.ServiceKind,
+            $"chấp nhận hồ sơ #{application.Id} với phạm vi '{post.ServiceKind}'");
 
         var now = DateTime.UtcNow;
 
@@ -222,6 +236,21 @@ public class ApplyService : IApplyService
         await _notificationService.NotifyApplicationDecisionAsync(application.Id, accepted: false);
 
         return ApplyResponse.From(application);
+    }
+
+    /// <summary>
+    /// Chặn khi chỗ (design / construction) của dự án đã có engagement đang hoạt động giữ.
+    /// Dùng chung cho lúc nộp hồ sơ và lúc owner chấp nhận hồ sơ.
+    /// </summary>
+    private async Task EnsureProjectSlotFreeAsync(
+        long projectShopOwnerId, ServiceKind wanted, string action)
+    {
+        var activeKinds = await _unitOfWork.GetRepository<ProjectWorking>().GetListAsync(
+            selector: e => e.ContractType,
+            predicate: e => e.ProjectShopOwnerId == projectShopOwnerId
+                            && ProjectSlotRules.OccupyingStatuses.Contains(e.Status));
+
+        ProjectSlotRules.EnsureSlotFree(activeKinds, wanted, action);
     }
 
     public async Task WithdrawAsync(long id)

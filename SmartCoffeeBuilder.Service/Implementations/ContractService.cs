@@ -42,10 +42,18 @@ public class ContractService : IContractService
     }
 
     public async Task<PaginationResponse<ContractResponse>> GetAllAsync(
-        int pageNumber = 1, int pageSize = 10, long? projectWorkingId = null)
+        long accountId, int pageNumber = 1, int pageSize = 10, long? projectWorkingId = null)
     {
+        // Hợp đồng là tài liệu RIÊNG của một engagement: chỉ owner của dự án và provider của chính
+        // engagement đó được thấy. Lọc ngay trong query — không trả về rồi mới ẩn, để phân trang
+        // (TotalItems) cũng đúng theo góc nhìn người gọi.
+        var isAdmin = await IsAdminAsync(accountId);
+
         var query = _repository
-            .GetQueryable(c => projectWorkingId == null || c.ProjectWorkingId == projectWorkingId)
+            .GetQueryable(c => (projectWorkingId == null || c.ProjectWorkingId == projectWorkingId)
+                               && (isAdmin
+                                   || c.ProjectWorking.ProjectShopOwner.Owner.AccountId == accountId
+                                   || c.ProjectWorking.ServiceProviderProfile.AccountId == accountId))
             .OrderByDescending(c => c.CreatedAt);
 
         var paged = await query.ToPaginationResponseAsync(pageNumber, pageSize);
@@ -55,20 +63,28 @@ public class ContractService : IContractService
             paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
-    public async Task<ContractResponse> GetByIdAsync(long id)
+    public async Task<ContractResponse> GetByIdAsync(long accountId, long id)
     {
         var contract = await _repository.SingleOrDefaultAsync(predicate: c => c.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy contract với id {id}.");
 
+        // Chỉ cần là một bên bất kỳ của engagement — đọc thì owner và provider ngang nhau.
+        await ResolveActorAsync(accountId, contract.ProjectWorkingId);
+
         return ContractResponse.From(contract);
     }
 
-    public async Task<ContractResponse> CreateAsync(CreateContractRequest request)
+    public async Task<ContractResponse> CreateAsync(long accountId, CreateContractRequest request)
     {
         var engagement = await _unitOfWork.GetRepository<ProjectWorking>()
             .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectWorkingId)
             ?? throw new KeyNotFoundException(
                 $"Không tìm thấy project provider với id {request.ProjectWorkingId}.");
+
+        // Quyền trước mọi check trạng thái — không để người ngoài dò trạng thái engagement của người khác.
+        EnsureActor(
+            await ResolveActorAsync(accountId, engagement.Id),
+            "soạn hợp đồng cho hợp tác này", ContractActor.Provider);
 
         if (engagement.Status != ProviderStatus.accepted)
             throw new InvalidOperationException(
@@ -101,10 +117,14 @@ public class ContractService : IContractService
         return ContractResponse.From(contract);
     }
 
-    public async Task<ContractResponse> UpdateAsync(long id, UpdateContractRequest request)
+    public async Task<ContractResponse> UpdateAsync(long accountId, long id, UpdateContractRequest request)
     {
         var contract = await _repository.SingleOrDefaultAsync(predicate: c => c.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy contract với id {id}.");
+
+        EnsureActor(
+            await ResolveActorAsync(accountId, contract.ProjectWorkingId),
+            "sửa nội dung hợp đồng", ContractActor.Provider);
 
         if (contract.Status != ContractStatus.drafted)
             throw new InvalidOperationException(
@@ -134,10 +154,16 @@ public class ContractService : IContractService
         return ContractResponse.From(contract);
     }
 
-    public async Task<ContractResponse> SendOtpAsync(long id)
+    public async Task<ContractResponse> SendOtpAsync(long accountId, long id)
     {
         var contract = await _repository.SingleOrDefaultAsync(predicate: c => c.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy contract với id {id}.");
+
+        // Quyền TRƯỚC khi phát mã: endpoint này gửi email OTP cho owner và đổi trạng thái hợp đồng,
+        // nên người ngoài gọi được là vừa spam owner vừa đẩy hợp đồng sang 'pending_otp'.
+        EnsureActor(
+            await ResolveActorAsync(accountId, contract.ProjectWorkingId),
+            "phát OTP ký hợp đồng", ContractActor.Provider);
 
         // 'drafted' → gửi lần đầu (chuyển 'pending_otp'); 'pending_otp' → GỬI LẠI khi mã cũ
         // hết hạn/thất lạc (giữ nguyên trạng thái, cấp mã mới đè mã cũ). Đã confirmed/cancelled thì chặn.
@@ -210,10 +236,15 @@ public class ContractService : IContractService
         return ContractResponse.From(contract);
     }
 
-    public async Task<ContractResponse> CancelAsync(long id)
+    public async Task<ContractResponse> CancelAsync(long accountId, long id)
     {
         var contract = await _repository.SingleOrDefaultAsync(predicate: c => c.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy contract với id {id}.");
+
+        // Huỷ bản nháp thì bên nào cũng được — provider rút lại bản soạn, owner từ chối ký.
+        EnsureActor(
+            await ResolveActorAsync(accountId, contract.ProjectWorkingId),
+            "huỷ hợp đồng", ContractActor.Owner, ContractActor.Provider);
 
         EnsureTransition(contract.Status, ContractStatus.cancelled);
 
@@ -280,6 +311,58 @@ public class ContractService : IContractService
                 include: q => q.Include(e => e.ProjectShopOwner).ThenInclude(p => p.Owner))
         ?? throw new KeyNotFoundException(
             $"Không tìm thấy project provider với id {projectWorkingId}.");
+
+    /// <summary>Vai trò của người gọi TRONG engagement mang hợp đồng — không phải AccountRole.</summary>
+    private enum ContractActor { Owner, Provider, Admin }
+
+    /// <summary>Hai đầu account của một engagement, lấy bằng projection để khỏi nạp cả graph.</summary>
+    private sealed record EngagementParties(long OwnerAccountId, long ProviderAccountId);
+
+    /// <summary>
+    /// Người gọi phải là MỘT BÊN của chính engagement mang hợp đồng này (owner của dự án, hoặc
+    /// provider của engagement) — admin đi cửa riêng.
+    ///
+    /// Xét theo ENGAGEMENT chứ không theo dự án và KHÔNG theo AccountRole: hai provider khác nhau
+    /// trên cùng một dự án (một design, một construction) có hai engagement riêng nên không đụng
+    /// được hợp đồng của nhau, dù cả hai đều mang role 'provider'.
+    /// </summary>
+    /// <exception cref="UnauthorizedAccessException">Không phải bên nào của engagement (HTTP 401).</exception>
+    private async Task<ContractActor> ResolveActorAsync(long accountId, long projectWorkingId)
+    {
+        var parties = (await _unitOfWork.GetRepository<ProjectWorking>().GetListAsync(
+                selector: e => new EngagementParties(
+                    e.ProjectShopOwner.Owner.AccountId,
+                    e.ServiceProviderProfile.AccountId),
+                predicate: e => e.Id == projectWorkingId))
+            .FirstOrDefault()
+            ?? throw new KeyNotFoundException(
+                $"Không tìm thấy project provider với id {projectWorkingId}.");
+
+        if (parties.OwnerAccountId == accountId) return ContractActor.Owner;
+        if (parties.ProviderAccountId == accountId) return ContractActor.Provider;
+        if (await IsAdminAsync(accountId)) return ContractActor.Admin;
+
+        throw new UnauthorizedAccessException(
+            "Hợp đồng này thuộc về một hợp tác mà tài khoản đang đăng nhập không tham gia.");
+    }
+
+    /// <summary>Admin luôn được phép; còn lại phải nằm trong danh sách vai trò cho phép.</summary>
+    private static void EnsureActor(ContractActor actual, string action, params ContractActor[] allowed)
+    {
+        if (actual == ContractActor.Admin || allowed.Contains(actual)) return;
+
+        var who = string.Join(" hoặc ", allowed.Select(
+            a => a == ContractActor.Owner ? "chủ quán" : "nhà cung cấp"));
+        throw new UnauthorizedAccessException($"Chỉ {who} của hợp tác này mới được {action}.");
+    }
+
+    /// <summary>Admin xem được mọi hợp đồng (phục vụ giám sát/hỗ trợ).</summary>
+    private async Task<bool> IsAdminAsync(long accountId)
+    {
+        var account = await _unitOfWork.GetRepository<Account>()
+            .SingleOrDefaultAsync(predicate: a => a.Id == accountId && a.DeletedAt == null);
+        return account?.Role == AccountRole.admin;
+    }
 
     /// <summary>
     /// Chỉ owner của chính dự án mới ký được hợp đồng của engagement đó.

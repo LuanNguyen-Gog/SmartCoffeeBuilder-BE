@@ -10,6 +10,7 @@ using SmartCoffeeBuilder.Service.DTOs.Responses.Design;
 using SmartCoffeeBuilder.Service.DTOs.Responses.DesignBrief;
 using SmartCoffeeBuilder.Service.DTOs.Responses.ProjectWorking;
 using SmartCoffeeBuilder.Service.Interfaces;
+using SmartCoffeeBuilder.Service.Utils;
 
 namespace SmartCoffeeBuilder.Service.Implementations;
 
@@ -106,6 +107,15 @@ public class ProjectWorkingService : IProjectWorkingService
             e => e.ProjectShopOwnerId == project.Id && e.ServiceProviderProfileId == provider.Id && ActiveStatuses.Contains(e.Status)) > 0;
         if (duplicated)
             throw new InvalidOperationException("ServiceProviderProfile này đã có engagement đang hoạt động với project.");
+
+        // Mỗi dự án chỉ có MỘT chỗ design và MỘT chỗ construction — xem ProjectSlotRules.
+        // Capability 'both' không phá luật này: muốn vào dự án đã có designer thì phải mời với
+        // phạm vi 'construction', không mời được 'design' lẫn 'both'.
+        var activeKinds = await _repository.GetListAsync(
+            selector: e => e.ContractType,
+            predicate: e => e.ProjectShopOwnerId == project.Id && ActiveStatuses.Contains(e.Status));
+        ProjectSlotRules.EnsureSlotFree(
+            activeKinds, contractType, $"mời provider với phạm vi '{contractType}'");
 
         var engagement = new ProjectWorking
         {
