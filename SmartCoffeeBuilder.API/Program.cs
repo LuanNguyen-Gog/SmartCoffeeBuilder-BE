@@ -69,6 +69,9 @@ builder.Services.AddScoped<IContractService, ContractService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 
+// Thread comment neo vào ConstructionItem / Design qua FK mềm (target_type + target_id).
+builder.Services.AddScoped<ICommentService, CommentService>();
+
 // Chat theo thread (group chat kiểu Discord) — polling thay vì SignalR.
 builder.Services.AddScoped<IConversationService, ConversationService>();
 builder.Services.AddScoped<IChatMessageService, ChatMessageService>();

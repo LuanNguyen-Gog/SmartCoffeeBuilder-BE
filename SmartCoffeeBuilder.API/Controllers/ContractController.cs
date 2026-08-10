@@ -22,45 +22,59 @@ public class ContractController : ControllerBase
         _contractService = contractService;
     }
 
-    /// <summary>Danh sách hợp đồng, lọc theo engagement.</summary>
+    /// <summary>
+    /// Danh sách hợp đồng, lọc theo engagement. Kết quả đã giới hạn theo người đang đăng nhập:
+    /// owner thấy hợp đồng dự án mình, provider thấy hợp đồng engagement mình, admin thấy tất cả.
+    /// </summary>
     [HttpGet]
     public async Task<IActionResult> GetAll(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
         [FromQuery] long? projectWorkingId = null)
     {
-        var result = await _contractService.GetAllAsync(pageNumber, pageSize, projectWorkingId);
+        var result = await _contractService.GetAllAsync(
+            User.GetAccountId(), pageNumber, pageSize, projectWorkingId);
         return Ok(result);
     }
 
+    /// <summary>
+    /// Chi tiết hợp đồng — chỉ hai bên của chính engagement đó (hoặc admin) đọc được, 401 nếu không.
+    /// </summary>
     [HttpGet("{id:long}")]
     public async Task<IActionResult> GetById(long id)
     {
-        var result = await _contractService.GetByIdAsync(id);
+        var result = await _contractService.GetByIdAsync(User.GetAccountId(), id);
         return Ok(result);
     }
 
-    /// <summary>Provider tạo bản hợp đồng (draft) cho engagement 'accepted'.</summary>
+    /// <summary>
+    /// Provider của engagement tạo bản hợp đồng (draft) cho engagement 'accepted'.
+    /// Owner hay provider khác gọi → 401.
+    /// </summary>
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateContractRequest request)
     {
-        var result = await _contractService.CreateAsync(request);
+        var result = await _contractService.CreateAsync(User.GetAccountId(), request);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
-    /// <summary>Cập nhật nội dung hợp đồng — chỉ khi còn 'drafted'.</summary>
+    /// <summary>
+    /// Cập nhật nội dung hợp đồng — chỉ provider của engagement, và chỉ khi còn 'drafted'.
+    /// </summary>
     [HttpPut("{id:long}")]
     public async Task<IActionResult> Update(long id, [FromBody] UpdateContractRequest request)
     {
-        var result = await _contractService.UpdateAsync(id, request);
+        var result = await _contractService.UpdateAsync(User.GetAccountId(), id, request);
         return Ok(result);
     }
 
-    /// <summary>Gửi OTP ký hợp đồng cho owner (drafted → pending_otp).</summary>
+    /// <summary>
+    /// Provider của engagement phát OTP ký hợp đồng cho owner (drafted → pending_otp).
+    /// </summary>
     [HttpPost("{id:long}/send-otp")]
     public async Task<IActionResult> SendOtp(long id)
     {
-        var result = await _contractService.SendOtpAsync(id);
+        var result = await _contractService.SendOtpAsync(User.GetAccountId(), id);
         return Ok(result);
     }
 
@@ -75,11 +89,14 @@ public class ContractController : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Huỷ hợp đồng khi chưa confirmed (drafted/pending_otp → cancelled).</summary>
+    /// <summary>
+    /// Huỷ hợp đồng khi chưa confirmed (drafted/pending_otp → cancelled).
+    /// Cả owner lẫn provider của engagement đều huỷ được; người ngoài → 401.
+    /// </summary>
     [HttpPost("{id:long}/cancel")]
     public async Task<IActionResult> Cancel(long id)
     {
-        var result = await _contractService.CancelAsync(id);
+        var result = await _contractService.CancelAsync(User.GetAccountId(), id);
         return Ok(result);
     }
 }
