@@ -138,8 +138,11 @@ public class DesignService : IDesignService
         return DesignResponse.From(design);
     }
 
-    /// <summary>Provider nộp bản design cho owner duyệt: in_progress → submitted.</summary>
-    public async Task<DesignResponse> SubmitAsync(long id)
+    /// <summary>
+    /// Provider nộp bản design cho owner duyệt: in_progress → submitted.
+    /// <paramref name="accountId"/> lấy từ JWT ở controller — ghi vào snapshot làm vết ai đã nộp.
+    /// </summary>
+    public async Task<DesignResponse> SubmitAsync(long id, long accountId)
     {
         var design = await GetDesignAsync(id);
 
@@ -157,7 +160,7 @@ public class DesignService : IDesignService
         await _unitOfWork.CommitAsync();
 
         // Snapshot bản nộp — chạy NGOÀI transaction đổi status (best-effort, lỗi không rollback status).
-        await TrySnapshotAsync(design, DesignVersionSnapshotKind.submitted, snapshottedBy: design.CreatedBy);
+        await TrySnapshotAsync(design, DesignVersionSnapshotKind.submitted, snapshottedBy: accountId);
 
         return DesignResponse.From(design);
     }
@@ -165,8 +168,9 @@ public class DesignService : IDesignService
     /// <summary>
     /// Owner duyệt bản design: submitted → approved.
     /// Pha design "xong" là derived từ design approved — không đổi provider_status.
+    /// <paramref name="accountId"/> lấy từ JWT ở controller — ghi vào snapshot làm vết ai đã duyệt.
     /// </summary>
-    public async Task<DesignResponse> ApproveAsync(long id)
+    public async Task<DesignResponse> ApproveAsync(long id, long accountId)
     {
         var design = await GetDesignAsync(id);
 
@@ -182,7 +186,7 @@ public class DesignService : IDesignService
 
         // Snapshot bản duyệt — chạy NGOÀI transaction đổi status. Mỗi lần approve sinh version mới
         // (lưu trữ được nhiều bản approved nếu design được duyệt nhiều lần sau revision).
-        await TrySnapshotAsync(design, DesignVersionSnapshotKind.approved, snapshottedBy: design.CreatedBy);
+        await TrySnapshotAsync(design, DesignVersionSnapshotKind.approved, snapshottedBy: accountId);
 
         return DesignResponse.From(design);
     }

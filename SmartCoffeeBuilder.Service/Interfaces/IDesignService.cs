@@ -14,8 +14,9 @@ public interface IDesignService
     Task<DesignResponse> UpdateAsync(long id, UpdateDesignRequest request);
 
     // Vòng duyệt/revision: in_progress → submitted → approved | revision → in_progress → submitted…
-    Task<DesignResponse> SubmitAsync(long id);
-    Task<DesignResponse> ApproveAsync(long id);
+    // accountId lấy từ JWT ở controller — ghi vào design_versions.snapshotted_by làm vết ai nộp/ai duyệt.
+    Task<DesignResponse> SubmitAsync(long id, long accountId);
+    Task<DesignResponse> ApproveAsync(long id, long accountId);
     Task<DesignResponse> RequestRevisionAsync(long id, RequestDesignRevisionRequest request);
     Task<DesignResponse> StartRevisionAsync(long id);
 

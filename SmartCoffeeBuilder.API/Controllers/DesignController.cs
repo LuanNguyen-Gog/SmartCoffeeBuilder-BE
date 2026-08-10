@@ -70,7 +70,7 @@ public class DesignController : ControllerBase
     [HttpPost("{id:long}/submit")]
     public async Task<IActionResult> Submit(long id)
     {
-        var result = await _designService.SubmitAsync(id);
+        var result = await _designService.SubmitAsync(id, User.GetAccountId());
         return Ok(result);
     }
 
@@ -78,7 +78,7 @@ public class DesignController : ControllerBase
     [HttpPost("{id:long}/approve")]
     public async Task<IActionResult> Approve(long id)
     {
-        var result = await _designService.ApproveAsync(id);
+        var result = await _designService.ApproveAsync(id, User.GetAccountId());
         return Ok(result);
     }
 
