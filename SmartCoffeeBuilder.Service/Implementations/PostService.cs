@@ -14,11 +14,15 @@ public class PostService : IPostService
 {
     private readonly IUnitOfWork<SmartCafeBuilderContext> _unitOfWork;
     private readonly IGenericRepository<Post> _repository;
+    private readonly INotificationService _notificationService;
 
-    public PostService(IUnitOfWork<SmartCafeBuilderContext> unitOfWork)
+    public PostService(
+        IUnitOfWork<SmartCafeBuilderContext> unitOfWork,
+        INotificationService notificationService)
     {
         _unitOfWork = unitOfWork;
         _repository = unitOfWork.GetRepository<Post>();
+        _notificationService = notificationService;
     }
 
     public async Task<PaginationResponse<PostResponse>> GetAllAsync(
@@ -150,6 +154,46 @@ public class PostService : IPostService
 
         _repository.Delete(post);
         await _unitOfWork.CommitAsync();
+    }
+
+    public async Task CloseExpiredPostsAsync()
+    {
+        var now = DateTime.UtcNow;
+
+        // Trước đây bài quá hạn chỉ bị ẩn khỏi danh sách (xem filter ở GetAllAsync) nhưng status
+        // vẫn 'open' — hồ sơ đã nộp treo mãi ở 'pending' và provider không được báo gì.
+        var expiredPosts = await _repository.GetListAsync(
+            predicate: p => p.Status == PostStatus.open
+                            && p.SubmissionDeadline != null
+                            && p.SubmissionDeadline <= now);
+        if (expiredPosts.Count == 0) return;
+
+        foreach (var post in expiredPosts)
+        {
+            post.Status = PostStatus.closed;
+            post.UpdatedAt = now;
+        }
+        _repository.UpdateRange(expiredPosts);
+
+        var postIds = expiredPosts.Select(p => p.Id).ToList();
+        var applyRepository = _unitOfWork.GetRepository<Apply>();
+        var pendingApplications = await applyRepository.GetListAsync(
+            predicate: a => postIds.Contains(a.PostId) && a.Status == ApplicationStatus.pending);
+
+        foreach (var application in pendingApplications)
+        {
+            application.Status = ApplicationStatus.rejected;
+            application.UpdatedAt = now;
+        }
+        applyRepository.UpdateRange(pendingApplications);
+
+        // Một SaveChanges → đóng bài và từ chối hồ sơ theo là atomic.
+        await _unitOfWork.CommitAsync();
+
+        // Sau khi lưu — mỗi provider có hồ sơ bị đóng theo nhận đúng noti 'application_rejected'
+        // của luồng owner từ chối hồ sơ. Best-effort, lỗi email không rollback.
+        foreach (var application in pendingApplications)
+            await _notificationService.NotifyApplicationDecisionAsync(application.Id, accepted: false);
     }
 
     /// <summary>Việt Nam không có DST nên offset cố định +07:00.</summary>

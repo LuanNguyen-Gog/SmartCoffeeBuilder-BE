@@ -162,18 +162,21 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
             throw new InvalidOperationException(
                 "Dự án chưa có engagement nào được nghiệm thu ('completed') — chưa thể đóng dự án.");
 
-        CloseOpenPosts(project);
+        var rejectedApplicationIds = await CloseOpenPostsAsync(project);
 
         project.Status = ProjectStatus.completed;
         project.UpdatedAt = DateTime.UtcNow;
         _repository.Update(project);
 
-        // Một SaveChanges → đóng post và đổi trạng thái dự án là atomic.
+        // Một SaveChanges → đóng post, từ chối hồ sơ và đổi trạng thái dự án là atomic.
         await _unitOfWork.CommitAsync();
 
         // Sau khi lưu — báo cho các provider đã tham gia dự án.
         await _notificationService.NotifyProjectClosedAsync(
             project.Id, cancelled: false, completedEngagements.Select(e => e.Id).ToList());
+
+        // ...và cho các provider có hồ sơ bị đóng theo, nếu không họ chờ mãi ở 'pending'.
+        await NotifyApplicationsRejectedAsync(rejectedApplicationIds);
 
         return ProjectShopOwnerResponse.From(project);
     }
@@ -202,18 +205,21 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
         }
         _unitOfWork.GetRepository<ProjectWorking>().UpdateRange(openEngagements);
 
-        CloseOpenPosts(project);
+        var rejectedApplicationIds = await CloseOpenPostsAsync(project);
 
         project.Status = ProjectStatus.cancelled;
         project.UpdatedAt = DateTime.UtcNow;
         _repository.Update(project);
 
-        // Một SaveChanges → đóng engagement, đóng post, đổi trạng thái dự án là atomic.
+        // Một SaveChanges → đóng engagement, đóng post, từ chối hồ sơ, đổi trạng thái dự án là atomic.
         await _unitOfWork.CommitAsync();
 
         // Sau khi lưu — báo cho đúng các provider vừa bị đóng hợp tác theo.
         await _notificationService.NotifyProjectClosedAsync(
             project.Id, cancelled: true, openEngagements.Select(e => e.Id).ToList());
+
+        // ...và cho các provider có hồ sơ bị đóng theo, nếu không họ chờ mãi ở 'pending'.
+        await NotifyApplicationsRejectedAsync(rejectedApplicationIds);
 
         return ProjectShopOwnerResponse.From(project);
     }
@@ -241,6 +247,16 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
     // ──────────────────────────────────────────────────────────────
 
     /// <summary>
+    /// Báo cho từng provider có hồ sơ bị từ chối theo khi dự án đóng/huỷ — dùng lại đúng noti
+    /// 'application_rejected' của luồng owner từ chối hồ sơ. Best-effort như mọi noti khác.
+    /// </summary>
+    private async Task NotifyApplicationsRejectedAsync(IReadOnlyCollection<long> applicationIds)
+    {
+        foreach (var applicationId in applicationIds)
+            await _notificationService.NotifyApplicationDecisionAsync(applicationId, accepted: false);
+    }
+
+    /// <summary>
     /// Transition hợp lệ của dự án: briefed → in_progress | cancelled;
     /// in_progress → completed | cancelled. completed/cancelled là trạng thái cuối.
     /// </summary>
@@ -259,14 +275,18 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
     }
 
     /// <summary>
-    /// Đóng dự án thì không nhận hồ sơ nữa — post còn 'open' chuyển sang 'closed'.
+    /// Đóng dự án thì không nhận hồ sơ nữa — post còn 'open' chuyển sang 'closed', và mọi hồ sơ
+    /// còn 'pending' của các post đó chuyển sang 'rejected': bài đăng đã đóng vĩnh viễn nên để hồ sơ
+    /// treo ở 'pending' là nói dối provider.
     /// Duyệt trên chính collection <c>project.Posts</c> đã nạp: response trả về phản ánh đúng
     /// trạng thái mới, và không sinh instance Post thứ hai cho cùng một dòng.
+    /// KHÔNG commit — caller gộp chung một SaveChanges để đóng post/hồ sơ/dự án là atomic.
     /// </summary>
-    private void CloseOpenPosts(ProjectShopOwner project)
+    /// <returns>Id các hồ sơ vừa bị từ chối theo — caller bắn noti SAU khi commit.</returns>
+    private async Task<List<long>> CloseOpenPostsAsync(ProjectShopOwner project)
     {
         var openPosts = project.Posts.Where(p => p.Status == PostStatus.open).ToList();
-        if (openPosts.Count == 0) return;
+        if (openPosts.Count == 0) return [];
 
         foreach (var post in openPosts)
         {
@@ -274,6 +294,22 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
             post.UpdatedAt = DateTime.UtcNow;
         }
         _unitOfWork.GetRepository<Post>().UpdateRange(openPosts);
+
+        // Hồ sơ không nằm trong graph của project nên query riêng — không đụng instance Post ở trên.
+        var postIds = openPosts.Select(p => p.Id).ToList();
+        var applyRepository = _unitOfWork.GetRepository<Apply>();
+        var pendingApplications = await applyRepository.GetListAsync(
+            predicate: a => postIds.Contains(a.PostId) && a.Status == ApplicationStatus.pending);
+        if (pendingApplications.Count == 0) return [];
+
+        foreach (var application in pendingApplications)
+        {
+            application.Status = ApplicationStatus.rejected;
+            application.UpdatedAt = DateTime.UtcNow;
+        }
+        applyRepository.UpdateRange(pendingApplications);
+
+        return pendingApplications.Select(a => a.Id).ToList();
     }
 
     // Include đủ như GetByIdAsync: response sau khi đóng/huỷ phải phản ánh luôn engagement và

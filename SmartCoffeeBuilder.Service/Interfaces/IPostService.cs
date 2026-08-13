@@ -21,4 +21,11 @@ public interface IPostService
     Task<PostResponse> CreateAsync(CreatePostRequest request);
     Task<PostResponse> UpdateAsync(long id, UpdatePostRequest request);
     Task DeleteAsync(long id);
+
+    /// <summary>
+    /// [HANGFIRE JOB] Bài 'open' đã qua submission_deadline → 'closed', và mọi hồ sơ còn 'pending'
+    /// của chúng → 'rejected' kèm noti cho provider. Không có job này thì bài quá hạn chỉ bị ẩn
+    /// khỏi danh sách còn hồ sơ treo mãi ở 'pending'.
+    /// </summary>
+    Task CloseExpiredPostsAsync();
 }
