@@ -37,6 +37,25 @@ public class ProjectWorkingController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>
+    /// [FILTER] Lọc engagement theo NHIỀU trạng thái cùng lúc — FE dùng cho tab/bộ lọc.
+    /// statuses: csv, vd "requested,accepted" (bỏ trống = lấy tất cả).
+    /// contractType: design | construction | both.
+    /// </summary>
+    [HttpGet("filter")]
+    public async Task<IActionResult> Filter(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? statuses = null,
+        [FromQuery] long? projectShopOwnerId = null,
+        [FromQuery] long? serviceProviderProfileId = null,
+        [FromQuery] string? contractType = null)
+    {
+        var result = await _projectWorkingService.FilterAsync(
+            pageNumber, pageSize, statuses, projectShopOwnerId, serviceProviderProfileId, contractType);
+        return Ok(result);
+    }
+
     [HttpGet("{id:long}")]
     public async Task<IActionResult> GetById(long id)
     {

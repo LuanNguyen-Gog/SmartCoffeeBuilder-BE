@@ -240,6 +240,12 @@ try
         "expire-subscriptions",
         service => service.ExpireOverdueSubscriptionsAsync(),
         Cron.Hourly());
+
+    // Job đóng bài đăng quá hạn nộp hồ sơ: post open → closed, hồ sơ pending → rejected + noti.
+    recurringJobs.AddOrUpdate<IPostService>(
+        "close-expired-posts",
+        service => service.CloseExpiredPostsAsync(),
+        Cron.Hourly());
 }
 catch (Exception ex)
 {

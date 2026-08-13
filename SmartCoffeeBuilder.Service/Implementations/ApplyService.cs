@@ -204,13 +204,21 @@ public class ApplyService : IApplyService
         }
         _repository.UpdateRange(otherPending);
 
-        // SaveChanges chạy trong một transaction — 4 bước trên là atomic.
+        // 5. Chỗ vừa bị lấp → đóng nốt các BÀI ĐĂNG KHÁC của dự án đụng vào chỗ đó (owner có thể
+        // đăng nhiều bài cho cùng một phạm vi) và từ chối hồ sơ đang chờ ở đó. Loại trừ post hiện
+        // tại vì nó đã được xử lý ngay trên graph phía trên.
+        var coveredApplicationIds = await ProjectSlotClosure.CloseCoveredPostsAsync(
+            _unitOfWork, post.ProjectShopOwnerId, post.ServiceKind, excludePostId: post.Id);
+
+        // SaveChanges chạy trong một transaction — 5 bước trên là atomic.
         await _unitOfWork.CommitAsync();
 
         // Thông báo cho provider được chấp nhận + các provider bị từ chối tự động.
         await _notificationService.NotifyApplicationDecisionAsync(application.Id, accepted: true);
         foreach (var other in otherPending)
             await _notificationService.NotifyApplicationDecisionAsync(other.Id, accepted: false);
+        foreach (var applicationId in coveredApplicationIds)
+            await _notificationService.NotifyApplicationDecisionAsync(applicationId, accepted: false);
 
         engagement.ProjectShopOwner = post.ProjectShopOwner;
         engagement.ServiceProviderProfile = application.ServiceProviderProfile;

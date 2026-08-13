@@ -66,6 +66,57 @@ public class ProjectWorkingService : IProjectWorkingService
             paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
+    public async Task<PaginationResponse<ProjectWorkingResponse>> FilterAsync(
+        int pageNumber = 1, int pageSize = 10, string? statuses = null,
+        long? projectShopOwnerId = null, long? serviceProviderProfileId = null, string? contractType = null)
+    {
+        // Danh sách rỗng = không lọc theo trạng thái (Contains dịch được sang SQL IN).
+        var statusFilter = ParseStatuses(statuses);
+
+        ServiceKind? kind = null;
+        if (!string.IsNullOrWhiteSpace(contractType))
+        {
+            if (!Enum.TryParse<ServiceKind>(contractType, ignoreCase: true, out var parsedKind))
+                throw new ArgumentException($"ContractType '{contractType}' không hợp lệ. Cho phép: design, construction, both.");
+            kind = parsedKind;
+        }
+
+        var query = _repository
+            .GetQueryable(
+                e => e.ProjectShopOwner.DeletedAt == null
+                     && e.ServiceProviderProfile.DeletedAt == null
+                     && (projectShopOwnerId == null || e.ProjectShopOwnerId == projectShopOwnerId)
+                     && (serviceProviderProfileId == null || e.ServiceProviderProfileId == serviceProviderProfileId)
+                     && (kind == null || e.ContractType == kind)
+                     && (statusFilter.Count == 0 || statusFilter.Contains(e.Status)),
+                include: q => q.Include(e => e.ProjectShopOwner)
+                               .Include(e => e.ServiceProviderProfile)
+                               .Include(e => e.Contracts))
+            .OrderByDescending(e => e.CreatedAt);
+
+        var paged = await query.ToPaginationResponseAsync(pageNumber, pageSize);
+
+        return new PaginationResponse<ProjectWorkingResponse>(
+            paged.Items.Select(ProjectWorkingResponse.From),
+            paged.TotalItems, paged.PageNumber, paged.PageSize);
+    }
+
+    /// <summary>"requested,accepted" → danh sách enum. Rỗng/null → danh sách rỗng = lấy tất cả.</summary>
+    private static List<ProviderStatus> ParseStatuses(string? statuses)
+    {
+        if (string.IsNullOrWhiteSpace(statuses)) return [];
+
+        var result = new List<ProviderStatus>();
+        foreach (var raw in statuses.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (!Enum.TryParse<ProviderStatus>(raw, ignoreCase: true, out var parsed))
+                throw new ArgumentException($"Status '{raw}' không hợp lệ. Cho phép: requested, accepted, rejected, completed, terminated.");
+            if (!result.Contains(parsed)) result.Add(parsed);
+        }
+
+        return result;
+    }
+
     public async Task<ProjectWorkingResponse> GetByIdAsync(long id)
     {
         var engagement = await _repository.SingleOrDefaultAsync(
@@ -130,10 +181,20 @@ public class ProjectWorkingService : IProjectWorkingService
         };
 
         await _repository.InsertAsync(engagement);
+
+        // Lời mời này giữ chỗ ngay từ 'requested' — bài đăng nào của dự án đụng vào chỗ đó coi như
+        // tuyển không nổi nữa, đóng luôn và từ chối hồ sơ đang chờ thay vì để provider chờ vô ích.
+        var rejectedApplicationIds = await ProjectSlotClosure.CloseCoveredPostsAsync(
+            _unitOfWork, project.Id, contractType);
+
         await _unitOfWork.CommitAsync();
 
         // Sau khi lưu — báo cho PROVIDER biết họ vừa được mời hợp tác trực tiếp.
         await _notificationService.NotifyEngagementInvitedAsync(engagement.Id);
+
+        // ...và cho các provider có hồ sơ bị đóng theo.
+        foreach (var applicationId in rejectedApplicationIds)
+            await _notificationService.NotifyApplicationDecisionAsync(applicationId, accepted: false);
 
         engagement.ProjectShopOwner = project;
         engagement.ServiceProviderProfile = provider;

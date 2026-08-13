@@ -11,6 +11,14 @@ public interface IProjectWorkingService
         int pageNumber = 1, int pageSize = 10,
         long? projectShopOwnerId = null, long? serviceProviderProfileId = null, string? status = null);
 
+    /// <summary>
+    /// Lọc engagement theo NHIỀU trạng thái cùng lúc (statuses = csv, vd "requested,accepted").
+    /// Bỏ trống statuses = lấy tất cả. Thêm lọc theo contractType (design | construction | both).
+    /// </summary>
+    Task<PaginationResponse<ProjectWorkingResponse>> FilterAsync(
+        int pageNumber = 1, int pageSize = 10, string? statuses = null,
+        long? projectShopOwnerId = null, long? serviceProviderProfileId = null, string? contractType = null);
+
     Task<ProjectWorkingResponse> GetByIdAsync(long id);
 
     /// <summary>Owner gửi lời mời thuê trực tiếp — engagement tạo với status=requested (application_id=null).</summary>
