@@ -52,6 +52,7 @@ public class ContractController : ControllerBase
     /// Owner hay provider khác gọi → 401.
     /// </summary>
     [HttpPost]
+    [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> Create([FromBody] CreateContractRequest request)
     {
         var result = await _contractService.CreateAsync(User.GetAccountId(), request);
@@ -62,6 +63,7 @@ public class ContractController : ControllerBase
     /// Cập nhật nội dung hợp đồng — chỉ provider của engagement, và chỉ khi còn 'drafted'.
     /// </summary>
     [HttpPut("{id:long}")]
+    [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> Update(long id, [FromBody] UpdateContractRequest request)
     {
         var result = await _contractService.UpdateAsync(User.GetAccountId(), id, request);
@@ -72,6 +74,7 @@ public class ContractController : ControllerBase
     /// Provider của engagement phát OTP ký hợp đồng cho owner (drafted → pending_otp).
     /// </summary>
     [HttpPost("{id:long}/send-otp")]
+    [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> SendOtp(long id)
     {
         var result = await _contractService.SendOtpAsync(User.GetAccountId(), id);
@@ -82,7 +85,10 @@ public class ContractController : ControllerBase
     /// Owner xác nhận OTP ký hợp đồng (pending_otp → confirmed).
     /// Người ký lấy từ token — chỉ owner của chính dự án mới gọi được.
     /// </summary>
+    // Chỉ owner — KHÔNG mở cho admin: chữ ký hợp đồng không uỷ quyền được
+    // (service dùng EnsureOwnerOfEngagement chứ không phải EnsureActor).
     [HttpPost("{id:long}/confirm-otp")]
+    [Authorize(Roles = "owner")]
     public async Task<IActionResult> ConfirmOtp(long id, [FromBody] ConfirmContractOtpRequest request)
     {
         var result = await _contractService.ConfirmOtpAsync(User.GetAccountId(), id, request);

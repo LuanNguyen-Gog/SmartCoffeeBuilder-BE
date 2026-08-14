@@ -21,6 +21,6 @@ public class CreateConstructionItemRequest
 
     public DateOnly? EstimateAt { get; set; }
 
-    /// <summary>Account id của người tạo (constructor).</summary>
-    public long? CreatedBy { get; set; }
+    // KHÔNG có CreatedBy: người tạo lấy từ JWT. Client tự khai thì cột created_by mất giá trị
+    // đối chứng — cùng lý do ConfirmContractOtpRequest đã bỏ field ConfirmedBy.
 }

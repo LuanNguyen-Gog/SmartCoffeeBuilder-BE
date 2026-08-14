@@ -6,9 +6,16 @@ using SmartCoffeeBuilder.Service.ApiResponse;
 using SmartCoffeeBuilder.Service.DTOs.Requests.ConstructionItem;
 using SmartCoffeeBuilder.Service.DTOs.Responses.ConstructionItem;
 using SmartCoffeeBuilder.Service.Interfaces;
+using SmartCoffeeBuilder.Service.Utils;
 
 namespace SmartCoffeeBuilder.Service.Implementations;
 
+/// <summary>
+/// Milestone thi công. Mọi endpoint đều đi qua ownership check theo ENGAGEMENT
+/// (<see cref="EngagementAuthorization"/>): trạng thái các milestone chính là dữ liệu mà
+/// <c>ProjectWorkingService</c> dùng để phán engagement đã xong việc chưa, nên ai cũng ghi được
+/// vào đây thì guard nghiệm thu mất giá trị.
+/// </summary>
 public class ConstructionItemService : IConstructionItemService
 {
     private readonly IUnitOfWork<SmartCafeBuilderContext> _unitOfWork;
@@ -21,7 +28,7 @@ public class ConstructionItemService : IConstructionItemService
     }
 
     public async Task<PaginationResponse<ConstructionItemResponse>> GetAllAsync(
-        int pageNumber = 1, int pageSize = 10,
+        long accountId, int pageNumber = 1, int pageSize = 10,
         long? projectWorkingId = null, long? parentId = null, string? status = null)
     {
         ItemStatus? st = null;
@@ -32,10 +39,17 @@ public class ConstructionItemService : IConstructionItemService
             st = parsed;
         }
 
+        // Lọc TRONG query, không lọc sau khi lấy về — lọc sau làm sai TotalItems của phân trang.
+        // null = admin, xem tất cả.
+        var visibleEngagementIds = await EngagementAuthorization
+            .GetVisibleEngagementIdsAsync(_unitOfWork, accountId);
+
         var query = _repository
             .GetQueryable(e => (projectWorkingId == null || e.ProjectWorkingId == projectWorkingId)
                                && (parentId == null || e.ParentId == parentId)
-                               && (st == null || e.Status == st))
+                               && (st == null || e.Status == st)
+                               && (visibleEngagementIds == null
+                                   || visibleEngagementIds.Contains(e.ProjectWorkingId)))
             .OrderByDescending(e => e.CreatedAt);
 
         var paged = await query.ToPaginationResponseAsync(pageNumber, pageSize);
@@ -45,19 +59,25 @@ public class ConstructionItemService : IConstructionItemService
             paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
-    public async Task<ConstructionItemResponse> GetByIdAsync(long id)
+    public async Task<ConstructionItemResponse> GetByIdAsync(long accountId, long id)
     {
-        var item = await _repository.SingleOrDefaultAsync(predicate: e => e.Id == id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy construction item với id {id}.");
+        var item = await LoadForActionAsync(accountId, id, "xem hạng mục thi công",
+            EngagementActor.Owner, EngagementActor.Provider);
 
         return ConstructionItemResponse.From(item);
     }
 
-    public async Task<ConstructionItemResponse> CreateAsync(CreateConstructionItemRequest request)
+    public async Task<ConstructionItemResponse> CreateAsync(long accountId, CreateConstructionItemRequest request)
     {
         var engagement = await _unitOfWork.GetRepository<ProjectWorking>()
             .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectWorkingId)
             ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {request.ProjectWorkingId}.");
+
+        // Nhà thầu là người lập milestone của chính mình — owner không tự thêm việc vào phần
+        // của provider. Quyền check TRƯỚC mọi guard nghiệp vụ để endpoint không rò rỉ trạng thái
+        // engagement của người khác qua thông báo lỗi.
+        var actor = await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, engagement.Id);
+        EngagementAuthorization.EnsureActor(actor, "tạo hạng mục thi công", EngagementActor.Provider);
 
         if (engagement.ContractType == ServiceKind.design)
             throw new InvalidOperationException(
@@ -82,13 +102,6 @@ public class ConstructionItemService : IConstructionItemService
                 throw new InvalidOperationException("Milestone cha phải thuộc cùng engagement.");
         }
 
-        if (request.CreatedBy != null)
-        {
-            _ = await _unitOfWork.GetRepository<Account>()
-                .SingleOrDefaultAsync(predicate: a => a.Id == request.CreatedBy)
-                ?? throw new KeyNotFoundException($"Không tìm thấy account với id {request.CreatedBy}.");
-        }
-
         var item = new ConstructionItem
         {
             ProjectWorkingId = engagement.Id,
@@ -98,7 +111,8 @@ public class ConstructionItemService : IConstructionItemService
             Category = request.Category,
             EstimateAt = request.EstimateAt,
             Status = ItemStatus.pending,
-            CreatedBy = request.CreatedBy,
+            // Người tạo lấy từ JWT, KHÔNG nhận từ body: client tự khai thì cột này mất giá trị đối chứng.
+            CreatedBy = accountId,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -109,10 +123,10 @@ public class ConstructionItemService : IConstructionItemService
         return ConstructionItemResponse.From(item);
     }
 
-    public async Task<ConstructionItemResponse> UpdateAsync(long id, UpdateConstructionItemRequest request)
+    public async Task<ConstructionItemResponse> UpdateAsync(
+        long accountId, long id, UpdateConstructionItemRequest request)
     {
-        var item = await _repository.SingleOrDefaultAsync(predicate: e => e.Id == id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy construction item với id {id}.");
+        var item = await LoadForActionAsync(accountId, id, "sửa hạng mục thi công", EngagementActor.Provider);
 
         if (item.Status == ItemStatus.completed)
             throw new InvalidOperationException("Hạng mục đã 'completed' — không chỉnh sửa được nữa.");
@@ -129,13 +143,15 @@ public class ConstructionItemService : IConstructionItemService
         return ConstructionItemResponse.From(item);
     }
 
-    public async Task<ConstructionItemResponse> UpdateStatusAsync(long id, UpdateConstructionItemStatusRequest request)
+    public async Task<ConstructionItemResponse> UpdateStatusAsync(
+        long accountId, long id, UpdateConstructionItemStatusRequest request)
     {
         if (!Enum.TryParse<ItemStatus>(request.Status, ignoreCase: true, out var target))
             throw new ArgumentException($"Status '{request.Status}' không hợp lệ. Cho phép: pending, in_progress, completed.");
 
-        var item = await _repository.SingleOrDefaultAsync(predicate: e => e.Id == id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy construction item với id {id}.");
+        // Chỉ nhà thầu của chính engagement báo tiến độ — đây là dữ liệu guard nghiệm thu tin vào.
+        var item = await LoadForActionAsync(
+            accountId, id, "cập nhật tiến độ hạng mục thi công", EngagementActor.Provider);
 
         // pending → in_progress → completed (chỉ tiến, không lùi, không cancel).
         // TODO (Mục 10 — construction_dependency, đang DRAFT): khi chốt bảng phụ thuộc,
@@ -160,10 +176,9 @@ public class ConstructionItemService : IConstructionItemService
         return ConstructionItemResponse.From(item);
     }
 
-    public async Task DeleteAsync(long id)
+    public async Task DeleteAsync(long accountId, long id)
     {
-        var item = await _repository.SingleOrDefaultAsync(predicate: e => e.Id == id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy construction item với id {id}.");
+        var item = await LoadForActionAsync(accountId, id, "xoá hạng mục thi công", EngagementActor.Provider);
 
         var hasChildren = await _repository.CountAsync(e => e.ParentId == id) > 0;
         if (hasChildren)
@@ -177,5 +192,21 @@ public class ConstructionItemService : IConstructionItemService
 
         _repository.Delete(item); // task con cascade; issue liên quan set null construction_item_id.
         await _unitOfWork.CommitAsync();
+    }
+
+    /// <summary>
+    /// Nạp milestone và chốt quyền trong một bước — mọi endpoint theo id đều phải đi qua đây.
+    /// </summary>
+    private async Task<ConstructionItem> LoadForActionAsync(
+        long accountId, long id, string action, params EngagementActor[] allowed)
+    {
+        var item = await _repository.SingleOrDefaultAsync(predicate: e => e.Id == id)
+            ?? throw new KeyNotFoundException($"Không tìm thấy construction item với id {id}.");
+
+        var actor = await EngagementAuthorization.ResolveActorAsync(
+            _unitOfWork, accountId, item.ProjectWorkingId);
+        EngagementAuthorization.EnsureActor(actor, action, allowed);
+
+        return item;
     }
 }

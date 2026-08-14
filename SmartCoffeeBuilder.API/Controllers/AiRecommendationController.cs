@@ -8,7 +8,9 @@ namespace SmartCoffeeBuilder.API.Controllers;
 
 [ApiController]
 [Route("api/ai-recommendations")]
-[Authorize]
+// Bước AI thuộc luồng brief của owner. Provider xem kết quả AI qua
+// GET api/project-workings/{id}/overview (đã lọc theo engagement), không qua controller này.
+[Authorize(Roles = "owner,admin")]
 public class AiRecommendationController : ControllerBase
 {
     private readonly IAiRecommendationService _aiRecommendationService;

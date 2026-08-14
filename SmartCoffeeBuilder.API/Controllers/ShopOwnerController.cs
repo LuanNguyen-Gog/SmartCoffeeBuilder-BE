@@ -32,6 +32,7 @@ public class ShopOwnerController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Create([FromBody] CreateShopOwnerRequest request)
     {
         var result = await _shopOwnerService.CreateAsync(request);
@@ -39,6 +40,7 @@ public class ShopOwnerController : ControllerBase
     }
 
     [HttpPut("{id:long}")]
+    [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Update(long id, [FromBody] UpdateShopOwnerRequest request)
     {
         var result = await _shopOwnerService.UpdateAsync(id, request);
@@ -46,6 +48,7 @@ public class ShopOwnerController : ControllerBase
     }
 
     [HttpDelete("{id:long}")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> Delete(long id)
     {
         await _shopOwnerService.DeleteAsync(id);

@@ -36,14 +36,15 @@ public class DesignController : ControllerBase
         [FromQuery] string? status = null,
         [FromQuery] string? type = null)
     {
-        var result = await _designService.GetAllAsync(pageNumber, pageSize, projectWorkingId, status, type);
+        var result = await _designService.GetAllAsync(
+            User.GetAccountId(), pageNumber, pageSize, projectWorkingId, status, type);
         return Ok(result);
     }
 
     [HttpGet("{id:long}")]
     public async Task<IActionResult> GetById(long id)
     {
-        var result = await _designService.GetByIdAsync(id);
+        var result = await _designService.GetByIdAsync(User.GetAccountId(), id);
         return Ok(result);
     }
 
@@ -52,22 +53,25 @@ public class DesignController : ControllerBase
     /// Engagement phải 'accepted', có contract 'confirmed' và contract type design/both.
     /// </summary>
     [HttpPost]
+    [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> Create([FromBody] CreateDesignRequest request)
     {
-        var result = await _designService.CreateAsync(request);
+        var result = await _designService.CreateAsync(User.GetAccountId(), request);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
     /// <summary>Cập nhật title/type — chỉ khi design đang 'in_progress' hoặc 'revision'.</summary>
     [HttpPut("{id:long}")]
+    [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> Update(long id, [FromBody] UpdateDesignRequest request)
     {
-        var result = await _designService.UpdateAsync(id, request);
+        var result = await _designService.UpdateAsync(User.GetAccountId(), id, request);
         return Ok(result);
     }
 
     /// <summary>[SUBMIT] Provider nộp bản design cho owner duyệt (in_progress → submitted). Phải có ít nhất 1 ảnh.</summary>
     [HttpPost("{id:long}/submit")]
+    [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> Submit(long id)
     {
         var result = await _designService.SubmitAsync(id, User.GetAccountId());
@@ -76,6 +80,7 @@ public class DesignController : ControllerBase
 
     /// <summary>[APPROVE] Owner duyệt bản design (submitted → approved).</summary>
     [HttpPost("{id:long}/approve")]
+    [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Approve(long id)
     {
         var result = await _designService.ApproveAsync(id, User.GetAccountId());
@@ -84,50 +89,53 @@ public class DesignController : ControllerBase
 
     /// <summary>[REVISION] Owner yêu cầu chỉnh sửa kèm lý do (submitted → revision).</summary>
     [HttpPost("{id:long}/request-revision")]
+    [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> RequestRevision(long id, [FromBody] RequestDesignRevisionRequest request)
     {
-        var result = await _designService.RequestRevisionAsync(id, request);
+        var result = await _designService.RequestRevisionAsync(User.GetAccountId(), id, request);
         return Ok(result);
     }
 
     /// <summary>[REWORK] Provider bắt đầu sửa theo yêu cầu (revision → in_progress, version +0.1).</summary>
     [HttpPost("{id:long}/start-revision")]
+    [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> StartRevision(long id)
     {
-        var result = await _designService.StartRevisionAsync(id);
+        var result = await _designService.StartRevisionAsync(User.GetAccountId(), id);
         return Ok(result);
     }
 
     /// <summary>
     /// Upload ảnh render hoặc file bản vẽ (pdf/office) cho design — lưu lên GCS theo đúng quy ước
     /// của api/files: object nằm ở "{role}/{accountId}/{yyyy}/{MM}/{guid}{ext}".
-    /// Multipart form-data: file (bắt buộc), caption, uploadedBy (mặc định = người đang đăng nhập).
-    /// Không thêm được khi design đã approved.
+    /// Multipart form-data: file (bắt buộc), caption. Không thêm được khi design đã approved.
     /// </summary>
     [HttpPost("{id:long}/files")]
+    [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> UploadFile(
         long id, IFormFile file,
-        [FromForm] string? caption = null,
-        [FromForm] long? uploadedBy = null)
+        [FromForm] string? caption = null)
     {
         if (file == null || file.Length == 0)
             throw new ArgumentException("Chưa chọn file hoặc file rỗng.");
 
+        var accountId = User.GetAccountId();
+
         await using var stream = file.OpenReadStream();
+        // Người upload luôn là người đang đăng nhập — KHÔNG nhận uploadedBy từ form, nếu không
+        // cột uploaded_by và folder "{role}/{accountId}" đều do client tự khai.
         var result = await _designService.UploadFileAsync(
-            id, stream, file.FileName, file.ContentType, file.Length, caption,
-            // Không có uploadedBy thì lấy account từ token (giống FileController) — luôn có
-            // folder "{role}/{accountId}", không rơi vào folder chung.
-            uploadedBy ?? User.GetAccountId());
+            accountId, id, stream, file.FileName, file.ContentType, file.Length, caption, accountId);
 
         return CreatedAtAction(nameof(GetById), new { id }, result);
     }
 
     /// <summary>Xóa file khỏi design (xoá cả object trên bucket) — không xóa được khi đã approved.</summary>
     [HttpDelete("{id:long}/files/{fileId:long}")]
+    [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> RemoveFile(long id, long fileId)
     {
-        await _designService.RemoveFileAsync(id, fileId);
+        await _designService.RemoveFileAsync(User.GetAccountId(), id, fileId);
         return NoContent();
     }
 
@@ -141,7 +149,7 @@ public class DesignController : ControllerBase
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20)
     {
-        var result = await _designService.GetVersionsAsync(id, pageNumber, pageSize);
+        var result = await _designService.GetVersionsAsync(User.GetAccountId(), id, pageNumber, pageSize);
         return Ok(result);
     }
 
@@ -149,7 +157,7 @@ public class DesignController : ControllerBase
     [HttpGet("{id:long}/versions/{versionId:long}")]
     public async Task<IActionResult> GetVersion(long id, long versionId)
     {
-        var result = await _designService.GetVersionByIdAsync(id, versionId);
+        var result = await _designService.GetVersionByIdAsync(User.GetAccountId(), id, versionId);
         return Ok(result);
     }
 }

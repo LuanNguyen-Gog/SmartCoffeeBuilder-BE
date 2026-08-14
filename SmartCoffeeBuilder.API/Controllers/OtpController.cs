@@ -1,11 +1,17 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartCoffeeBuilder.Service.DTOs.Requests.Otp;
 using SmartCoffeeBuilder.Service.Interfaces;
 
 namespace SmartCoffeeBuilder.API.Controllers;
 
+/// <summary>
+/// OTP TÀI KHOẢN (quên/đặt lại mật khẩu) — CỐ Ý công khai: người quên mật khẩu chưa đăng nhập được
+/// nên không thể có token. Khác OTP KÝ HỢP ĐỒNG (ContractController) vốn yêu cầu đăng nhập.
+/// </summary>
 [ApiController]
 [Route("api/otp")]
+[AllowAnonymous]
 public class OtpController : ControllerBase
 {
     private readonly IOtpService _otpService;

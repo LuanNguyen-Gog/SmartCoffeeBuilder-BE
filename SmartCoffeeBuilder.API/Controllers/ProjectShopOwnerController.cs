@@ -36,6 +36,7 @@ public class ProjectShopOwnerController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Create([FromBody] CreateProjectShopOwnerRequest request)
     {
         var result = await _projectShopOwnerService.CreateAsync(request);
@@ -47,6 +48,7 @@ public class ProjectShopOwnerController : ControllerBase
     /// muốn đóng dự án thì dùng /complete hoặc /cancel bên dưới.
     /// </summary>
     [HttpPut("{id:long}")]
+    [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Update(long id, [FromBody] UpdateProjectShopOwnerRequest request)
     {
         var result = await _projectShopOwnerService.UpdateAsync(User.GetAccountId(), id, request);
@@ -59,6 +61,7 @@ public class ProjectShopOwnerController : ControllerBase
     /// đã nghiệm thu ('completed'). Các bài đăng còn 'open' được đóng theo.
     /// </summary>
     [HttpPost("{id:long}/complete")]
+    [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Complete(long id)
     {
         var result = await _projectShopOwnerService.CompleteAsync(User.GetAccountId(), id);
@@ -70,6 +73,7 @@ public class ProjectShopOwnerController : ControllerBase
     /// (requested → rejected, accepted → terminated) và bài đăng 'open' → 'closed'.
     /// </summary>
     [HttpPost("{id:long}/cancel")]
+    [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Cancel(long id)
     {
         var result = await _projectShopOwnerService.CancelAsync(User.GetAccountId(), id);
@@ -77,6 +81,7 @@ public class ProjectShopOwnerController : ControllerBase
     }
 
     [HttpDelete("{id:long}")]
+    [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Delete(long id)
     {
         await _projectShopOwnerService.DeleteAsync(User.GetAccountId(), id);

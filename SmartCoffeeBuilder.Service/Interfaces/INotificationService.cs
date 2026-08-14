@@ -9,18 +9,19 @@ public interface INotificationService
     Task<PaginationResponse<NotificationResponse>> GetForAccountAsync(
         long accountId, int pageNumber = 1, int pageSize = 20, bool? isRead = null);
 
-    Task<NotificationResponse> GetByIdAsync(long id);
+    /// <summary>Chỉ noti của chính <paramref name="accountId"/>; của người khác trả 404.</summary>
+    Task<NotificationResponse> GetByIdAsync(long accountId, long id);
 
     /// <summary>Số noti chưa đọc của account (badge cho FE/mobile).</summary>
     Task<int> GetUnreadCountAsync(long accountId);
 
-    Task<NotificationResponse> MarkAsReadAsync(long id);
+    Task<NotificationResponse> MarkAsReadAsync(long accountId, long id);
 
     /// <summary>Đánh dấu đã đọc tất cả noti của account. Trả về số dòng cập nhật.</summary>
     Task<int> MarkAllAsReadAsync(long accountId);
 
     /// <summary>Gửi lại email cho một noti đã có (vd lần trước gửi lỗi). Cập nhật EmailSentAt.</summary>
-    Task<NotificationResponse> ResendAsync(long id);
+    Task<NotificationResponse> ResendAsync(long accountId, long id);
 
     // ── Domain triggers (tạo bản ghi noti + gửi email). Best-effort: lỗi email KHÔNG throw. ──
 

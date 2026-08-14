@@ -8,6 +8,7 @@ using SmartCoffeeBuilder.Service.ApiResponse;
 using SmartCoffeeBuilder.Service.DTOs.Responses.Notification;
 using SmartCoffeeBuilder.Service.Interfaces;
 using SmartCoffeeBuilder.Service.Notifications;
+using SmartCoffeeBuilder.Service.Utils;
 
 namespace SmartCoffeeBuilder.Service.Implementations;
 
@@ -50,21 +51,18 @@ public class NotificationService : INotificationService
             paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
-    public async Task<NotificationResponse> GetByIdAsync(long id)
+    public async Task<NotificationResponse> GetByIdAsync(long accountId, long id)
     {
-        var noti = await _repository.SingleOrDefaultAsync(predicate: n => n.Id == id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy notification với id {id}.");
-
+        var noti = await LoadOwnNotificationAsync(accountId, id);
         return NotificationResponse.From(noti);
     }
 
     public Task<int> GetUnreadCountAsync(long accountId) =>
         _repository.CountAsync(n => n.AccountId == accountId && !n.IsRead);
 
-    public async Task<NotificationResponse> MarkAsReadAsync(long id)
+    public async Task<NotificationResponse> MarkAsReadAsync(long accountId, long id)
     {
-        var noti = await _repository.SingleOrDefaultAsync(predicate: n => n.Id == id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy notification với id {id}.");
+        var noti = await LoadOwnNotificationAsync(accountId, id);
 
         if (!noti.IsRead)
         {
@@ -90,10 +88,11 @@ public class NotificationService : INotificationService
         return unread.Count;
     }
 
-    public async Task<NotificationResponse> ResendAsync(long id)
+    public async Task<NotificationResponse> ResendAsync(long accountId, long id)
     {
+        // Gửi lại email = phát tán nội dung noti tới hộp thư của chủ noti — chỉ chính chủ được gọi.
         var noti = await _repository.SingleOrDefaultAsync(
-            predicate: n => n.Id == id,
+            predicate: n => n.Id == id && n.AccountId == accountId,
             include: q => q.Include(n => n.Account))
             ?? throw new KeyNotFoundException($"Không tìm thấy notification với id {id}.");
 
@@ -110,6 +109,14 @@ public class NotificationService : INotificationService
 
         return NotificationResponse.From(noti);
     }
+
+    /// <summary>
+    /// Nạp noti CỦA CHÍNH tài khoản đang đăng nhập. Noti của người khác trả 404 chứ không phải 401:
+    /// không tiết lộ rằng id đó có tồn tại.
+    /// </summary>
+    private async Task<Notification> LoadOwnNotificationAsync(long accountId, long id) =>
+        await _repository.SingleOrDefaultAsync(predicate: n => n.Id == id && n.AccountId == accountId)
+        ?? throw new KeyNotFoundException($"Không tìm thấy notification với id {id}.");
 
     // ──────────────────────────────── Domain triggers ────────────────────────────────
 
@@ -392,14 +399,17 @@ public class NotificationService : INotificationService
         // Dự án đã đóng/huỷ rồi thì không còn gì để nhắc.
         if (project.Status is not (ProjectStatus.briefed or ProjectStatus.in_progress)) return;
 
-        // Cùng bộ điều kiện với ProjectShopOwnerService.CompleteAsync: không còn hợp tác dang dở,
-        // và có ít nhất một hợp tác đã nghiệm thu. Chưa đủ thì im lặng — caller không cần biết.
-        var openCount = project.ProjectWorkings.Count(
-            e => e.Status is ProviderStatus.requested or ProviderStatus.accepted);
-        if (openCount > 0) return;
+        // ĐÚNG luật mà ProjectShopOwnerService.CompleteAsync dùng để chặn — cả hai gọi chung
+        // ProjectClosureRules để không bao giờ mời owner đóng một dự án mà guard sẽ từ chối.
+        // Chưa đủ điều kiện thì im lặng: caller cứ gọi vô tư.
+        var signedEngagementIds = (await _unitOfWork.GetRepository<Contract>().GetListAsync(
+            selector: c => c.ProjectWorkingId,
+            predicate: c => c.ProjectWorking.ProjectShopOwnerId == projectShopOwnerId
+                            && c.Status == ContractStatus.confirmed)).ToHashSet();
+
+        if (ProjectClosureRules.FindBlocker(project.ProjectWorkings, signedEngagementIds) != null) return;
 
         var completedCount = project.ProjectWorkings.Count(e => e.Status == ProviderStatus.completed);
-        if (completedCount == 0) return;
 
         var ownerAccount = project.Owner?.Account;
         if (ownerAccount is null)

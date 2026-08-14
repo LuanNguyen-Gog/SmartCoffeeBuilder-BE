@@ -13,6 +13,5 @@ public class CreateDesignRequest
     [Required]
     public string Type { get; set; } = null!;
 
-    /// <summary>Account id của người tạo (provider).</summary>
-    public long? CreatedBy { get; set; }
+    // KHÔNG có CreatedBy: người tạo lấy từ JWT (xem CreateConstructionItemRequest).
 }

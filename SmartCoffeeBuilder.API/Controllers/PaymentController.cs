@@ -15,7 +15,10 @@ namespace SmartCoffeeBuilder.API.Controllers;
 /// và polling GET status (hoặc gọi POST cancel khi user huỷ).
 /// </summary>
 [ApiController]
+// Mặc định KÍN ở cấp controller; hai endpoint công khai (bảng giá, webhook PayOS) tự khai
+// [AllowAnonymous]. Thêm endpoint mới mà quên gắn gì thì nó kín, không phải hở.
 [Route("api/payments")]
+[Authorize]
 public class PaymentController : ControllerBase
 {
     private readonly IPaymentService _paymentService;

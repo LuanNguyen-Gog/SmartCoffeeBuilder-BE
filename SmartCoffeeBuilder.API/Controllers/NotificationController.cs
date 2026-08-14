@@ -1,12 +1,16 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartCoffeeBuilder.Service.Interfaces;
+using SmartCoffeeBuilder.Service.Utils;
 
 namespace SmartCoffeeBuilder.API.Controllers;
 
 /// <summary>
 /// Thông báo in-app + email. Lịch sử noti cho FE/mobile, đánh dấu đã đọc, và gửi lại email.
 /// Noti được tạo tự động bởi các luồng nghiệp vụ (vd ứng tuyển / chấp nhận / từ chối hồ sơ).
+///
+/// Mọi endpoint chỉ thao tác trên noti CỦA CHÍNH người đang đăng nhập — accountId lấy từ JWT,
+/// KHÔNG nhận từ query. Trước đây nhận từ query nên bất kỳ ai cũng đọc được hộp thư người khác.
 /// </summary>
 [ApiController]
 [Route("api/notifications")]
@@ -20,22 +24,23 @@ public class NotificationController : ControllerBase
         _notificationService = notificationService;
     }
 
-    /// <summary>Lịch sử noti của một account (mới nhất trước). isRead=false để lấy chưa đọc.</summary>
+    /// <summary>Lịch sử noti của chính mình (mới nhất trước). isRead=false để lấy chưa đọc.</summary>
     [HttpGet]
     public async Task<IActionResult> GetForAccount(
-        [FromQuery] long accountId,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] bool? isRead = null)
     {
-        var result = await _notificationService.GetForAccountAsync(accountId, pageNumber, pageSize, isRead);
+        var result = await _notificationService.GetForAccountAsync(
+            User.GetAccountId(), pageNumber, pageSize, isRead);
         return Ok(result);
     }
 
-    /// <summary>Số noti chưa đọc của account — cho badge.</summary>
+    /// <summary>Số noti chưa đọc của chính mình — cho badge.</summary>
     [HttpGet("unread-count")]
-    public async Task<IActionResult> GetUnreadCount([FromQuery] long accountId)
+    public async Task<IActionResult> GetUnreadCount()
     {
+        var accountId = User.GetAccountId();
         var count = await _notificationService.GetUnreadCountAsync(accountId);
         return Ok(new { accountId, unreadCount = count });
     }
@@ -43,7 +48,7 @@ public class NotificationController : ControllerBase
     [HttpGet("{id:long}")]
     public async Task<IActionResult> GetById(long id)
     {
-        var result = await _notificationService.GetByIdAsync(id);
+        var result = await _notificationService.GetByIdAsync(User.GetAccountId(), id);
         return Ok(result);
     }
 
@@ -51,23 +56,24 @@ public class NotificationController : ControllerBase
     [HttpPatch("{id:long}/read")]
     public async Task<IActionResult> MarkAsRead(long id)
     {
-        var result = await _notificationService.MarkAsReadAsync(id);
+        var result = await _notificationService.MarkAsReadAsync(User.GetAccountId(), id);
         return Ok(result);
     }
 
-    /// <summary>Đánh dấu tất cả noti của account đã đọc.</summary>
+    /// <summary>Đánh dấu tất cả noti của chính mình đã đọc.</summary>
     [HttpPost("mark-all-read")]
-    public async Task<IActionResult> MarkAllAsRead([FromQuery] long accountId)
+    public async Task<IActionResult> MarkAllAsRead()
     {
+        var accountId = User.GetAccountId();
         var updated = await _notificationService.MarkAllAsReadAsync(accountId);
         return Ok(new { accountId, updated });
     }
 
-    /// <summary>Gửi lại email cho một noti (vd lần trước gửi lỗi).</summary>
+    /// <summary>Gửi lại email cho một noti của chính mình (vd lần trước gửi lỗi).</summary>
     [HttpPost("{id:long}/resend")]
     public async Task<IActionResult> Resend(long id)
     {
-        var result = await _notificationService.ResendAsync(id);
+        var result = await _notificationService.ResendAsync(User.GetAccountId(), id);
         return Ok(result);
     }
 }
