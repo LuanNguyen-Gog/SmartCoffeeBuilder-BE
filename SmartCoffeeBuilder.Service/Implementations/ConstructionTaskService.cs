@@ -82,6 +82,8 @@ public class ConstructionTaskService : IConstructionTaskService
         if (item.Status == ItemStatus.completed)
             throw new InvalidOperationException("Milestone đã 'completed' — không thêm task được nữa.");
 
+        ConstructionSchedule.EnsureEstimateNotInPast(request.EstimateAt, "task");
+
         var task = new ConstructionTask
         {
             ConstructionItemId = item.Id,
@@ -110,6 +112,10 @@ public class ConstructionTaskService : IConstructionTaskService
 
         if (task.Status == ItemStatus.completed)
             throw new InvalidOperationException("Task đã 'completed' — không chỉnh sửa được nữa.");
+
+        // Chỉ soi giá trị MỚI: hạn cũ đã lỡ trôi vào quá khứ vẫn sửa được các trường khác.
+        if (request.EstimateAt.HasValue)
+            ConstructionSchedule.EnsureEstimateNotInPast(request.EstimateAt, "task");
 
         if (request.Name != null) task.Name = request.Name;
         if (request.Description != null) task.Description = request.Description;

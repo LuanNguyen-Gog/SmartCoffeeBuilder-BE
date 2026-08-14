@@ -45,7 +45,12 @@ public class ConstructionItemController : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Constructor tạo milestone thi công.</summary>
+    /// <summary>
+    /// Constructor tạo milestone thi công.
+    /// estimateAt (hạn hoàn thành) không được đặt về trước ngày hiện tại — hôm nay vẫn hợp lệ.
+    /// parentId chỉ được trỏ tới milestone GỐC (parentId = null): cây thi công đúng 2 cấp,
+    /// muốn chia nhỏ thêm thì tạo task bên trong milestone con.
+    /// </summary>
     [HttpPost]
     [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> Create([FromBody] CreateConstructionItemRequest request)
@@ -54,6 +59,10 @@ public class ConstructionItemController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
+    /// <summary>
+    /// Sửa milestone. Nếu có gửi estimateAt thì hạn mới không được nằm trước ngày hiện tại
+    /// (hạn cũ đã trôi vào quá khứ vẫn sửa các trường khác bình thường).
+    /// </summary>
     [HttpPut("{id:long}")]
     [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> Update(long id, [FromBody] UpdateConstructionItemRequest request)
@@ -62,7 +71,11 @@ public class ConstructionItemController : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Chuyển trạng thái: pending → in_progress → completed.</summary>
+    /// <summary>
+    /// Chuyển trạng thái: pending → in_progress → completed.
+    /// Sang 'completed' chỉ được khi MỌI task con VÀ MỌI milestone con đã 'completed' — còn
+    /// việc dở thì trả 409 kèm số task / milestone con chưa xong.
+    /// </summary>
     [HttpPut("{id:long}/status")]
     [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> UpdateStatus(long id, [FromBody] UpdateConstructionItemStatusRequest request)

@@ -94,12 +94,22 @@ public class ConstructionItemService : IConstructionItemService
             throw new InvalidOperationException(
                 "Engagement chưa có contract 'confirmed' — ký hợp đồng trước khi tạo hạng mục thi công.");
 
+        ConstructionSchedule.EnsureEstimateNotInPast(request.EstimateAt, "hạng mục");
+
         if (request.ParentId != null)
         {
             var parent = await _repository.SingleOrDefaultAsync(predicate: e => e.Id == request.ParentId)
                 ?? throw new KeyNotFoundException($"Không tìm thấy milestone cha với id {request.ParentId}.");
             if (parent.ProjectWorkingId != engagement.Id)
                 throw new InvalidOperationException("Milestone cha phải thuộc cùng engagement.");
+
+            // Thi công đúng 2 CẤP (v5): milestone gốc → milestone con → task. Bản thân milestone con
+            // KHÔNG được làm cha tiếp, nếu không cây đào sâu tuỳ ý trong khi FE chỉ render 2 tầng
+            // và các guard bên dưới (đóng milestone / nghiệm thu) chỉ nhìn đúng một mức con.
+            if (parent.ParentId != null)
+                throw new InvalidOperationException(
+                    "Thi công chỉ có 2 cấp milestone — milestone con không thể làm milestone cha. " +
+                    "Gắn vào milestone gốc, hoặc tạo task bên trong milestone con này.");
         }
 
         var item = new ConstructionItem
@@ -130,6 +140,10 @@ public class ConstructionItemService : IConstructionItemService
 
         if (item.Status == ItemStatus.completed)
             throw new InvalidOperationException("Hạng mục đã 'completed' — không chỉnh sửa được nữa.");
+
+        // Chỉ soi giá trị MỚI: hạn cũ đã lỡ trôi vào quá khứ vẫn sửa được các trường khác.
+        if (request.EstimateAt.HasValue)
+            ConstructionSchedule.EnsureEstimateNotInPast(request.EstimateAt, "hạng mục");
 
         if (request.Name != null) item.Name = request.Name;
         if (request.Description != null) item.Description = request.Description;
@@ -164,6 +178,27 @@ public class ConstructionItemService : IConstructionItemService
         };
         if (!allowed)
             throw new InvalidOperationException($"Không thể chuyển hạng mục từ '{item.Status}' sang '{target}'.");
+
+        // Milestone chỉ đóng được khi MỌI thứ treo dưới nó đã xong — cả task lẫn milestone con.
+        // Thiếu bước này thì cây thi công hiện tick xanh cho phần việc còn dở, và guard nghiệm thu
+        // của ProjectWorkingService (mọi milestone 'completed') mất một lớp đối chứng.
+        if (target == ItemStatus.completed)
+        {
+            var unfinishedTasks = await _unitOfWork.GetRepository<ConstructionTask>()
+                .CountAsync(t => t.ConstructionItemId == item.Id && t.Status != ItemStatus.completed);
+            if (unfinishedTasks > 0)
+                throw new InvalidOperationException(
+                    $"Còn {unfinishedTasks} task chưa 'completed' trong hạng mục này — " +
+                    "hoàn thành hoặc xoá hết task trước khi đóng milestone.");
+
+            // Chỉ cần soi ĐÚNG MỘT mức con: cây bị chặn ở 2 cấp nên milestone con không có con nữa.
+            var unfinishedChildren = await _repository.CountAsync(
+                c => c.ParentId == item.Id && c.Status != ItemStatus.completed);
+            if (unfinishedChildren > 0)
+                throw new InvalidOperationException(
+                    $"Còn {unfinishedChildren} milestone con chưa 'completed' — " +
+                    "đóng hết milestone con trước khi đóng milestone cha.");
+        }
 
         item.Status = target;
         if (target == ItemStatus.completed && item.ActualAt == null)

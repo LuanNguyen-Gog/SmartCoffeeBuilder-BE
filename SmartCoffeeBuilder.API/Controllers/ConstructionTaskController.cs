@@ -44,7 +44,10 @@ public class ConstructionTaskController : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>Constructor tạo task trong milestone.</summary>
+    /// <summary>
+    /// Constructor tạo task trong milestone.
+    /// estimateAt (hạn hoàn thành) không được đặt về trước ngày hiện tại — hôm nay vẫn hợp lệ.
+    /// </summary>
     [HttpPost]
     [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> Create([FromBody] CreateConstructionTaskRequest request)
@@ -53,6 +56,10 @@ public class ConstructionTaskController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
+    /// <summary>
+    /// Sửa task. Nếu có gửi estimateAt thì hạn mới không được nằm trước ngày hiện tại
+    /// (hạn cũ đã trôi vào quá khứ vẫn sửa các trường khác bình thường).
+    /// </summary>
     [HttpPut("{id:long}")]
     [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> Update(long id, [FromBody] UpdateConstructionTaskRequest request)
