@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartCoffeeBuilder.Service.DTOs.Requests.Survey;
 using SmartCoffeeBuilder.Service.Interfaces;
+using SmartCoffeeBuilder.Service.Utils;
 
 namespace SmartCoffeeBuilder.API.Controllers;
 
@@ -43,11 +44,12 @@ public class SurveyController : ControllerBase
     /// <summary>
     /// Provider tạo bản khảo sát mặt bằng. Version tự tăng 0.1 theo từng engagement (0.1, 0.2, …).
     /// </summary>
+    // KHÔNG mở cho admin: khảo sát mặt bằng là việc của provider trong engagement, không phải quản trị.
     [HttpPost]
-    [Authorize(Roles = "provider,admin")]
+    [Authorize(Roles = "provider")]
     public async Task<IActionResult> Create([FromBody] CreateSurveyRequest request)
     {
-        var result = await _surveyService.CreateAsync(request);
+        var result = await _surveyService.CreateAsync(User.GetAccountId(), request);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
@@ -56,7 +58,7 @@ public class SurveyController : ControllerBase
     [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> Update(long id, [FromBody] UpdateSurveyRequest request)
     {
-        var result = await _surveyService.UpdateAsync(id, request);
+        var result = await _surveyService.UpdateAsync(User.GetAccountId(), id, request);
         return Ok(result);
     }
 }

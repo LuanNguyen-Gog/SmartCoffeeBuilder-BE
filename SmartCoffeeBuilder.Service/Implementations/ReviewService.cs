@@ -7,6 +7,7 @@ using SmartCoffeeBuilder.Service.ApiResponse;
 using SmartCoffeeBuilder.Service.DTOs.Requests.Review;
 using SmartCoffeeBuilder.Service.DTOs.Responses.Review;
 using SmartCoffeeBuilder.Service.Interfaces;
+using SmartCoffeeBuilder.Service.Utils;
 
 namespace SmartCoffeeBuilder.Service.Implementations;
 
@@ -77,11 +78,18 @@ public class ReviewService : IReviewService
         return summary;
     }
 
-    public async Task<ReviewResponse> CreateAsync(CreateReviewRequest request)
+    public async Task<ReviewResponse> CreateAsync(long accountId, CreateReviewRequest request)
     {
         var engagement = await _unitOfWork.GetRepository<ProjectWorking>()
             .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectWorkingId)
             ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {request.ProjectWorkingId}.");
+
+        // Quyền TRƯỚC mọi check trạng thái — role gate 'owner' không phân biệt được owner NÀO,
+        // thiếu chỗ này thì owner bất kỳ chấm điểm hộ được engagement của người khác, và điểm đó
+        // chảy thẳng vào rating trung bình của provider.
+        EngagementAuthorization.EnsureActor(
+            await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, engagement.Id),
+            "đánh giá hợp tác này", EngagementActor.Owner);
 
         // v5: review chỉ mở khoá sau khi owner nghiệm thu (provider_status = completed).
         if (engagement.Status != ProviderStatus.completed)
@@ -113,12 +121,16 @@ public class ReviewService : IReviewService
         return ReviewResponse.From(review);
     }
 
-    public async Task<ReviewResponse> UpdateAsync(long id, UpdateReviewRequest request)
+    public async Task<ReviewResponse> UpdateAsync(long accountId, long id, UpdateReviewRequest request)
     {
         var review = await _repository.SingleOrDefaultAsync(
             predicate: r => r.Id == id,
             include: q => q.Include(r => r.ReviewScores).Include(r => r.ProjectWorking))
             ?? throw new KeyNotFoundException($"Không tìm thấy review với id {id}.");
+
+        EngagementAuthorization.EnsureActor(
+            await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, review.ProjectWorkingId),
+            "sửa đánh giá này", EngagementActor.Owner);
 
         if (request.OverallRating.HasValue) review.OverallRating = request.OverallRating.Value;
         if (request.Comment != null) review.Comment = request.Comment;
@@ -142,10 +154,15 @@ public class ReviewService : IReviewService
         return ReviewResponse.From(review);
     }
 
-    public async Task DeleteAsync(long id)
+    public async Task DeleteAsync(long accountId, long id)
     {
         var review = await _repository.SingleOrDefaultAsync(predicate: r => r.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy review với id {id}.");
+
+        // Admin đi xuyên EnsureActor — gỡ đánh giá vi phạm là việc quản trị hợp lệ.
+        EngagementAuthorization.EnsureActor(
+            await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, review.ProjectWorkingId),
+            "xoá đánh giá này", EngagementActor.Owner);
 
         _repository.Delete(review); // review_score con cascade theo FK.
         await _unitOfWork.CommitAsync();

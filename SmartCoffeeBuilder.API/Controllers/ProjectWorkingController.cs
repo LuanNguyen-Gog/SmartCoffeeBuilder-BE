@@ -90,11 +90,12 @@ public class ProjectWorkingController : ControllerBase
     /// contractType: design | construction | both — phải khớp capability của provider.
     /// Engagement tạo với status=requested, chờ provider accept/reject.
     /// </summary>
+    // KHÔNG mở cho admin: mời thầu là quyết định của chủ quán, không phải việc quản trị.
     [HttpPost("direct-request")]
-    [Authorize(Roles = "owner,admin")]
+    [Authorize(Roles = "owner")]
     public async Task<IActionResult> DirectRequest([FromBody] CreateProjectWorkingRequest request)
     {
-        var result = await _projectWorkingService.CreateDirectRequestAsync(request);
+        var result = await _projectWorkingService.CreateDirectRequestAsync(User.GetAccountId(), request);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 

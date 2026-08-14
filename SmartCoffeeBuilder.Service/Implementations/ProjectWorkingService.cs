@@ -131,11 +131,22 @@ public class ProjectWorkingService : IProjectWorkingService
         return ProjectWorkingResponse.From(engagement);
     }
 
-    public async Task<ProjectWorkingResponse> CreateDirectRequestAsync(CreateProjectWorkingRequest request)
+    public async Task<ProjectWorkingResponse> CreateDirectRequestAsync(
+        long accountId, CreateProjectWorkingRequest request)
     {
         var project = await _unitOfWork.GetRepository<ProjectShopOwner>()
-            .SingleOrDefaultAsync(predicate: p => p.Id == request.ProjectShopOwnerId && p.DeletedAt == null)
+            .SingleOrDefaultAsync(
+                predicate: p => p.Id == request.ProjectShopOwnerId && p.DeletedAt == null,
+                include: q => q.Include(p => p.Owner))
             ?? throw new KeyNotFoundException($"Không tìm thấy project với id {request.ProjectShopOwnerId}.");
+
+        // Quyền TRƯỚC mọi check nghiệp vụ. Đây là engagement CHƯA tồn tại nên không dùng
+        // EngagementAuthorization được — chủ thể phải xét theo DỰ ÁN. Role gate 'owner' không
+        // phân biệt được owner NÀO, thiếu chỗ này thì owner bất kỳ mời thầu vào dự án người khác
+        // và chiếm luôn chỗ design/construction của họ (xem ProjectSlotRules).
+        if (project.Owner?.AccountId != accountId)
+            throw new UnauthorizedAccessException(
+                "Chỉ chủ quán của dự án này mới được gửi lời mời thuê trực tiếp.");
 
         if (project.Status is ProjectStatus.completed or ProjectStatus.cancelled)
             throw new InvalidOperationException($"ProjectShopOwner đang ở trạng thái '{project.Status}', không thể thuê provider.");

@@ -43,8 +43,10 @@ public class ApplyController : ControllerBase
     /// Hồ sơ provider lấy từ tài khoản đang đăng nhập (JWT) — không cần gửi serviceProviderProfileId.
     /// Capability của provider phải khớp serviceKind của bài (designer↔design, constructor↔construction, both↔mọi loại).
     /// </summary>
+    // KHÔNG mở cho admin: hồ sơ provider resolve từ token, tài khoản admin không có
+    // ServiceProviderProfile nên vào cũng chỉ nhận 404 khó hiểu.
     [HttpPost("apply")]
-    [Authorize(Roles = "provider,admin")]
+    [Authorize(Roles = "provider")]
     public async Task<IActionResult> Apply([FromBody] CreateApplyRequest request)
     {
         var result = await _applyService.ApplyAsync(User.GetAccountId(), request);

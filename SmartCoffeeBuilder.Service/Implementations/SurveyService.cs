@@ -7,6 +7,7 @@ using SmartCoffeeBuilder.Service.ApiResponse;
 using SmartCoffeeBuilder.Service.DTOs.Requests.Survey;
 using SmartCoffeeBuilder.Service.DTOs.Responses.Survey;
 using SmartCoffeeBuilder.Service.Interfaces;
+using SmartCoffeeBuilder.Service.Utils;
 
 namespace SmartCoffeeBuilder.Service.Implementations;
 
@@ -45,11 +46,17 @@ public class SurveyService : ISurveyService
         return SurveyResponse.From(survey);
     }
 
-    public async Task<SurveyResponse> CreateAsync(CreateSurveyRequest request)
+    public async Task<SurveyResponse> CreateAsync(long accountId, CreateSurveyRequest request)
     {
         var engagement = await _unitOfWork.GetRepository<ProjectWorking>()
             .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectWorkingId)
             ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {request.ProjectWorkingId}.");
+
+        // Quyền TRƯỚC mọi check trạng thái — role gate 'provider' không phân biệt được provider NÀO,
+        // thiếu chỗ này thì provider bất kỳ tạo được khảo sát trên engagement của người khác.
+        EngagementAuthorization.EnsureActor(
+            await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, engagement.Id),
+            "tạo bản khảo sát", EngagementActor.Provider);
 
         if (engagement.ContractType == ServiceKind.construction)
             throw new InvalidOperationException(
@@ -62,13 +69,6 @@ public class SurveyService : ISurveyService
         // v5 (cập nhật): survey ĐỘC LẬP với contract — khảo sát được phép làm TRƯỚC khi ký.
         // Chỉ cần engagement 'accepted' + contract_type có pha design (đã check ở trên).
         // KHÔNG guard contract 'confirmed' ở đây (khác design/construction_item vẫn yêu cầu đã ký).
-
-        if (request.CreatedBy != null)
-        {
-            _ = await _unitOfWork.GetRepository<Account>()
-                .SingleOrDefaultAsync(predicate: a => a.Id == request.CreatedBy)
-                ?? throw new KeyNotFoundException($"Không tìm thấy account với id {request.CreatedBy}.");
-        }
 
         // Version tự tăng 0.1 theo từng engagement (0.1, 0.2, …).
         var maxVersion = await _repository
@@ -83,7 +83,9 @@ public class SurveyService : ISurveyService
             ConditionNote = request.ConditionNote,
             // File báo cáo phải upload qua api/files trước; giá trị gửi lên rút về ObjectName.
             ReportUrl = await _fileStorage.NormalizeForStorageAsync(request.ReportUrl, "reportUrl"),
-            CreatedBy = request.CreatedBy,
+            // Người tạo lấy từ TOKEN, không nhận từ body: client tự khai thì cột created_by
+            // mất giá trị đối chứng (xem quy tắc Authorization trong CLAUDE.md).
+            CreatedBy = accountId,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -94,10 +96,14 @@ public class SurveyService : ISurveyService
         return SurveyResponse.From(survey);
     }
 
-    public async Task<SurveyResponse> UpdateAsync(long id, UpdateSurveyRequest request)
+    public async Task<SurveyResponse> UpdateAsync(long accountId, long id, UpdateSurveyRequest request)
     {
         var survey = await _repository.SingleOrDefaultAsync(predicate: s => s.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy survey với id {id}.");
+
+        EngagementAuthorization.EnsureActor(
+            await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, survey.ProjectWorkingId),
+            "sửa bản khảo sát", EngagementActor.Provider);
 
         if (request.ConditionNote != null) survey.ConditionNote = request.ConditionNote;
 

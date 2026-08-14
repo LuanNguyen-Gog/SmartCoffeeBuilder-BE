@@ -14,6 +14,6 @@ public class CreateSurveyRequest
     /// <summary>URL file báo cáo khảo sát (nếu có).</summary>
     public string? ReportUrl { get; set; }
 
-    /// <summary>Account id của người tạo (provider).</summary>
-    public long? CreatedBy { get; set; }
+    // KHÔNG có CreatedBy: người tạo lấy từ JWT. Client tự khai thì cột created_by mất giá trị
+    // đối chứng — xem quy tắc Authorization trong CLAUDE.md.
 }
