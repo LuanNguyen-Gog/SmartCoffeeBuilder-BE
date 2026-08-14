@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartCoffeeBuilder.Service.DTOs.Requests.Review;
 using SmartCoffeeBuilder.Service.Interfaces;
+using SmartCoffeeBuilder.Service.Utils;
 
 namespace SmartCoffeeBuilder.API.Controllers;
 
@@ -49,11 +50,12 @@ public class ReviewController : ControllerBase
     }
 
     /// <summary>Owner tạo review — engagement phải 'completed' và chưa có review.</summary>
+    // KHÔNG mở cho admin: đánh giá là tiếng nói của chủ quán, không uỷ quyền được.
     [HttpPost]
-    [Authorize(Roles = "owner,admin")]
+    [Authorize(Roles = "owner")]
     public async Task<IActionResult> Create([FromBody] CreateReviewRequest request)
     {
-        var result = await _reviewService.CreateAsync(request);
+        var result = await _reviewService.CreateAsync(User.GetAccountId(), request);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
@@ -61,7 +63,7 @@ public class ReviewController : ControllerBase
     [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Update(long id, [FromBody] UpdateReviewRequest request)
     {
-        var result = await _reviewService.UpdateAsync(id, request);
+        var result = await _reviewService.UpdateAsync(User.GetAccountId(), id, request);
         return Ok(result);
     }
 
@@ -69,7 +71,7 @@ public class ReviewController : ControllerBase
     [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Delete(long id)
     {
-        await _reviewService.DeleteAsync(id);
+        await _reviewService.DeleteAsync(User.GetAccountId(), id);
         return NoContent();
     }
 }

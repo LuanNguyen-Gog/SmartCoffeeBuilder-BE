@@ -22,7 +22,8 @@ public interface IProjectWorkingService
     Task<ProjectWorkingResponse> GetByIdAsync(long id);
 
     /// <summary>Owner gửi lời mời thuê trực tiếp — engagement tạo với status=requested (application_id=null).</summary>
-    Task<ProjectWorkingResponse> CreateDirectRequestAsync(CreateProjectWorkingRequest request);
+    Task<ProjectWorkingResponse> CreateDirectRequestAsync(
+        long accountId, CreateProjectWorkingRequest request);
 
     /// <summary>[PROVIDER] Chấp nhận lời mời (requested → accepted).</summary>
     Task<ProjectWorkingResponse> AcceptAsync(long accountId, long id);

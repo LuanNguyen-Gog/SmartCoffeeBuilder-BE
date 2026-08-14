@@ -14,9 +14,9 @@ public interface IReviewService
 
     Task<ProviderRatingSummaryResponse> GetProviderSummaryAsync(long serviceProviderProfileId);
 
-    Task<ReviewResponse> CreateAsync(CreateReviewRequest request);
+    Task<ReviewResponse> CreateAsync(long accountId, CreateReviewRequest request);
 
-    Task<ReviewResponse> UpdateAsync(long id, UpdateReviewRequest request);
+    Task<ReviewResponse> UpdateAsync(long accountId, long id, UpdateReviewRequest request);
 
-    Task DeleteAsync(long id);
+    Task DeleteAsync(long accountId, long id);
 }

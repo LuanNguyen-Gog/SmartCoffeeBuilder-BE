@@ -159,19 +159,35 @@ public class ContractService : IContractService
         var contract = await _repository.SingleOrDefaultAsync(predicate: c => c.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy contract với id {id}.");
 
-        // Quyền TRƯỚC khi phát mã: endpoint này gửi email OTP cho owner và đổi trạng thái hợp đồng,
-        // nên người ngoài gọi được là vừa spam owner vừa đẩy hợp đồng sang 'pending_otp'.
-        EnsureActor(
-            await ResolveActorAsync(accountId, contract.ProjectWorkingId),
-            "phát OTP ký hợp đồng", ContractActor.Provider);
+        // Nạp engagement MỘT lần cho cả check quyền lẫn email người nhận — nạp hai lần sẽ có hai
+        // instance cùng khoá trong một context (reads đều AsNoTracking).
+        var engagement = await LoadEngagementForSigningAsync(contract.ProjectWorkingId);
 
-        // 'drafted' → gửi lần đầu (chuyển 'pending_otp'); 'pending_otp' → GỬI LẠI khi mã cũ
-        // hết hạn/thất lạc (giữ nguyên trạng thái, cấp mã mới đè mã cũ). Đã confirmed/cancelled thì chặn.
+        // Quyền TRƯỚC khi phát mã: endpoint này gửi email và đổi trạng thái hợp đồng, nên người
+        // ngoài gọi được là vừa spam owner vừa đẩy hợp đồng sang 'pending_otp'.
+        // CHỈ OWNER: mã gửi về email owner và cũng chính owner nhập lại ở confirm-otp, nên owner tự
+        // yêu cầu phát mã cho mình. Provider KHÔNG phát hộ được (không ai bấm gửi mã vào hộp thư
+        // người khác), admin cũng không — cùng lý do với confirm-otp: chữ ký hợp đồng không uỷ quyền.
+        EnsureOwnerOfEngagement(accountId, engagement, "yêu cầu phát OTP ký hợp đồng");
+
+        // 'drafted' → phát lần đầu (chuyển 'pending_otp'); 'pending_otp' → phát lại khi mã cũ đã
+        // hết hạn. Đã confirmed/cancelled thì chặn.
         if (contract.Status is not (ContractStatus.drafted or ContractStatus.pending_otp))
             throw new InvalidOperationException(
                 $"Contract đang ở trạng thái '{contract.Status}' — chỉ gửi OTP khi 'drafted' hoặc 'pending_otp'.");
 
-        var ownerEmail = await ResolveOwnerEmailAsync(contract.ProjectWorkingId);
+        // Bấm lại khi mã hiện tại CÒN HẠN → không gửi gì thêm, giữ nguyên mã owner đang cầm trong
+        // hộp thư. Cấp mã mới sẽ vô hiệu hoá mã cũ, người vừa mở mail trước đó ra nhập là sai ngay.
+        // Trả contract nguyên trạng (200) để FE đọc OtpExpiresAt mà đếm ngược tới lúc gửi lại được.
+        if (!string.IsNullOrEmpty(contract.OtpCode)
+            && contract.OtpExpiresAt.HasValue
+            && contract.OtpExpiresAt.Value > DateTime.UtcNow)
+            return ContractResponse.From(contract);
+
+        var ownerEmail = engagement.ProjectShopOwner?.Owner?.Account?.Email;
+        if (string.IsNullOrEmpty(ownerEmail))
+            throw new InvalidOperationException(
+                "Không xác định được email owner để gửi OTP ký hợp đồng.");
 
         var code = GenerateOtpCode();
         contract.OtpCode = code;
@@ -304,11 +320,15 @@ public class ContractService : IContractService
     }
 
     /// <summary>Nạp engagement kèm project + owner cho luồng ký hợp đồng (một lần cho cả request).</summary>
+    // Include tới Account vì send-otp cần email owner ngay trên instance vừa check quyền
+    // (confirm-otp không dùng email, nhưng ký hợp đồng là luồng thưa — thêm một join rẻ hơn
+    // là nuôi hai loader gần giống nhau).
     private async Task<ProjectWorking> LoadEngagementForSigningAsync(long projectWorkingId) =>
         await _unitOfWork.GetRepository<ProjectWorking>()
             .SingleOrDefaultAsync(
                 predicate: e => e.Id == projectWorkingId,
-                include: q => q.Include(e => e.ProjectShopOwner).ThenInclude(p => p.Owner))
+                include: q => q.Include(e => e.ProjectShopOwner)
+                    .ThenInclude(p => p.Owner).ThenInclude(o => o.Account))
         ?? throw new KeyNotFoundException(
             $"Không tìm thấy project provider với id {projectWorkingId}.");
 
@@ -365,32 +385,16 @@ public class ContractService : IContractService
     }
 
     /// <summary>
-    /// Chỉ owner của chính dự án mới ký được hợp đồng của engagement đó.
+    /// Chỉ owner của chính dự án mới thao tác được lên lượt ký của engagement đó — dùng cho CẢ
+    /// send-otp lẫn confirm-otp. Cố tình KHÔNG cho admin đi xuyên (khác <see cref="EnsureActor"/>):
+    /// chữ ký hợp đồng không uỷ quyền được.
     /// Sai người → UnauthorizedAccessException (401).
     /// </summary>
-    private static void EnsureOwnerOfEngagement(long accountId, ProjectWorking engagement)
+    private static void EnsureOwnerOfEngagement(
+        long accountId, ProjectWorking engagement, string action = "xác nhận hợp đồng")
     {
         if (engagement.ProjectShopOwner?.Owner?.AccountId != accountId)
-            throw new UnauthorizedAccessException(
-                "Chỉ chủ quán của dự án này mới xác nhận được hợp đồng.");
-    }
-
-    /// <summary>Lấy email owner của engagement để gửi OTP ký hợp đồng.</summary>
-    private async Task<string> ResolveOwnerEmailAsync(long projectWorkingId)
-    {
-        var engagement = await _unitOfWork.GetRepository<ProjectWorking>()
-            .SingleOrDefaultAsync(
-                predicate: e => e.Id == projectWorkingId,
-                include: q => q.Include(e => e.ProjectShopOwner).ThenInclude(p => p.Owner).ThenInclude(o => o.Account))
-            ?? throw new KeyNotFoundException(
-                $"Không tìm thấy project provider với id {projectWorkingId}.");
-
-        var email = engagement.ProjectShopOwner?.Owner?.Account?.Email;
-        if (string.IsNullOrEmpty(email))
-            throw new InvalidOperationException(
-                "Không xác định được email owner để gửi OTP ký hợp đồng.");
-
-        return email;
+            throw new UnauthorizedAccessException($"Chỉ chủ quán của dự án này mới được {action}.");
     }
 
     private static string GenerateOtpCode()

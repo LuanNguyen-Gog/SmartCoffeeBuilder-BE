@@ -9,6 +9,6 @@ public interface ISurveyService
     Task<PaginationResponse<SurveyResponse>> GetAllAsync(
         int pageNumber = 1, int pageSize = 10, long? projectWorkingId = null);
     Task<SurveyResponse> GetByIdAsync(long id);
-    Task<SurveyResponse> CreateAsync(CreateSurveyRequest request);
-    Task<SurveyResponse> UpdateAsync(long id, UpdateSurveyRequest request);
+    Task<SurveyResponse> CreateAsync(long accountId, CreateSurveyRequest request);
+    Task<SurveyResponse> UpdateAsync(long accountId, long id, UpdateSurveyRequest request);
 }

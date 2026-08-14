@@ -51,8 +51,10 @@ public class ContractController : ControllerBase
     /// Provider của engagement tạo bản hợp đồng (draft) cho engagement 'accepted'.
     /// Owner hay provider khác gọi → 401.
     /// </summary>
+    // KHÔNG mở cho admin: service resolve provider của engagement từ token, admin vào cũng chỉ
+    // soạn hộ được hợp đồng của người khác — không phải việc quản trị.
     [HttpPost]
-    [Authorize(Roles = "provider,admin")]
+    [Authorize(Roles = "provider")]
     public async Task<IActionResult> Create([FromBody] CreateContractRequest request)
     {
         var result = await _contractService.CreateAsync(User.GetAccountId(), request);
@@ -71,10 +73,14 @@ public class ContractController : ControllerBase
     }
 
     /// <summary>
-    /// Provider của engagement phát OTP ký hợp đồng cho owner (drafted → pending_otp).
+    /// Owner của dự án tự yêu cầu phát OTP ký hợp đồng về email của mình (drafted → pending_otp).
+    /// Bấm lại khi mã cũ CÒN HẠN → không gửi thêm mail, trả nguyên trạng thái hiện tại;
+    /// chỉ khi mã đã hết hạn mới cấp mã mới. Provider KHÔNG gọi được endpoint này.
     /// </summary>
+    // Chỉ owner — KHÔNG mở cho admin, giống confirm-otp: cả lượt ký hợp đồng không uỷ quyền được
+    // (service dùng EnsureOwnerOfEngagement chứ không phải EnsureActor).
     [HttpPost("{id:long}/send-otp")]
-    [Authorize(Roles = "provider,admin")]
+    [Authorize(Roles = "owner")]
     public async Task<IActionResult> SendOtp(long id)
     {
         var result = await _contractService.SendOtpAsync(User.GetAccountId(), id);
