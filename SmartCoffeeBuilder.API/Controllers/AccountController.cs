@@ -7,7 +7,9 @@ namespace SmartCoffeeBuilder.API.Controllers;
 
 [ApiController]
 [Route("api/accounts")]
-[Authorize]
+// CRUD tài khoản của người khác là việc quản trị — người dùng thường sửa hồ sơ của mình qua
+// api/shop-owners, api/service-provider-profiles, api/auth.
+[Authorize(Roles = "admin")]
 public class AccountController : ControllerBase
 {
     private readonly IAccountService _accountService;

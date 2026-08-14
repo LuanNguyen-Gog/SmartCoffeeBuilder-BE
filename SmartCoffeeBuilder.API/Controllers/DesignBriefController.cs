@@ -35,6 +35,7 @@ public class DesignBriefController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Create([FromBody] CreateDesignBriefRequest request)
     {
         var result = await _designBriefService.CreateAsync(request);
@@ -42,6 +43,7 @@ public class DesignBriefController : ControllerBase
     }
 
     [HttpPut("{id:long}")]
+    [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Update(long id, [FromBody] UpdateDesignBriefRequest request)
     {
         var result = await _designBriefService.UpdateAsync(id, request);
@@ -49,6 +51,7 @@ public class DesignBriefController : ControllerBase
     }
 
     [HttpDelete("{id:long}")]
+    [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Delete(long id)
     {
         await _designBriefService.DeleteAsync(id);

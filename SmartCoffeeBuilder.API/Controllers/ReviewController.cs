@@ -50,6 +50,7 @@ public class ReviewController : ControllerBase
 
     /// <summary>Owner tạo review — engagement phải 'completed' và chưa có review.</summary>
     [HttpPost]
+    [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Create([FromBody] CreateReviewRequest request)
     {
         var result = await _reviewService.CreateAsync(request);
@@ -57,6 +58,7 @@ public class ReviewController : ControllerBase
     }
 
     [HttpPut("{id:long}")]
+    [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Update(long id, [FromBody] UpdateReviewRequest request)
     {
         var result = await _reviewService.UpdateAsync(id, request);
@@ -64,6 +66,7 @@ public class ReviewController : ControllerBase
     }
 
     [HttpDelete("{id:long}")]
+    [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Delete(long id)
     {
         await _reviewService.DeleteAsync(id);

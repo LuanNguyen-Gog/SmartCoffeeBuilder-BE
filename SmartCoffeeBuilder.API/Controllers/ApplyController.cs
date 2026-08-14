@@ -44,6 +44,7 @@ public class ApplyController : ControllerBase
     /// Capability của provider phải khớp serviceKind của bài (designer↔design, constructor↔construction, both↔mọi loại).
     /// </summary>
     [HttpPost("apply")]
+    [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> Apply([FromBody] CreateApplyRequest request)
     {
         var result = await _applyService.ApplyAsync(User.GetAccountId(), request);
@@ -52,6 +53,7 @@ public class ApplyController : ControllerBase
 
     /// <summary>Provider sửa proposal / thời gian dự kiến — chỉ khi hồ sơ còn pending.</summary>
     [HttpPut("{id:long}/proposal")]
+    [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> UpdateProposal(long id, [FromBody] UpdateApplyRequest request)
     {
         var result = await _applyService.UpdateProposalAsync(id, request);
@@ -60,6 +62,7 @@ public class ApplyController : ControllerBase
 
     /// <summary>Owner chấp nhận hồ sơ — trả về engagement (project_provider) vừa tạo.</summary>
     [HttpPost("{id:long}/accept")]
+    [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Accept(long id)
     {
         var result = await _applyService.AcceptAsync(id);
@@ -68,6 +71,7 @@ public class ApplyController : ControllerBase
 
     /// <summary>Owner từ chối hồ sơ.</summary>
     [HttpPost("{id:long}/reject")]
+    [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Reject(long id)
     {
         var result = await _applyService.RejectAsync(id);
@@ -76,6 +80,7 @@ public class ApplyController : ControllerBase
 
     /// <summary>Provider rút hồ sơ khi còn pending — xoá hẳn bản ghi.</summary>
     [HttpDelete("{id:long}/withdraw")]
+    [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> Withdraw(long id)
     {
         await _applyService.WithdrawAsync(id);

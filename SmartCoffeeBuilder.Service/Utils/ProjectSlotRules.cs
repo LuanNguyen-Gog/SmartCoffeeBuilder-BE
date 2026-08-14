@@ -23,6 +23,26 @@ public static class ProjectSlotRules
     ];
 
     /// <summary>
+    /// Hai phạm vi CƠ SỞ của một dự án. <see cref="ServiceKind.both"/> KHÔNG có mặt ở đây vì nó là
+    /// cách gộp cả hai phạm vi này vào một engagement, không phải phạm vi thứ ba.
+    /// </summary>
+    public static readonly ServiceKind[] BaseScopes =
+    [
+        ServiceKind.design, ServiceKind.construction
+    ];
+
+    /// <summary>
+    /// Nhãn tiếng Việt của một phạm vi công việc — dùng trong câu lỗi hiển thị cho người dùng,
+    /// thay vì đọc thẳng tên enum.
+    /// </summary>
+    public static string ScopeLabel(ServiceKind kind) => kind switch
+    {
+        ServiceKind.design => "thiết kế",
+        ServiceKind.construction => "thi công",
+        _ => "thiết kế & thi công"
+    };
+
+    /// <summary>
     /// Hai phạm vi công việc có giẫm chân nhau không. 'both' giẫm lên mọi phạm vi; design chỉ giẫm
     /// design, construction chỉ giẫm construction.
     /// </summary>

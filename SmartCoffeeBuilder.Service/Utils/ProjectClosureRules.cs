@@ -1,0 +1,80 @@
+using SmartCoffeeBuilder.Repository.Models;
+using SmartCoffeeBuilder.Repository.Models.Enums;
+
+namespace SmartCoffeeBuilder.Service.Utils;
+
+/// <summary>
+/// Điều kiện owner được đóng dự án (nghiệm thu toàn dự án). Luật viết MỘT chỗ vì có hai nơi cần
+/// cùng câu trả lời: <c>ProjectShopOwnerService.CompleteAsync</c> (chặn thật) và
+/// <c>NotificationService.NotifyProjectReadyToCloseAsync</c> (nhắc owner vào bấm). Hai bên từng
+/// giữ hai bản guard chép tay và đã lệch nhau — noti mời đóng một dự án mà guard từ chối.
+///
+/// Luật: dự án chỉ thuê MỘT phía thì phía đó phải hoàn thành; thuê CẢ HAI phía (design +
+/// construction) thì cả hai phải hoàn thành. Chưa phía nào hoàn thành thì không có gì để nghiệm
+/// thu — owner chỉ còn đường huỷ dự án.
+/// </summary>
+public static class ProjectClosureRules
+{
+    /// <summary>Câu lỗi chỉ owner sang đường huỷ dự án khi dự án không còn gì để nghiệm thu.</summary>
+    private const string CancelHint = "chỉ có thể huỷ dự án (POST /api/project-shop-owners/{id}/cancel).";
+
+    /// <summary>
+    /// Lý do dự án CHƯA đóng được, hoặc <c>null</c> khi đã đủ điều kiện.
+    /// Trả chuỗi thay vì throw để noti dùng chung được mà không phải bắt exception.
+    /// </summary>
+    /// <param name="engagements">Mọi engagement của dự án.</param>
+    /// <param name="signedEngagementIds">
+    /// Id các engagement ĐÃ TỪNG ký hợp đồng (có contract <c>confirmed</c>). Dùng để phân biệt phía
+    /// huỷ ngang sau khi ký (bỏ dở giữa chừng → chặn) với phía huỷ khi chưa ký (chưa từng chạy →
+    /// không tính). Huỷ ngang được phép ngay từ lúc engagement <c>accepted</c>, tức có thể xảy ra ở
+    /// giai đoạn khảo sát trước khi ký.
+    /// </param>
+    public static string? FindBlocker(
+        IEnumerable<ProjectWorking> projectEngagements, IReadOnlySet<long> signedEngagementIds)
+    {
+        // Collection nguồn là ICollection từ navigation property — vật chất hoá một lần rồi duyệt lại.
+        var engagements = projectEngagements as IList<ProjectWorking> ?? projectEngagements.ToList();
+
+        // 1. Chưa thuê ai — không có gì để nghiệm thu.
+        if (engagements.Count == 0)
+            return $"Dự án chưa có provider nào tham gia nên không có gì để nghiệm thu — {CancelHint}";
+
+        // 2. Còn phía đang mở: phải nghiệm thu hoặc huỷ ngang từng bên trước đã.
+        var open = engagements
+            .Where(e => ProjectSlotRules.OccupyingStatuses.Contains(e.Status))
+            .ToList();
+        if (open.Count > 0)
+            return $"Còn {open.Count} hợp tác chưa đóng (requested/accepted) — phần {DescribeScopes(open)} " +
+                   "vẫn đang mở. Nghiệm thu hoặc huỷ ngang từng provider trước khi đóng dự án.";
+
+        // 3. Chưa phía nào hoàn thành — dự án chạy dở rồi đứt, không nghiệm thu được.
+        var completed = engagements
+            .Where(e => e.Status == ProviderStatus.completed)
+            .ToList();
+        if (completed.Count == 0)
+            return $"Dự án chưa có phía nào được nghiệm thu ('completed') — {CancelHint}";
+
+        // 4. Phía đã ký hợp đồng rồi bỏ dở: dự án thuê cả hai phía thì cả hai phải hoàn thành.
+        var abandoned = engagements
+            .Where(e => e.Status == ProviderStatus.terminated && signedEngagementIds.Contains(e.Id))
+            .ToList();
+        var abandonedScopes = ProjectSlotRules.BaseScopes
+            .Where(scope =>
+                abandoned.Any(e => ProjectSlotRules.Overlaps(e.ContractType, scope))
+                && !completed.Any(e => ProjectSlotRules.Overlaps(e.ContractType, scope)))
+            .Select(ProjectSlotRules.ScopeLabel)
+            .ToList();
+        if (abandonedScopes.Count > 0)
+            return $"Phần {string.Join(" và ", abandonedScopes)} của dự án đã ký hợp đồng nhưng bị huỷ " +
+                   "ngang giữa chừng và chưa có ai làm xong. Thuê người hoàn tất rồi nghiệm thu phía đó " +
+                   "trước khi đóng dự án, hoặc huỷ dự án nếu không làm tiếp.";
+
+        return null;
+    }
+
+    /// <summary>Liệt kê các phạm vi công việc (không trùng lặp) của một nhóm engagement.</summary>
+    private static string DescribeScopes(IEnumerable<ProjectWorking> engagements) =>
+        string.Join(" và ", engagements
+            .Select(e => ProjectSlotRules.ScopeLabel(e.ContractType))
+            .Distinct());
+}

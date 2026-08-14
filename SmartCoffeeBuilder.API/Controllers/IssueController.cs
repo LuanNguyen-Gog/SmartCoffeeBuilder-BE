@@ -64,6 +64,7 @@ public class IssueController : ControllerBase
     }
 
     [HttpDelete("{id:long}")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> Delete(long id)
     {
         await _issueService.DeleteAsync(id);

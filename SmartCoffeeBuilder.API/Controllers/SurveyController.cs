@@ -44,6 +44,7 @@ public class SurveyController : ControllerBase
     /// Provider tạo bản khảo sát mặt bằng. Version tự tăng 0.1 theo từng engagement (0.1, 0.2, …).
     /// </summary>
     [HttpPost]
+    [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> Create([FromBody] CreateSurveyRequest request)
     {
         var result = await _surveyService.CreateAsync(request);
@@ -52,6 +53,7 @@ public class SurveyController : ControllerBase
 
     /// <summary>Cập nhật ghi chú hiện trạng / URL báo cáo.</summary>
     [HttpPut("{id:long}")]
+    [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> Update(long id, [FromBody] UpdateSurveyRequest request)
     {
         var result = await _surveyService.UpdateAsync(id, request);

@@ -471,11 +471,14 @@ public class ProjectWorkingService : IProjectWorkingService
             // Nghiệm thu: engagement phải đã chạy thật (có contract confirmed) mới completed được.
             await EnsureConfirmedContractAsync(engagement);
 
-            // Owner nghiệm thu khi provider ĐÃ báo xong, HOẶC khi sản phẩm bàn giao thực sự đã xong
-            // (design approved / mọi milestone completed) — không cho nghiệm thu một engagement trống.
-            if (engagement.CompletionRequestedAt == null)
-                await EnsureDeliverablesReadyAsync(
-                    engagement, "chưa thể nghiệm thu (hoặc chờ nhà cung cấp bấm báo hoàn thành)");
+            // Sản phẩm bàn giao phải THỰC SỰ xong (design approved / mọi milestone completed) —
+            // kiểm LẠI tại thời điểm nghiệm thu, không tin vào lần provider bấm "báo hoàn thành".
+            // Trước đây có đề nghị hoàn thành là bỏ qua bước này, nên provider báo xong rồi thêm
+            // milestone mới là owner nghiệm thu được một engagement còn hạng mục 'pending'.
+            // Chỉ xét phần việc CỦA CHÍNH engagement này — phía kia xong hay chưa không liên quan.
+            // Designer được nghiệm thu và nhận review ngay khi bản vẽ duyệt, không phải chờ công
+            // trình xây xong. Ràng buộc "đủ cả hai phía" nằm ở bước đóng dự án (ProjectClosureRules).
+            await EnsureDeliverablesReadyAsync(engagement, "chưa thể nghiệm thu");
         }
 
         engagement.Status = target;

@@ -91,6 +91,7 @@ public class ProjectWorkingController : ControllerBase
     /// Engagement tạo với status=requested, chờ provider accept/reject.
     /// </summary>
     [HttpPost("direct-request")]
+    [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> DirectRequest([FromBody] CreateProjectWorkingRequest request)
     {
         var result = await _projectWorkingService.CreateDirectRequestAsync(request);
@@ -99,6 +100,7 @@ public class ProjectWorkingController : ControllerBase
 
     /// <summary>[ACCEPT] Provider chấp nhận lời mời thuê trực tiếp (requested → accepted).</summary>
     [HttpPost("{id:long}/accept")]
+    [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> Accept(long id)
     {
         var result = await _projectWorkingService.AcceptAsync(User.GetAccountId(), id);
@@ -107,6 +109,7 @@ public class ProjectWorkingController : ControllerBase
 
     /// <summary>[REJECT] Provider từ chối lời mời thuê trực tiếp (requested → rejected).</summary>
     [HttpPost("{id:long}/reject")]
+    [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> Reject(long id)
     {
         var result = await _projectWorkingService.RejectAsync(User.GetAccountId(), id);
@@ -121,6 +124,7 @@ public class ProjectWorkingController : ControllerBase
     /// (design: ít nhất 1 bản 'approved'; construction: mọi milestone 'completed').
     /// </summary>
     [HttpPost("{id:long}/request-completion")]
+    [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> RequestCompletion(
         long id, [FromBody] RequestEngagementCompletionRequest request)
     {
@@ -133,6 +137,7 @@ public class ProjectWorkingController : ControllerBase
     /// Cần contract 'confirmed'. Sau bước này review mới mở khoá.
     /// </summary>
     [HttpPost("{id:long}/complete")]
+    [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Complete(long id)
     {
         var result = await _projectWorkingService.CompleteAsync(User.GetAccountId(), id);

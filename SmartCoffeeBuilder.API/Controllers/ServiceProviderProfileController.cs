@@ -42,6 +42,7 @@ public class ServiceProviderProfileController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> Create([FromBody] CreateServiceProviderProfileRequest request)
     {
         var result = await _serviceProviderProfileService.CreateAsync(request);
@@ -49,6 +50,7 @@ public class ServiceProviderProfileController : ControllerBase
     }
 
     [HttpPut("{id:long}")]
+    [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> Update(long id, [FromBody] UpdateServiceProviderProfileRequest request)
     {
         var result = await _serviceProviderProfileService.UpdateAsync(id, request);
@@ -56,6 +58,7 @@ public class ServiceProviderProfileController : ControllerBase
     }
 
     [HttpDelete("{id:long}")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> Delete(long id)
     {
         await _serviceProviderProfileService.DeleteAsync(id);

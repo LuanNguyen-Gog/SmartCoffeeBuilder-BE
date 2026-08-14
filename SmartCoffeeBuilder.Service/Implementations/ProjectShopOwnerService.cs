@@ -7,6 +7,7 @@ using SmartCoffeeBuilder.Service.ApiResponse;
 using SmartCoffeeBuilder.Service.DTOs.Requests.ProjectShopOwner;
 using SmartCoffeeBuilder.Service.DTOs.Responses.ProjectShopOwner;
 using SmartCoffeeBuilder.Service.Interfaces;
+using SmartCoffeeBuilder.Service.Utils;
 
 namespace SmartCoffeeBuilder.Service.Implementations;
 
@@ -135,32 +136,32 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
         var project = await LoadForActionAsync(id);
         await EnsureOwnerAsync(accountId, project, "đóng dự án");
 
+        var signedEngagementIds = await GetSignedEngagementIdsAsync(project.Id);
+
         // Dự án tạo trước khi có auto-advance ở ContractService có thể còn kẹt 'briefed' dù đã ký
-        // hợp đồng — tự nâng lên in_progress để dữ liệu cũ không bị chặn oan.
+        // hợp đồng — tự nâng lên in_progress để dữ liệu cũ không bị chặn oan. Chưa ký gì thì chưa
+        // có ai làm gì cả: không nghiệm thu được, chỉ còn đường huỷ.
         if (project.Status == ProjectStatus.briefed)
         {
-            var hasSignedContract = await _unitOfWork.GetRepository<Contract>().CountAsync(
-                c => c.ProjectWorking.ProjectShopOwnerId == project.Id && c.Status == ContractStatus.confirmed) > 0;
-            if (hasSignedContract) project.Status = ProjectStatus.in_progress;
+            if (signedEngagementIds.Count == 0)
+                throw new InvalidOperationException(
+                    "Dự án chưa có hợp đồng nào được ký nên chưa có gì để nghiệm thu — chỉ có thể " +
+                    "huỷ dự án (POST /api/project-shop-owners/{id}/cancel).");
+
+            project.Status = ProjectStatus.in_progress;
         }
 
         EnsureTransition(project.Status, ProjectStatus.completed);
 
         // Engagement/post lấy thẳng từ graph LoadForActionAsync đã nạp — query lại sẽ tạo
         // instance thứ hai của cùng một dòng (reads đều AsNoTracking) và làm hỏng change tracker.
-        // Không cho đóng khi còn hợp tác dang dở — owner phải nghiệm thu/huỷ từng engagement trước.
-        var openCount = project.ProjectWorkings.Count(e => OpenEngagementStatuses.Contains(e.Status));
-        if (openCount > 0)
-            throw new InvalidOperationException(
-                $"Còn {openCount} engagement chưa đóng (requested/accepted) — nghiệm thu hoặc huỷ ngang từng provider trước khi đóng dự án.");
+        // Luật đóng dự án nằm ở ProjectClosureRules để noti nhắc-đóng-dự-án dùng chung đúng một bản.
+        var blocker = ProjectClosureRules.FindBlocker(project.ProjectWorkings, signedEngagementIds);
+        if (blocker != null) throw new InvalidOperationException(blocker);
 
-        // Phải có ít nhất một provider được nghiệm thu, tránh "đóng" một dự án chưa chạy gì.
         var completedEngagements = project.ProjectWorkings
             .Where(e => e.Status == ProviderStatus.completed)
             .ToList();
-        if (completedEngagements.Count == 0)
-            throw new InvalidOperationException(
-                "Dự án chưa có engagement nào được nghiệm thu ('completed') — chưa thể đóng dự án.");
 
         var rejectedApplicationIds = await CloseOpenPostsAsync(project);
 
@@ -195,13 +196,40 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
             .Where(e => OpenEngagementStatuses.Contains(e.Status))
             .ToList();
 
+        // ...nhưng CHỈ với hợp tác chưa ký hợp đồng. Hợp đồng đã ký chỉ chấm dứt được khi hai bên
+        // đồng thuận (ProjectWorkingService.RequestTermination → RespondTermination); nếu huỷ dự án
+        // đóng luôn được chúng thì owner có cửa sau để đơn phương xé hợp đồng đã ký.
+        var signedEngagementIds = await GetSignedEngagementIdsAsync(project.Id);
+        var signedOpen = openEngagements.Where(e => signedEngagementIds.Contains(e.Id)).ToList();
+        if (signedOpen.Count > 0)
+        {
+            var scopes = string.Join(" và ", signedOpen
+                .Select(e => ProjectSlotRules.ScopeLabel(e.ContractType))
+                .Distinct());
+            throw new InvalidOperationException(
+                $"Còn {signedOpen.Count} hợp tác đã ký hợp đồng (phần {scopes}) — hợp đồng đã ký chỉ " +
+                "chấm dứt được khi cả hai bên đồng ý. Gửi đề nghị huỷ ngang " +
+                "(POST /api/project-workings/{id}/termination-request) và đợi bên kia phản hồi, hoặc " +
+                "nghiệm thu nếu đã xong, rồi mới huỷ dự án.");
+        }
+
+        var now = DateTime.UtcNow;
         foreach (var engagement in openEngagements)
         {
-            engagement.Status = engagement.Status == ProviderStatus.requested
-                ? ProviderStatus.rejected
-                : ProviderStatus.terminated;
+            var terminated = engagement.Status == ProviderStatus.accepted;
+            engagement.Status = terminated ? ProviderStatus.terminated : ProviderStatus.rejected;
+
+            // Khớp vết với ProjectWorkingService.CloseAsTerminated: 'terminated' phải có
+            // terminated_at (thiếu nó thì báo cáo/FE đọc ra engagement huỷ mà không có mốc huỷ),
+            // và đề nghị huỷ ngang đang treo hết ý nghĩa khi cả dự án đã huỷ — để lại thì FE vẫn
+            // hiện "chờ bạn phản hồi đề nghị huỷ ngang" trên một hợp tác đã đóng.
+            if (terminated) engagement.TerminatedAt = now;
+            engagement.TerminationRequestedAt = null;
+            engagement.TerminationRequestedBy = null;
+            engagement.TerminationRequestNote = null;
             engagement.CompletionRequestedAt = null;
-            engagement.UpdatedAt = DateTime.UtcNow;
+            engagement.CompletionRequestNote = null;
+            engagement.UpdatedAt = now;
         }
         _unitOfWork.GetRepository<ProjectWorking>().UpdateRange(openEngagements);
 
@@ -254,6 +282,21 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
     {
         foreach (var applicationId in applicationIds)
             await _notificationService.NotifyApplicationDecisionAsync(applicationId, accepted: false);
+    }
+
+    /// <summary>
+    /// Id các engagement của dự án ĐÃ TỪNG ký hợp đồng. <c>confirmed</c> là trạng thái cuối của
+    /// contract (<c>ContractService.EnsureTransition</c> không cho quay ngược) nên trạng thái hiện
+    /// tại trả lời đúng câu hỏi "đã từng ký chưa".
+    /// </summary>
+    private async Task<IReadOnlySet<long>> GetSignedEngagementIdsAsync(long projectShopOwnerId)
+    {
+        var ids = await _unitOfWork.GetRepository<Contract>().GetListAsync(
+            selector: c => c.ProjectWorkingId,
+            predicate: c => c.ProjectWorking.ProjectShopOwnerId == projectShopOwnerId
+                            && c.Status == ContractStatus.confirmed);
+
+        return ids.ToHashSet();
     }
 
     /// <summary>

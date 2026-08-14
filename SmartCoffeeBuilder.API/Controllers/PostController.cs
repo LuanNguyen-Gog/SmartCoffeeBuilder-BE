@@ -47,6 +47,7 @@ public class PostController : ControllerBase
     /// Bài tạo với status=open; submissionDeadline (nếu có) phải ở tương lai.
     /// </summary>
     [HttpPost]
+    [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Create([FromBody] CreatePostRequest request)
     {
         var result = await _postService.CreateAsync(request);
@@ -54,6 +55,7 @@ public class PostController : ControllerBase
     }
 
     [HttpPut("{id:long}")]
+    [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Update(long id, [FromBody] UpdatePostRequest request)
     {
         var result = await _postService.UpdateAsync(id, request);
@@ -61,6 +63,7 @@ public class PostController : ControllerBase
     }
 
     [HttpDelete("{id:long}")]
+    [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Delete(long id)
     {
         await _postService.DeleteAsync(id);

@@ -32,7 +32,9 @@ public class IssueTypeController : ControllerBase
         return Ok(result);
     }
 
+    // Danh mục dùng chung toàn hệ thống — chỉ admin sửa, mọi người đọc.
     [HttpPost]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> Create([FromBody] CreateIssueTypeRequest request)
     {
         var result = await _issueTypeService.CreateAsync(request);
@@ -40,6 +42,7 @@ public class IssueTypeController : ControllerBase
     }
 
     [HttpPut("{id:long}")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> Update(long id, [FromBody] UpdateIssueTypeRequest request)
     {
         var result = await _issueTypeService.UpdateAsync(id, request);
@@ -47,6 +50,7 @@ public class IssueTypeController : ControllerBase
     }
 
     [HttpDelete("{id:long}")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> Delete(long id)
     {
         await _issueTypeService.DeleteAsync(id);
