@@ -571,11 +571,17 @@ public class ProjectWorkingService : IProjectWorkingService
         }
     }
 
-    public async Task<DesignBriefResponse> GetBriefAsync(long id)
+    public async Task<DesignBriefResponse> GetBriefAsync(long accountId, long id)
     {
-        var engagement = await _repository.SingleOrDefaultAsync(predicate: e => e.Id == id)
+        var engagement = await _repository.SingleOrDefaultAsync(
+                predicate: e => e.Id == id,
+                include: q => q.Include(e => e.ProjectShopOwner).ThenInclude(p => p.Owner)
+                               .Include(e => e.ServiceProviderProfile))
             ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {id}.");
 
+        // Quyền TRƯỚC trạng thái: EnsureEngagementViewable chỉ xét engagement đang ở status nào,
+        // KHÔNG xét người gọi là ai — chạy một mình thì cứ dò id là đọc được brief dự án bất kỳ.
+        await ResolveActorAsync(accountId, engagement);
         EnsureEngagementViewable(engagement);
 
         var brief = await _unitOfWork.GetRepository<DesignBrief>().SingleOrDefaultAsync(
@@ -586,13 +592,17 @@ public class ProjectWorkingService : IProjectWorkingService
         return DesignBriefResponse.From(brief);
     }
 
-    public async Task<EngagementOverviewResponse> GetOverviewAsync(long id)
+    public async Task<EngagementOverviewResponse> GetOverviewAsync(long accountId, long id)
     {
         var engagement = await _repository.SingleOrDefaultAsync(
             predicate: e => e.Id == id,
-            include: q => q.Include(e => e.ProjectShopOwner))
+            include: q => q.Include(e => e.ProjectShopOwner).ThenInclude(p => p.Owner)
+                           .Include(e => e.ServiceProviderProfile))
             ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {id}.");
 
+        // Quyền trước trạng thái — xem ghi chú ở GetBriefAsync. Overview còn nặng hơn brief: nó trả
+        // kèm toàn bộ kết quả AI 'completed' và bản vẽ 'approved' của dự án.
+        await ResolveActorAsync(accountId, engagement);
         EnsureEngagementViewable(engagement);
 
         var overview = new EngagementOverviewResponse

@@ -38,11 +38,23 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
         _notificationService = notificationService;
     }
 
-    public async Task<PaginationResponse<ProjectShopOwnerResponse>> GetAllAsync(int pageNumber = 1, int pageSize = 10, long? ownerId = null)
+    public async Task<PaginationResponse<ProjectShopOwnerResponse>> GetAllAsync(
+        long accountId, int pageNumber = 1, int pageSize = 10, long? ownerId = null)
     {
+        // ownerId là bộ lọc do client tự khai nên không rào được gì. Quyền xem đi thẳng vào query
+        // để TotalItems của phân trang cũng đúng theo góc nhìn người gọi (xem EnsureVisibleAsync).
+        var isAdmin = await IsAdminAsync(accountId);
+
         var query = _repository
             .GetQueryable(
-                p => p.DeletedAt == null && (ownerId == null || p.OwnerId == ownerId),
+                p => p.DeletedAt == null
+                     && (ownerId == null || p.OwnerId == ownerId)
+                     && (isAdmin
+                         || p.Owner.AccountId == accountId
+                         || p.ProjectWorkings.Any(e => e.ServiceProviderProfile.AccountId == accountId
+                                                       && e.Status != ProviderStatus.rejected
+                                                       && e.Status != ProviderStatus.terminated)
+                         || p.Posts.Any(post => post.Status == PostStatus.open)),
                 include: q => q.Include(p => p.ProjectWorkings).ThenInclude(pp => pp.ServiceProviderProfile)
                                 .Include(p => p.Owner)
                                 .Include(p => p.Posts))
@@ -55,23 +67,27 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
             paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
-    public async Task<ProjectShopOwnerResponse> GetByIdAsync(long id)
+    public async Task<ProjectShopOwnerResponse> GetByIdAsync(long accountId, long id)
     {
-        var project = await _repository.SingleOrDefaultAsync(
-                predicate: p => p.Id == id && p.DeletedAt == null,
-                include: q => q.Include(p => p.ProjectWorkings).ThenInclude(pp => pp.ServiceProviderProfile)
-                                .Include(p => p.Owner)
-                                .Include(p => p.Posts))
-            ?? throw new KeyNotFoundException($"Không tìm thấy project với id {id}.");
+        var project = await LoadForActionAsync(id);
+
+        await EnsureVisibleAsync(accountId, project);
 
         return ProjectShopOwnerResponse.From(project);
     }
 
-    public async Task<ProjectShopOwnerResponse> CreateAsync(CreateProjectShopOwnerRequest request)
+    public async Task<ProjectShopOwnerResponse> CreateAsync(long accountId, CreateProjectShopOwnerRequest request)
     {
         var owner = await _unitOfWork.GetRepository<ShopOwner>()
             .SingleOrDefaultAsync(predicate: s => s.Id == request.OwnerId)
             ?? throw new KeyNotFoundException($"Không tìm thấy shop owner với id {request.OwnerId}.");
+
+        // ownerId vẫn nhận từ body để giữ nguyên hợp đồng API, nhưng chỉ chấp nhận khi nó TRÙNG hồ
+        // sơ chủ quán của chính tài khoản đang đăng nhập — client tự khai thì cột owner_id mất giá
+        // trị đối chứng và ai cũng tạo được dự án đứng tên người khác.
+        if (owner.AccountId != accountId && !await IsAdminAsync(accountId))
+            throw new UnauthorizedAccessException(
+                "Chỉ tạo được dự án cho hồ sơ chủ quán của chính tài khoản đang đăng nhập.");
 
         var project = new ProjectShopOwner
         {
@@ -372,11 +388,37 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
     private async Task EnsureOwnerAsync(long accountId, ProjectShopOwner project, string action)
     {
         if (project.Owner?.AccountId == accountId) return;
-
-        var account = await _unitOfWork.GetRepository<Account>()
-            .SingleOrDefaultAsync(predicate: a => a.Id == accountId && a.DeletedAt == null);
-        if (account?.Role == AccountRole.admin) return;
+        if (await IsAdminAsync(accountId)) return;
 
         throw new UnauthorizedAccessException($"Chỉ chủ dự án mới được {action}.");
+    }
+
+    /// <summary>
+    /// Ai được ĐỌC một dự án: chủ dự án; provider có engagement còn hiệu lực (rejected/terminated
+    /// thì hết quyền, khớp <c>ProjectWorkingService.EnsureEngagementViewable</c>); mọi provider khi
+    /// dự án còn bài đăng 'open' — bài đăng là lời mời thầu công khai, không xem được dự án thì
+    /// không nộp hồ sơ được; và admin.
+    ///
+    /// Kiểm tra trên graph đã nạp sẵn ở <see cref="LoadForActionAsync"/>, không query thêm.
+    /// </summary>
+    /// <exception cref="UnauthorizedAccessException">Dự án riêng tư và người gọi không tham gia (HTTP 401).</exception>
+    private async Task EnsureVisibleAsync(long accountId, ProjectShopOwner project)
+    {
+        if (project.Owner?.AccountId == accountId) return;
+        if (project.Posts.Any(post => post.Status == PostStatus.open)) return;
+        if (project.ProjectWorkings.Any(e => e.ServiceProviderProfile?.AccountId == accountId
+                                             && e.Status is not (ProviderStatus.rejected or ProviderStatus.terminated)))
+            return;
+        if (await IsAdminAsync(accountId)) return;
+
+        throw new UnauthorizedAccessException(
+            "Dự án này không mở thầu công khai và tài khoản đang đăng nhập không tham gia.");
+    }
+
+    private async Task<bool> IsAdminAsync(long accountId)
+    {
+        var account = await _unitOfWork.GetRepository<Account>()
+            .SingleOrDefaultAsync(predicate: a => a.Id == accountId && a.DeletedAt == null);
+        return account?.Role == AccountRole.admin;
     }
 }

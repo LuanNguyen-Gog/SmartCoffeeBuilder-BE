@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartCoffeeBuilder.Service.DTOs.Requests.AiRecommendation;
 using SmartCoffeeBuilder.Service.Interfaces;
+using SmartCoffeeBuilder.Service.Utils;
 
 namespace SmartCoffeeBuilder.API.Controllers;
 
@@ -31,14 +32,15 @@ public class AiRecommendationController : ControllerBase
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10)
     {
-        var result = await _aiRecommendationService.GetAllByBriefIdAsync(briefId, pageNumber, pageSize);
+        var result = await _aiRecommendationService.GetAllByBriefIdAsync(
+            User.GetAccountId(), briefId, pageNumber, pageSize);
         return Ok(result);
     }
 
     [HttpGet("{id:long}")]
     public async Task<IActionResult> GetById(long id)
     {
-        var result = await _aiRecommendationService.GetByIdAsync(id);
+        var result = await _aiRecommendationService.GetByIdAsync(User.GetAccountId(), id);
         return Ok(result);
     }
 

@@ -27,8 +27,12 @@ public class AiRecommendationService : IAiRecommendationService
     }
 
     public async Task<PaginationResponse<AiRecommendationResponse>> GetAllByBriefIdAsync(
-        long briefId, int pageNumber = 1, int pageSize = 10)
+        long accountId, long briefId, int pageNumber = 1, int pageSize = 10)
     {
+        // briefId đến từ client nên bản thân nó không chứng minh được gì: không có check này thì
+        // owner A chỉ cần đổi số là đọc trọn kết quả AI của owner B (dự toán chi phí, layout).
+        await EnsureBriefOwnerAsync(accountId, briefId);
+
         var query = _repository
             .GetQueryable(r => r.BriefId == briefId)
             .OrderByDescending(r => r.CreatedAt);
@@ -40,10 +44,12 @@ public class AiRecommendationService : IAiRecommendationService
             paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
-    public async Task<AiRecommendationResponse> GetByIdAsync(long id)
+    public async Task<AiRecommendationResponse> GetByIdAsync(long accountId, long id)
     {
         var recommendation = await _repository.GetByIdAsync(id)
             ?? throw new KeyNotFoundException($"Không tìm thấy ai recommendation với id {id}.");
+
+        await EnsureBriefOwnerAsync(accountId, recommendation.BriefId);
 
         return AiRecommendationResponse.From(recommendation);
     }
@@ -134,6 +140,14 @@ public class AiRecommendationService : IAiRecommendationService
 
     public async Task<AiDesignJobStatusResponse> GenerateDesignAsync(long briefId, string userId, GenerateAiDesignRequest request)
     {
+        if (!long.TryParse(userId, out var callerAccountId))
+            throw new UnauthorizedAccessException("User ID trong token không hợp lệ.");
+
+        // Quyền TRƯỚC mọi thứ khác. Thiếu bước này thì owner A truyền briefId của owner B là chạy
+        // được job bằng quota của mình nhưng bản ghi ai_recommendation lại ghi vào brief của B và
+        // hiện lên màn hình của B — vừa đọc trộm vừa làm bẩn dữ liệu người khác.
+        await EnsureBriefOwnerAsync(callerAccountId, briefId);
+
         // Phí nền tảng: shop owner gói free KHÔNG dùng được AI — phải có subscription active.
         await EnsureAiAccessAsync(userId);
 
@@ -267,6 +281,32 @@ public class AiRecommendationService : IAiRecommendationService
 
         _repository.Update(recommendation);
         await _unitOfWork.CommitAsync();
+    }
+
+    /// <summary>
+    /// Kết quả AI là tài sản của CHỦ DỰ ÁN mang brief — chỉ owner đó (hoặc admin) đọc/chạy được.
+    /// Provider không đi qua controller này (role gate <c>owner,admin</c>); phần AI mà provider
+    /// được thấy nằm ở <c>GET api/project-workings/{id}/overview</c>, đã lọc theo engagement.
+    /// </summary>
+    /// <exception cref="KeyNotFoundException">Brief không tồn tại (HTTP 404).</exception>
+    /// <exception cref="UnauthorizedAccessException">Brief của chủ quán khác (HTTP 401).</exception>
+    private async Task EnsureBriefOwnerAsync(long accountId, long briefId)
+    {
+        // Projection lấy đúng một cột account_id thay vì nạp cả graph brief → project → owner.
+        var ownerAccountId = await _unitOfWork.GetRepository<DesignBrief>()
+            .SingleOrDefaultAsync(
+                selector: b => (long?)b.ProjectShopOwner.Owner.AccountId,
+                predicate: b => b.Id == briefId)
+            ?? throw new KeyNotFoundException($"Không tìm thấy design brief với id {briefId}.");
+
+        if (ownerAccountId == accountId) return;
+
+        var account = await _unitOfWork.GetRepository<Account>()
+            .SingleOrDefaultAsync(predicate: a => a.Id == accountId && a.DeletedAt == null);
+        if (account?.Role == AccountRole.admin) return;
+
+        throw new UnauthorizedAccessException(
+            "Brief này thuộc dự án của một chủ quán khác.");
     }
 
     /// <summary>

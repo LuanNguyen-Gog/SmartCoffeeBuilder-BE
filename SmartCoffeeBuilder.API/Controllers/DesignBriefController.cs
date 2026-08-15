@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartCoffeeBuilder.Service.DTOs.Requests.DesignBrief;
 using SmartCoffeeBuilder.Service.Interfaces;
+using SmartCoffeeBuilder.Service.Utils;
 
 namespace SmartCoffeeBuilder.API.Controllers;
 
@@ -17,20 +18,24 @@ public class DesignBriefController : ControllerBase
         _designBriefService = designBriefService;
     }
 
+    /// <summary>
+    /// Danh sách brief người gọi được xem: chủ dự án thấy brief dự án mình, provider thấy brief của
+    /// dự án đang hợp tác hoặc đang mở thầu, admin thấy tất cả.
+    /// </summary>
     [HttpGet]
     public async Task<IActionResult> GetAll(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
         [FromQuery] long? projectShopOwnerId = null)
     {
-        var result = await _designBriefService.GetAllAsync(pageNumber, pageSize, projectShopOwnerId);
+        var result = await _designBriefService.GetAllAsync(User.GetAccountId(), pageNumber, pageSize, projectShopOwnerId);
         return Ok(result);
     }
 
     [HttpGet("{id:long}")]
     public async Task<IActionResult> GetById(long id)
     {
-        var result = await _designBriefService.GetByIdAsync(id);
+        var result = await _designBriefService.GetByIdAsync(User.GetAccountId(), id);
         return Ok(result);
     }
 
@@ -38,7 +43,7 @@ public class DesignBriefController : ControllerBase
     [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Create([FromBody] CreateDesignBriefRequest request)
     {
-        var result = await _designBriefService.CreateAsync(request);
+        var result = await _designBriefService.CreateAsync(User.GetAccountId(), request);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
@@ -46,7 +51,7 @@ public class DesignBriefController : ControllerBase
     [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Update(long id, [FromBody] UpdateDesignBriefRequest request)
     {
-        var result = await _designBriefService.UpdateAsync(id, request);
+        var result = await _designBriefService.UpdateAsync(User.GetAccountId(), id, request);
         return Ok(result);
     }
 
@@ -54,7 +59,7 @@ public class DesignBriefController : ControllerBase
     [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Delete(long id)
     {
-        await _designBriefService.DeleteAsync(id);
+        await _designBriefService.DeleteAsync(User.GetAccountId(), id);
         return NoContent();
     }
 }
