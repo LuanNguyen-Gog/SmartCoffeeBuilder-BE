@@ -31,7 +31,7 @@ public class ConstructionTaskService : IConstructionTaskService
 
     public async Task<PaginationResponse<ConstructionTaskResponse>> GetAllAsync(
         long accountId, int pageNumber = 1, int pageSize = 10,
-        long? constructionItemId = null, string? status = null)
+        long? constructionItemId = null, string? status = null, long? projectWorkingId = null)
     {
         ItemStatus? st = null;
         if (!string.IsNullOrWhiteSpace(status))
@@ -47,6 +47,9 @@ public class ConstructionTaskService : IConstructionTaskService
 
         var query = _repository
             .GetQueryable(e => (constructionItemId == null || e.ConstructionItemId == constructionItemId)
+                               // Task không giữ engagement id — đi qua milestone cha (LEFT JOIN).
+                               && (projectWorkingId == null
+                                   || e.ConstructionItem.ProjectWorkingId == projectWorkingId)
                                && (st == null || e.Status == st)
                                && (visibleEngagementIds == null
                                    || visibleEngagementIds.Contains(e.ConstructionItem.ProjectWorkingId)))
