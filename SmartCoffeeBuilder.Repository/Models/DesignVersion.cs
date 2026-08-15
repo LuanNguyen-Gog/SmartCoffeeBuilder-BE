@@ -3,7 +3,8 @@ using SmartCoffeeBuilder.Repository.Models.Enums;
 namespace SmartCoffeeBuilder.Repository.Models;
 
 /// <summary>
-/// Snapshot nguyên trạng một bản <see cref="Design"/> ở một mốc quan trọng (submit / approve) — dùng để
+/// Snapshot nguyên trạng một bản <see cref="Design"/> ở một mốc quan trọng
+/// (submit / approve / request-revision) — dùng để
 /// truy nguyên lịch sử sau revision. Khi status chuyển submitted → submitted (resubmit sau revision),
 /// bản <c>submitted</c> cũ bị ghi đè (xem <see cref="DesignVersionSnapshotKind"/>); bản <c>approved</c> được
 /// giữ lại nếu design được approve lại sau revision (lưu thành version mới).

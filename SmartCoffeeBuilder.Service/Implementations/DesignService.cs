@@ -220,6 +220,12 @@ public class DesignService : IDesignService
         _repository.Update(design);
         await _unitOfWork.CommitAsync();
 
+        // Snapshot vòng sửa — chạy NGOÀI transaction đổi status (best-effort, giống submit/approve).
+        // BẮT BUỘC phải có: designs.reason chỉ là MỘT ô và sẽ bị vòng sửa kế tiếp ghi đè, nên nếu
+        // không đóng băng lý do vào đây thì lý do của các vòng trước mất vĩnh viễn. Snapshot chụp
+        // đúng version + đúng bộ ảnh mà owner đã nhìn khi bấm trả về.
+        await TrySnapshotAsync(design, DesignVersionSnapshotKind.revision, snapshottedBy: accountId);
+
         return DesignResponse.From(design);
     }
 
@@ -301,6 +307,14 @@ public class DesignService : IDesignService
         _repository.Update(design);
         await _unitOfWork.CommitAsync();
 
+        // Ảnh đã được chụp vào snapshot thì KHÔNG xoá object trên bucket. design_version_images chỉ
+        // COPY ObjectName chứ không copy file, nên xoá object sẽ làm HỎNG ảnh của mọi vòng sửa cũ —
+        // đúng thứ owner cần mở lại khi xem một revision cũ. Để lại object (rác nhỏ) vẫn hơn là mất
+        // lịch sử bản vẽ.
+        var stillReferencedBySnapshot = await _unitOfWork.GetRepository<DesignVersionImage>()
+            .CountAsync(v => v.ImageUrl == image.ImageUrl) > 0;
+        if (stillReferencedBySnapshot) return;
+
         // Dọn object trên bucket sau khi DB đã commit; object không còn cũng bỏ qua.
         try { await _fileStorage.DeleteAsync(image.ImageUrl); }
         catch (KeyNotFoundException) { }
@@ -327,7 +341,7 @@ public class DesignService : IDesignService
             ?? throw new KeyNotFoundException($"Không tìm thấy design với id {id}.");
     }
 
-    // ───────── Design versioning (snapshot khi submit / approve) ─────────
+    // ───────── Design versioning (snapshot khi submit / approve / request-revision) ─────────
 
     public async Task<PaginationResponse<DesignVersionResponse>> GetVersionsAsync(
         long accountId, long designId, int pageNumber = 1, int pageSize = 20)

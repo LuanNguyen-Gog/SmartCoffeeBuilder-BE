@@ -140,7 +140,8 @@ public class DesignController : ControllerBase
     }
 
     /// <summary>
-    /// Danh sách version (snapshot) của design — full history (mỗi submit/approve đều sinh 1 bản mới).
+    /// Danh sách version (snapshot) của design — full history: mỗi submit / approve / request-revision
+    /// đều sinh 1 bản mới. Bản 'revision' giữ LÝ DO của đúng vòng sửa đó kèm bộ ảnh lúc owner trả về.
     /// Phân trang theo pageNumber / pageSize (mặc định 1 / 20).
     /// </summary>
     [HttpGet("{id:long}/versions")]

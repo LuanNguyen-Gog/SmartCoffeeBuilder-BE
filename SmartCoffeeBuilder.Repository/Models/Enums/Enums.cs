@@ -78,8 +78,12 @@ public enum PaymentPlatform { web, mobile }
 public enum CommentTargetType { construction_item, design }
 
 /// <summary>
-/// Loại snapshot của <c>DesignVersion</c>. <c>submitted</c> lưu bản nộp gần nhất (upsert khi resubmit);
-/// <c>approved</c> lưu bản đã duyệt (có thể nhiều bản nếu design được approve nhiều lần sau revision).
+/// Loại snapshot của <c>DesignVersion</c> — mỗi mốc quan trọng sinh một bản BẤT BIẾN:
+/// <c>submitted</c> provider nộp bản để duyệt; <c>approved</c> owner duyệt (có thể nhiều bản nếu
+/// design được approve lại sau revision); <c>revision</c> owner trả về kèm lý do.
+///
+/// <c>revision</c> là chỗ DUY NHẤT giữ lý do của TỪNG vòng sửa: <c>designs.reason</c> chỉ có một ô
+/// và bị ghi đè ở vòng kế tiếp, nên muốn xem lại lý do cũ phải đọc snapshot.
 /// </summary>
-public enum DesignVersionSnapshotKind { submitted, approved }
+public enum DesignVersionSnapshotKind { submitted, approved, revision }
 #pragma warning restore CS8981
