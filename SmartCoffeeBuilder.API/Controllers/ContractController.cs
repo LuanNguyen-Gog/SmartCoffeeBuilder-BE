@@ -50,6 +50,9 @@ public class ContractController : ControllerBase
     /// <summary>
     /// Provider của engagement tạo bản hợp đồng (draft) cho engagement 'accepted'.
     /// Owner hay provider khác gọi → 401.
+    /// MỖI provider chỉ giữ được 1 hợp đồng còn hiệu lực với 1 dự án tại một thời điểm:
+    /// đang có bản 'drafted' hoặc 'pending_otp' thì phải chờ ký xong hoặc huỷ bản đó
+    /// (POST /{id}/cancel) trước; đã có bản 'confirmed' thì không lập thêm. Vi phạm → 409.
     /// </summary>
     // KHÔNG mở cho admin: service resolve provider của engagement từ token, admin vào cũng chỉ
     // soạn hộ được hợp đồng của người khác — không phải việc quản trị.
@@ -104,6 +107,7 @@ public class ContractController : ControllerBase
     /// <summary>
     /// Huỷ hợp đồng khi chưa confirmed (drafted/pending_otp → cancelled).
     /// Cả owner lẫn provider của engagement đều huỷ được; người ngoài → 401.
+    /// Đây cũng là cách giải phóng "chỗ" để provider lập được hợp đồng mới cho dự án.
     /// </summary>
     [HttpPost("{id:long}/cancel")]
     public async Task<IActionResult> Cancel(long id)

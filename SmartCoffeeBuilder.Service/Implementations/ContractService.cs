@@ -90,12 +90,7 @@ public class ContractService : IContractService
             throw new InvalidOperationException(
                 $"Engagement đang ở trạng thái '{engagement.Status}' — chỉ tạo contract khi engagement 'accepted'.");
 
-        // Không tạo hợp đồng mới khi engagement đã có một contract 'confirmed'.
-        var hasConfirmed = await _repository
-            .CountAsync(c => c.ProjectWorkingId == engagement.Id && c.Status == ContractStatus.confirmed) > 0;
-        if (hasConfirmed)
-            throw new InvalidOperationException(
-                "Engagement đã có contract 'confirmed' — không tạo thêm hợp đồng.");
+        await EnsureNoActiveContractAsync(engagement);
 
         var contract = new Contract
         {
@@ -115,6 +110,44 @@ public class ContractService : IContractService
         await _unitOfWork.CommitAsync();
 
         return ContractResponse.From(contract);
+    }
+
+    /// <summary>
+    /// Mỗi provider chỉ được giữ ĐÚNG MỘT hợp đồng còn hiệu lực với một dự án tại một thời điểm.
+    /// "Còn hiệu lực" = mọi trạng thái TRỪ <see cref="ContractStatus.cancelled"/>:
+    /// <c>drafted</c> (đang soạn), <c>pending_otp</c> (đã phát OTP, chờ owner ký) và
+    /// <c>confirmed</c> (đã ký) đều chiếm chỗ. Muốn lập bản mới thì phải huỷ bản đang treo trước —
+    /// nếu không, owner sẽ nhận nhiều bản hợp đồng song song và không biết bản nào có hiệu lực.
+    ///
+    /// Guard soi theo cặp (project, provider) chứ không chỉ engagement hiện tại: cùng một cặp có thể
+    /// còn engagement cũ mang hợp đồng chưa đóng, và về mặt pháp lý đó vẫn là hợp đồng giữa hai bên đó.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Đã có hợp đồng còn hiệu lực (HTTP 409).</exception>
+    private async Task EnsureNoActiveContractAsync(ProjectWorking engagement)
+    {
+        // Ưu tiên báo bản "tiến xa nhất": confirmed → pending_otp → drafted, rồi tới bản mới nhất.
+        var active = await _repository.SingleOrDefaultAsync(
+            predicate: c => c.Status != ContractStatus.cancelled
+                            && c.ProjectWorking.ProjectShopOwnerId == engagement.ProjectShopOwnerId
+                            && c.ProjectWorking.ServiceProviderProfileId == engagement.ServiceProviderProfileId,
+            orderBy: q => q.OrderByDescending(c => c.Status == ContractStatus.confirmed)
+                           .ThenByDescending(c => c.Status == ContractStatus.pending_otp)
+                           .ThenByDescending(c => c.CreatedAt));
+
+        if (active is null) return;
+
+        throw new InvalidOperationException(active.Status switch
+        {
+            ContractStatus.confirmed =>
+                $"Hợp đồng #{active.Id} ('{active.Title}') đã được ký cho dự án này — không lập thêm hợp đồng.",
+            ContractStatus.pending_otp =>
+                $"Hợp đồng #{active.Id} ('{active.Title}') đã phát OTP và đang chờ chủ quán ký — " +
+                $"chờ ký xong, hoặc huỷ hợp đồng đó (POST /api/contracts/{active.Id}/cancel) rồi mới lập bản mới.",
+            _ =>
+                $"Đang có hợp đồng nháp #{active.Id} ('{active.Title}') cho dự án này — " +
+                $"sửa trực tiếp bản đó (PUT /api/contracts/{active.Id}), hoặc huỷ " +
+                $"(POST /api/contracts/{active.Id}/cancel) rồi mới lập bản mới."
+        });
     }
 
     public async Task<ContractResponse> UpdateAsync(long accountId, long id, UpdateContractRequest request)
