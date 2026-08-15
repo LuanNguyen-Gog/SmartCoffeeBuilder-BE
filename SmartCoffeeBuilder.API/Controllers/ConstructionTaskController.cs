@@ -24,16 +24,21 @@ public class ConstructionTaskController : ControllerBase
         _constructionTaskService = constructionTaskService;
     }
 
-    /// <summary>Danh sách task; lọc theo milestone, trạng thái.</summary>
+    /// <summary>
+    /// Danh sách task; lọc theo engagement, milestone, trạng thái.
+    /// Client hiển thị task của MỘT dự án phải truyền <c>projectWorkingId</c> — bỏ trống thì kết quả
+    /// trải trên mọi engagement mà tài khoản tham gia, và tổng số task sẽ dính task của dự án khác.
+    /// </summary>
     [HttpGet]
     public async Task<IActionResult> GetAll(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
         [FromQuery] long? constructionItemId = null,
-        [FromQuery] string? status = null)
+        [FromQuery] string? status = null,
+        [FromQuery] long? projectWorkingId = null)
     {
         var result = await _constructionTaskService.GetAllAsync(
-            User.GetAccountId(), pageNumber, pageSize, constructionItemId, status);
+            User.GetAccountId(), pageNumber, pageSize, constructionItemId, status, projectWorkingId);
         return Ok(result);
     }
 

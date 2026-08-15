@@ -10,10 +10,15 @@ namespace SmartCoffeeBuilder.Service.Interfaces;
 /// </summary>
 public interface IConstructionTaskService
 {
-    /// <summary>Danh sách task — đã lọc theo engagement mà tài khoản tham gia (admin xem tất cả).</summary>
+    /// <summary>
+    /// Danh sách task — đã lọc theo engagement mà tài khoản tham gia (admin xem tất cả).
+    /// <paramref name="projectWorkingId"/> thu hẹp về ĐÚNG MỘT engagement: không có nó thì client
+    /// muốn đếm task của một dự án buộc phải lấy hết task của mọi engagement rồi tự lọc, và con số
+    /// tổng sẽ dính task của dự án khác.
+    /// </summary>
     Task<PaginationResponse<ConstructionTaskResponse>> GetAllAsync(
         long accountId, int pageNumber = 1, int pageSize = 10,
-        long? constructionItemId = null, string? status = null);
+        long? constructionItemId = null, string? status = null, long? projectWorkingId = null);
 
     Task<ConstructionTaskResponse> GetByIdAsync(long accountId, long id);
 
