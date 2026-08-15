@@ -70,7 +70,7 @@ public class ProjectWorkingController : ControllerBase
     [HttpGet("{id:long}/brief")]
     public async Task<IActionResult> GetBrief(long id)
     {
-        var result = await _projectWorkingService.GetBriefAsync(id);
+        var result = await _projectWorkingService.GetBriefAsync(User.GetAccountId(), id);
         return Ok(result);
     }
 
@@ -81,7 +81,7 @@ public class ProjectWorkingController : ControllerBase
     [HttpGet("{id:long}/overview")]
     public async Task<IActionResult> GetOverview(long id)
     {
-        var result = await _projectWorkingService.GetOverviewAsync(id);
+        var result = await _projectWorkingService.GetOverviewAsync(User.GetAccountId(), id);
         return Ok(result);
     }
 

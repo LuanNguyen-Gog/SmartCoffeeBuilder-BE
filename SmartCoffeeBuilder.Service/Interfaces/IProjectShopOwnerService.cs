@@ -6,9 +6,18 @@ namespace SmartCoffeeBuilder.Service.Interfaces;
 
 public interface IProjectShopOwnerService
 {
-    Task<PaginationResponse<ProjectShopOwnerResponse>> GetAllAsync(int pageNumber = 1, int pageSize = 10, long? ownerId = null);
-    Task<ProjectShopOwnerResponse> GetByIdAsync(long id);
-    Task<ProjectShopOwnerResponse> CreateAsync(CreateProjectShopOwnerRequest request);
+    /// <summary>
+    /// Chỉ trả dự án người gọi tham gia (chủ dự án / provider có engagement) hoặc đang mở thầu
+    /// công khai; admin thấy tất cả. Lọc trong query để phân trang đúng.
+    /// </summary>
+    Task<PaginationResponse<ProjectShopOwnerResponse>> GetAllAsync(long accountId, int pageNumber = 1, int pageSize = 10, long? ownerId = null);
+    Task<ProjectShopOwnerResponse> GetByIdAsync(long accountId, long id);
+
+    /// <summary>
+    /// <c>request.OwnerId</c> phải là hồ sơ chủ quán của chính <paramref name="accountId"/>
+    /// (admin được tạo hộ). Giữ field trong body để không phá hợp đồng API sẵn có.
+    /// </summary>
+    Task<ProjectShopOwnerResponse> CreateAsync(long accountId, CreateProjectShopOwnerRequest request);
 
     /// <summary>
     /// Sửa thông tin dự án. Status chỉ nhận transition thường (briefed → in_progress);

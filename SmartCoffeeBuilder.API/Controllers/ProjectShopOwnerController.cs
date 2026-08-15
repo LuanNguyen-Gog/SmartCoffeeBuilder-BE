@@ -24,14 +24,14 @@ public class ProjectShopOwnerController : ControllerBase
         [FromQuery] int pageSize = 10,
         [FromQuery] long? ownerId = null)
     {
-        var result = await _projectShopOwnerService.GetAllAsync(pageNumber, pageSize, ownerId);
+        var result = await _projectShopOwnerService.GetAllAsync(User.GetAccountId(), pageNumber, pageSize, ownerId);
         return Ok(result);
     }
 
     [HttpGet("{id:long}")]
     public async Task<IActionResult> GetById(long id)
     {
-        var result = await _projectShopOwnerService.GetByIdAsync(id);
+        var result = await _projectShopOwnerService.GetByIdAsync(User.GetAccountId(), id);
         return Ok(result);
     }
 
@@ -39,7 +39,7 @@ public class ProjectShopOwnerController : ControllerBase
     [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Create([FromBody] CreateProjectShopOwnerRequest request)
     {
-        var result = await _projectShopOwnerService.CreateAsync(request);
+        var result = await _projectShopOwnerService.CreateAsync(User.GetAccountId(), request);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 

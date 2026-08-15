@@ -85,12 +85,13 @@ public interface IProjectWorkingService
     /// <summary>
     /// Provider xem brief của project để quyết định nhận việc — mở cho cả designer lẫn constructor,
     /// từ lúc được mời (requested) trở đi; engagement rejected/terminated không xem được.
+    /// Người gọi phải là một bên của chính engagement này (owner dự án / provider), admin đi xuyên.
     /// </summary>
-    Task<DesignBriefResponse> GetBriefAsync(long id);
+    Task<DesignBriefResponse> GetBriefAsync(long accountId, long id);
 
     /// <summary>
     /// Tổng quan dự án sau bước AI: engagement có design xem brief + AI plan;
     /// engagement chỉ construction xem bản vẽ 'approved' của bên design.
     /// </summary>
-    Task<EngagementOverviewResponse> GetOverviewAsync(long id);
+    Task<EngagementOverviewResponse> GetOverviewAsync(long accountId, long id);
 }
