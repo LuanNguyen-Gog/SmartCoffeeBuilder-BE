@@ -6,7 +6,6 @@ public class SurveyResponse
 {
     public long Id { get; set; }
     public long ProjectWorkingId { get; set; }
-    public decimal Version { get; set; }
     public string ConditionNote { get; set; } = null!;
     /// <summary>ObjectName file báo cáo khảo sát trên bucket — giá trị lưu trong DB.</summary>
     public string? ReportUrl { get; set; }
@@ -20,7 +19,6 @@ public class SurveyResponse
     {
         Id = e.Id,
         ProjectWorkingId = e.ProjectWorkingId,
-        Version = e.Version,
         ConditionNote = e.ConditionNote,
         ReportUrl = e.ReportUrl,
         ReportViewUrl = MediaUrl.Resolve(e.ReportUrl),

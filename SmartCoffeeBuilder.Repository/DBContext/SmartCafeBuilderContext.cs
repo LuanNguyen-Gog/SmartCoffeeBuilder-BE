@@ -255,7 +255,6 @@ public class SmartCafeBuilderContext : DbContext
         {
             e.Property(x => x.ProjectWorkingId).HasColumnName("project_provider_id");
             e.HasIndex(x => x.ProjectWorkingId).HasDatabaseName("ix_surveys_project_provider_id");
-            e.Property(x => x.Version).HasPrecision(4, 1);
             e.HasOne(x => x.ProjectWorking).WithMany(p => p.Surveys)
                 .HasForeignKey(x => x.ProjectWorkingId).OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("fk_surveys_project_providers_project_provider_id");

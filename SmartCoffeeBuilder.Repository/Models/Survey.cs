@@ -4,7 +4,8 @@ public class Survey
 {
     public long Id { get; set; }
     public long ProjectWorkingId { get; set; }
-    public decimal Version { get; set; } // decimal(4,1), vd 0.1, 1.4
+    // Bỏ cột Version: survey là bản ghi khảo sát độc lập, xếp theo CreatedAt là đủ —
+    // không có nghiệp vụ nào đọc số hiệu phiên bản (khác Design/DesignVersion).
     public string ConditionNote { get; set; } = null!;
     public string? ReportUrl { get; set; }
     public long? CreatedBy { get; set; }

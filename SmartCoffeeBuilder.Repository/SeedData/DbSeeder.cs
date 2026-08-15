@@ -245,7 +245,6 @@ public static class DbSeeder
             {
                 new Survey
                 {
-                    Version = 1.0m,
                     ConditionNote = "Mặt bằng 85m2, trần cao 3.8m, mặt tiền kính 6m. Tường cũ cần xử lý chống ẩm.",
                     ReportUrl = "https://files.scb.com/surveys/p1-survey-v1.pdf",
                     CreatedByAccount = designerAcc,

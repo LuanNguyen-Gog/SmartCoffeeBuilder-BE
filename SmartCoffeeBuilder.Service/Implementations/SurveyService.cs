@@ -70,16 +70,9 @@ public class SurveyService : ISurveyService
         // Chỉ cần engagement 'accepted' + contract_type có pha design (đã check ở trên).
         // KHÔNG guard contract 'confirmed' ở đây (khác design/construction_item vẫn yêu cầu đã ký).
 
-        // Version tự tăng 0.1 theo từng engagement (0.1, 0.2, …).
-        var maxVersion = await _repository
-            .GetQueryable(s => s.ProjectWorkingId == engagement.Id)
-            .Select(s => (decimal?)s.Version)
-            .MaxAsync() ?? 0m;
-
         var survey = new Survey
         {
             ProjectWorkingId = engagement.Id,
-            Version = maxVersion + 0.1m,
             ConditionNote = request.ConditionNote,
             // File báo cáo phải upload qua api/files trước; giá trị gửi lên rút về ObjectName.
             ReportUrl = await _fileStorage.NormalizeForStorageAsync(request.ReportUrl, "reportUrl"),
