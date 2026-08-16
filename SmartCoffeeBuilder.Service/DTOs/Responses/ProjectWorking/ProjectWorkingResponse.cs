@@ -13,7 +13,7 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.ProjectWorking;
 /// </summary>
 public class EngagementContractSummary
 {
-    public long Id { get; set; }
+    public Guid Id { get; set; }
     public string Title { get; set; } = null!;
     public decimal? AgreedValue { get; set; }
     /// <summary>URL public tuyệt đối của file hợp đồng — FE dùng thẳng để xem/tải.</summary>
@@ -37,13 +37,13 @@ public class EngagementContractSummary
 
 public class ProjectWorkingResponse
 {
-    public long Id { get; set; }
-    public long ProjectShopOwnerId { get; set; }
+    public Guid Id { get; set; }
+    public Guid ProjectShopOwnerId { get; set; }
     public string? ProjectName { get; set; }
-    public long ServiceProviderProfileId { get; set; }
+    public Guid ServiceProviderProfileId { get; set; }
     public string? ProviderDisplayName { get; set; }
     /// <summary>null = thuê trực tiếp; có giá trị = qua marketplace.</summary>
-    public long? ApplyId { get; set; }
+    public Guid? ApplyId { get; set; }
     public string ContractType { get; set; } = null!;
     public string Status { get; set; } = null!;
     public string? RequestMessage { get; set; }

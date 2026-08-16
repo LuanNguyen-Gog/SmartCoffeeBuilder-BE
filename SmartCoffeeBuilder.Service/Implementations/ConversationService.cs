@@ -33,7 +33,7 @@ public class ConversationService : IConversationService
     }
 
     public async Task<PaginationResponse<ConversationSummary>> GetByEngagementAsync(
-        long accountId, long projectWorkingId, int pageNumber = 1, int pageSize = 20)
+        Guid accountId, Guid projectWorkingId, int pageNumber = 1, int pageSize = 20)
     {
         pageNumber = Math.Max(1, pageNumber);
         pageSize = Math.Clamp(pageSize, 1, 100);
@@ -70,7 +70,7 @@ public class ConversationService : IConversationService
     }
 
     public async Task<ConversationDetailResponse> GetByIdAsync(
-        long accountId, long conversationId, int pageNumber = 1, int pageSize = 50)
+        Guid accountId, Guid conversationId, int pageNumber = 1, int pageSize = 50)
     {
         pageNumber = Math.Max(1, pageNumber);
         pageSize = Math.Clamp(pageSize, 1, 200);
@@ -103,7 +103,7 @@ public class ConversationService : IConversationService
         return detail;
     }
 
-    public async Task<ConversationSummary> CreateAsync(long accountId, CreateConversationRequest request)
+    public async Task<ConversationSummary> CreateAsync(Guid accountId, CreateConversationRequest request)
     {
         var engagement = await EnsureMemberAsync(accountId, request.ProjectWorkingId);
 
@@ -141,7 +141,7 @@ public class ConversationService : IConversationService
         return result;
     }
 
-    public async Task<ConversationSummary> UpdateAsync(long accountId, long conversationId, UpdateConversationRequest request)
+    public async Task<ConversationSummary> UpdateAsync(Guid accountId, Guid conversationId, UpdateConversationRequest request)
     {
         var conversation = await LoadConversationAsync(conversationId);
         await EnsureMemberAsync(accountId, conversation.ProjectWorkingId);
@@ -163,7 +163,7 @@ public class ConversationService : IConversationService
         return result;
     }
 
-    public async Task DeleteAsync(long accountId, long conversationId)
+    public async Task DeleteAsync(Guid accountId, Guid conversationId)
     {
         var conversation = await LoadConversationAsync(conversationId);
 
@@ -181,7 +181,7 @@ public class ConversationService : IConversationService
     /// <summary>
     /// Load 1 conversation + CreatedByAccount navigation.
     /// </summary>
-    private async Task<ConversationModel> LoadConversationAsync(long conversationId)
+    private async Task<ConversationModel> LoadConversationAsync(Guid conversationId)
     {
         return await _unitOfWork.GetRepository<ConversationModel>().SingleOrDefaultAsync(
             predicate: c => c.Id == conversationId,
@@ -194,7 +194,7 @@ public class ConversationService : IConversationService
     /// Dùng chung cho cả ConversationService và ChatMessageService — copy code thay vì tách
     /// utility vì chỉ hai chỗ dùng, không abstract quá sớm.
     /// </summary>
-    private async Task<ProjectWorkingModel> EnsureMemberAsync(long accountId, long projectWorkingId)
+    private async Task<ProjectWorkingModel> EnsureMemberAsync(Guid accountId, Guid projectWorkingId)
     {
         // Load engagement để trả về thông tin project.
         var pw = await _unitOfWork.GetRepository<ProjectWorkingModel>().SingleOrDefaultAsync(

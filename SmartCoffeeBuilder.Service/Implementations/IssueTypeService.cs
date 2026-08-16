@@ -24,7 +24,7 @@ public class IssueTypeService : IIssueTypeService
         return items.Select(IssueTypeResponse.From).ToList();
     }
 
-    public async Task<IssueTypeResponse> GetByIdAsync(long id)
+    public async Task<IssueTypeResponse> GetByIdAsync(Guid id)
     {
         var issueType = await _repository.SingleOrDefaultAsync(predicate: t => t.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy issue type với id {id}.");
@@ -51,7 +51,7 @@ public class IssueTypeService : IIssueTypeService
         return IssueTypeResponse.From(issueType);
     }
 
-    public async Task<IssueTypeResponse> UpdateAsync(long id, UpdateIssueTypeRequest request)
+    public async Task<IssueTypeResponse> UpdateAsync(Guid id, UpdateIssueTypeRequest request)
     {
         var issueType = await _repository.SingleOrDefaultAsync(predicate: t => t.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy issue type với id {id}.");
@@ -64,7 +64,7 @@ public class IssueTypeService : IIssueTypeService
         return IssueTypeResponse.From(issueType);
     }
 
-    public async Task DeleteAsync(long id)
+    public async Task DeleteAsync(Guid id)
     {
         var issueType = await _repository.SingleOrDefaultAsync(predicate: t => t.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy issue type với id {id}.");

@@ -4,9 +4,9 @@ namespace SmartCoffeeBuilder.Repository.Models;
 
 public class Apply
 {
-    public long Id { get; set; }
-    public long PostId { get; set; }
-    public long ServiceProviderProfileId { get; set; }
+    public Guid Id { get; set; }
+    public Guid PostId { get; set; }
+    public Guid ServiceProviderProfileId { get; set; }
     public string Proposal { get; set; } = null!;
     public int? EstimatedDurationDays { get; set; }
     public ApplicationStatus Status { get; set; } = ApplicationStatus.pending;

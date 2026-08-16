@@ -14,7 +14,7 @@ public interface ICommentService
 {
     /// <summary>Danh sách comment theo target (FK mềm), sắp xếp mới nhất trước.</summary>
     Task<PaginationResponse<CommentResponse>> GetAllAsync(
-        CommentTargetType targetType, long targetId,
+        CommentTargetType targetType, Guid targetId,
         int pageNumber = 1, int pageSize = 20);
 
     /// <summary>
@@ -22,8 +22,8 @@ public interface ICommentService
     /// <paramref name="currentAccountId"/> nếu caller không truyền — controller lấy từ JWT.
     /// Quyền: account phải thuộc ProjectWorking của target hoặc là admin.
     /// </summary>
-    Task<CommentResponse> CreateAsync(CreateCommentRequest request, long currentAccountId);
+    Task<CommentResponse> CreateAsync(CreateCommentRequest request, Guid currentAccountId);
 
     /// <summary>Xoá comment — chỉ người tạo hoặc admin.</summary>
-    Task DeleteAsync(long id, long currentAccountId);
+    Task DeleteAsync(Guid id, Guid currentAccountId);
 }

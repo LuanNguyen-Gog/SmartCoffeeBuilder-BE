@@ -7,8 +7,8 @@ namespace SmartCoffeeBuilder.Service.Interfaces;
 public interface IShopOwnerService
 {
     Task<PaginationResponse<ShopOwnerResponse>> GetAllAsync(int pageNumber = 1, int pageSize = 10);
-    Task<ShopOwnerResponse> GetByIdAsync(long id);
+    Task<ShopOwnerResponse> GetByIdAsync(Guid id);
     Task<ShopOwnerResponse> CreateAsync(CreateShopOwnerRequest request);
-    Task<ShopOwnerResponse> UpdateAsync(long id, UpdateShopOwnerRequest request);
-    Task DeleteAsync(long id);
+    Task<ShopOwnerResponse> UpdateAsync(Guid id, UpdateShopOwnerRequest request);
+    Task DeleteAsync(Guid id);
 }

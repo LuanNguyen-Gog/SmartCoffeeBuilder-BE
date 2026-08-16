@@ -14,11 +14,11 @@ public static class ClaimsPrincipalExtensions
     /// JwtBearer có thể map sang <see cref="ClaimTypes.NameIdentifier"/> nên check cả hai).
     /// </summary>
     /// <exception cref="UnauthorizedAccessException">Token không chứa account id hợp lệ (HTTP 401).</exception>
-    public static long GetAccountId(this ClaimsPrincipal user)
+    public static Guid GetAccountId(this ClaimsPrincipal user)
     {
         var raw = user.FindFirst(ClaimTypes.NameIdentifier)?.Value
                   ?? user.FindFirst("sub")?.Value;
-        if (!long.TryParse(raw, out var accountId))
+        if (!Guid.TryParse(raw, out var accountId))
             throw new UnauthorizedAccessException("Token không chứa account id hợp lệ.");
         return accountId;
     }

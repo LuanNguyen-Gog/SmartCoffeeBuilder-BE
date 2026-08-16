@@ -22,7 +22,7 @@ public class CommentService : ICommentService
     }
 
     public async Task<PaginationResponse<CommentResponse>> GetAllAsync(
-        CommentTargetType targetType, long targetId,
+        CommentTargetType targetType, Guid targetId,
         int pageNumber = 1, int pageSize = 20)
     {
         // Read mở — chỉ cần target tồn tại. CommentService không kiểm tra quyền xem vì thread public.
@@ -42,7 +42,7 @@ public class CommentService : ICommentService
             paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
-    public async Task<CommentResponse> CreateAsync(CreateCommentRequest request, long currentAccountId)
+    public async Task<CommentResponse> CreateAsync(CreateCommentRequest request, Guid currentAccountId)
     {
         // Ép CreatedBy = currentAccountId — không tin tưởng giá trị client gửi lên.
         request.CreatedBy = currentAccountId;
@@ -84,7 +84,7 @@ public class CommentService : ICommentService
         return CommentResponse.From(comment);
     }
 
-    public async Task DeleteAsync(long id, long currentAccountId)
+    public async Task DeleteAsync(Guid id, Guid currentAccountId)
     {
         var comment = await _repository.SingleOrDefaultAsync(
             predicate: c => c.Id == id,
@@ -114,7 +114,7 @@ public class CommentService : ICommentService
     }
 
     /// <summary>Từ (target_type, target_id) suy ra ProjectWorkingId — dùng để check quyền.</summary>
-    private async Task<long> ResolveProjectWorkingIdAsync(CommentTargetType type, long targetId)
+    private async Task<Guid> ResolveProjectWorkingIdAsync(CommentTargetType type, Guid targetId)
     {
         switch (type)
         {
@@ -141,7 +141,7 @@ public class CommentService : ICommentService
     /// Đảm bảo currentAccountId có quyền comment trên ProjectWorking (owner/provider liên quan hoặc admin).
     /// Ném <see cref="UnauthorizedAccessException"/> nếu không thuộc.
     /// </summary>
-    private async Task EnsureCanCommentAsync(long projectWorkingId, long currentAccountId)
+    private async Task EnsureCanCommentAsync(Guid projectWorkingId, Guid currentAccountId)
     {
         var current = await _unitOfWork.GetRepository<Account>()
             .SingleOrDefaultAsync(

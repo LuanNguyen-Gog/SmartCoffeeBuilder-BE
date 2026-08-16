@@ -2,13 +2,13 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.Notification;
 
 public class NotificationResponse
 {
-    public long Id { get; set; }
-    public long AccountId { get; set; }
+    public Guid Id { get; set; }
+    public Guid AccountId { get; set; }
     public string Type { get; set; } = null!;
     public string Title { get; set; } = null!;
     public string Content { get; set; } = null!;
     public string? ReferenceType { get; set; }
-    public long? ReferenceId { get; set; }
+    public Guid? ReferenceId { get; set; }
     public bool IsRead { get; set; }
     /// <summary>Đã gửi email hay chưa (null = chưa gửi được, có thể resend).</summary>
     public DateTime? EmailSentAt { get; set; }

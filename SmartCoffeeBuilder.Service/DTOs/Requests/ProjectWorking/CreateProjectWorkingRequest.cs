@@ -6,10 +6,10 @@ namespace SmartCoffeeBuilder.Service.DTOs.Requests.ProjectWorking;
 public class CreateProjectWorkingRequest
 {
     [Required]
-    public long ProjectShopOwnerId { get; set; }
+    public Guid ProjectShopOwnerId { get; set; }
 
     [Required]
-    public long ServiceProviderProfileId { get; set; }
+    public Guid ServiceProviderProfileId { get; set; }
 
     /// <summary>design | construction | both</summary>
     [Required]

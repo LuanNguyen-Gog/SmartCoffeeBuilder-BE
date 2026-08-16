@@ -10,11 +10,11 @@ namespace SmartCoffeeBuilder.Repository.Models;
 /// </summary>
 public class PaymentTransaction
 {
-    public long Id { get; set; }
-    public long? SubscriptionId { get; set; }
-    public long AccountId { get; set; }
+    public Guid Id { get; set; }
+    public Guid? SubscriptionId { get; set; }
+    public Guid AccountId { get; set; }
     public PaymentPurpose Purpose { get; set; } = PaymentPurpose.subscription;
-    public long? PostId { get; set; }
+    public Guid? PostId { get; set; }
     public int? BoostDays { get; set; }
     public long OrderCode { get; set; }
 

@@ -4,8 +4,8 @@ namespace SmartCoffeeBuilder.Repository.Models;
 
 public class ProjectShopOwner
 {
-    public long Id { get; set; }
-    public long OwnerId { get; set; }
+    public Guid Id { get; set; }
+    public Guid OwnerId { get; set; }
     public string Name { get; set; } = null!;
     public string Address { get; set; } = null!;
     public decimal AreaM2 { get; set; }

@@ -28,7 +28,7 @@ public class PostService : IPostService
     public async Task<PaginationResponse<PostResponse>> GetAllAsync(
         int pageNumber = 1,
         int pageSize = 10,
-        long? projectShopOwnerId = null,
+        Guid? projectShopOwnerId = null,
         string? serviceKind = null,
         string? status = null,
         string? search = null)
@@ -59,7 +59,7 @@ public class PostService : IPostService
             paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
-    public async Task<PostResponse> GetByIdAsync(long id)
+    public async Task<PostResponse> GetByIdAsync(Guid id)
     {
         var post = await _repository.SingleOrDefaultAsync(
             predicate: p => p.Id == id && p.ProjectShopOwner.DeletedAt == null,
@@ -106,7 +106,7 @@ public class PostService : IPostService
         return PostResponse.From(post);
     }
 
-    public async Task<PostResponse> UpdateAsync(long id, UpdatePostRequest request)
+    public async Task<PostResponse> UpdateAsync(Guid id, UpdatePostRequest request)
     {
         var post = await _repository.SingleOrDefaultAsync(
             predicate: p => p.Id == id,
@@ -147,7 +147,7 @@ public class PostService : IPostService
         return PostResponse.From(post);
     }
 
-    public async Task DeleteAsync(long id)
+    public async Task DeleteAsync(Guid id)
     {
         var post = await _repository.GetByIdAsync(id)
             ?? throw new KeyNotFoundException($"Không tìm thấy bài đăng với id {id}.");

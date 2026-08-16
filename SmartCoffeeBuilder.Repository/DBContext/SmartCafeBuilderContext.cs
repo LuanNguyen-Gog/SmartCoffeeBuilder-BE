@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using SmartCoffeeBuilder.Repository.Models;
 using SmartCoffeeBuilder.Repository.Models.Enums;
 
@@ -553,6 +554,21 @@ public class SmartCafeBuilderContext : DbContext
                     prop.SetDefaultValueSql("now()");
                 }
             }
+        }
+
+        // Khoá chính uuid do Postgres sinh (gen_random_uuid(), có sẵn từ PG13) — KHÔNG sinh ở tầng app.
+        // Hệ quả: .Id chỉ có giá trị SAU CommitAsync; trước đó là Guid.Empty. Code phụ thuộc Id của
+        // bản ghi vừa tạo phải commit trước rồi mới dùng (xem DbSeeder).
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            var key = entityType.FindPrimaryKey();
+            if (key is null || key.Properties.Count != 1) continue;
+
+            var pk = key.Properties[0];
+            if (pk.ClrType != typeof(Guid)) continue;
+
+            pk.SetDefaultValueSql("gen_random_uuid()");
+            pk.ValueGenerated = ValueGenerated.OnAdd;
         }
     }
 }

@@ -31,7 +31,7 @@ public class CommentController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll(
         [FromQuery] string targetType,
-        [FromQuery] long targetId,
+        [FromQuery] Guid targetId,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20)
     {
@@ -60,8 +60,8 @@ public class CommentController : ControllerBase
     }
 
     /// <summary>Xoá comment — service kiểm tra người tạo hoặc admin.</summary>
-    [HttpDelete("{id:long}")]
-    public async Task<IActionResult> Delete(long id)
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id)
     {
         var accountId = User.GetAccountId();
         await _commentService.DeleteAsync(id, accountId);

@@ -4,8 +4,8 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.ConstructionTask;
 
 public class ConstructionTaskResponse
 {
-    public long Id { get; set; }
-    public long ConstructionItemId { get; set; }
+    public Guid Id { get; set; }
+    public Guid ConstructionItemId { get; set; }
     public string Name { get; set; } = null!;
     public string? Description { get; set; }
     /// <summary>ObjectName ảnh hiện trường trên bucket — giá trị lưu trong DB.</summary>
@@ -16,7 +16,7 @@ public class ConstructionTaskResponse
     public DateOnly? ActualAt { get; set; }
     public string? Reason { get; set; }
     public string Status { get; set; } = null!;
-    public long? CreatedBy { get; set; }
+    public Guid? CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

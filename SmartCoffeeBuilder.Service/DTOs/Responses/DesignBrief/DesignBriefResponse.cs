@@ -4,8 +4,8 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.DesignBrief;
 
 public class DesignBriefResponse
 {
-    public long Id { get; set; }
-    public long ProjectShopOwnerId { get; set; }
+    public Guid Id { get; set; }
+    public Guid ProjectShopOwnerId { get; set; }
     public string TargetCustomer { get; set; } = null!;
     public string Style { get; set; } = null!;
     public string Mood { get; set; } = null!;

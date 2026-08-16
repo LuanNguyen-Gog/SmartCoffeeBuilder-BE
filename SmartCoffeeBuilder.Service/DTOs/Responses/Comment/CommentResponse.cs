@@ -9,11 +9,11 @@ using AccountEntity = SmartCoffeeBuilder.Repository.Models.Account;
 
 public class CommentResponse
 {
-    public long Id { get; set; }
+    public Guid Id { get; set; }
     public string TargetType { get; set; } = null!;
-    public long TargetId { get; set; }
+    public Guid TargetId { get; set; }
     public string? Body { get; set; }
-    public long? CreatedBy { get; set; }
+    public Guid? CreatedBy { get; set; }
 
     /// <summary>
     /// Tên hiển thị của người viết — join ngược từ Account tới ShopOwner.FullName (owner) hoặc

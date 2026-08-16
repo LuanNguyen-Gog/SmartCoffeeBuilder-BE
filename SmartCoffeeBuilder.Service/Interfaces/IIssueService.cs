@@ -8,17 +8,17 @@ public interface IIssueService
 {
     Task<PaginationResponse<IssueResponse>> GetAllAsync(
         int pageNumber = 1, int pageSize = 10,
-        long? projectWorkingId = null, long? constructionItemId = null, string? status = null);
+        Guid? projectWorkingId = null, Guid? constructionItemId = null, string? status = null);
 
-    Task<IssueResponse> GetByIdAsync(long id);
+    Task<IssueResponse> GetByIdAsync(Guid id);
 
     /// <summary>Tạo issue neo vào engagement; nếu gắn construction_item thì phải cùng engagement.</summary>
     Task<IssueResponse> CreateAsync(CreateIssueRequest request);
 
-    Task<IssueResponse> UpdateAsync(long id, UpdateIssueRequest request);
+    Task<IssueResponse> UpdateAsync(Guid id, UpdateIssueRequest request);
 
     /// <summary>Chuyển trạng thái: open → in_progress → resolved → closed (chỉ tiến, không lùi).</summary>
-    Task<IssueResponse> UpdateStatusAsync(long id, UpdateIssueStatusRequest request);
+    Task<IssueResponse> UpdateStatusAsync(Guid id, UpdateIssueStatusRequest request);
 
-    Task DeleteAsync(long id);
+    Task DeleteAsync(Guid id);
 }

@@ -22,11 +22,11 @@ public static class ProjectSlotClosure
     /// cho cùng một dòng (change tracker sẽ hỏng).
     /// </param>
     /// <returns>Id các hồ sơ vừa bị từ chối — caller bắn noti SAU khi commit.</returns>
-    public static async Task<List<long>> CloseCoveredPostsAsync(
+    public static async Task<List<Guid>> CloseCoveredPostsAsync(
         IUnitOfWork<SmartCafeBuilderContext> unitOfWork,
-        long projectShopOwnerId,
+        Guid projectShopOwnerId,
         ServiceKind occupiedKind,
-        long? excludePostId = null)
+        Guid? excludePostId = null)
     {
         var postRepository = unitOfWork.GetRepository<Post>();
         var openPosts = await postRepository.GetListAsync(

@@ -7,8 +7,8 @@ namespace SmartCoffeeBuilder.Service.Interfaces;
 public interface IIssueTypeService
 {
     Task<ICollection<IssueTypeResponse>> GetAllAsync();
-    Task<IssueTypeResponse> GetByIdAsync(long id);
+    Task<IssueTypeResponse> GetByIdAsync(Guid id);
     Task<IssueTypeResponse> CreateAsync(CreateIssueTypeRequest request);
-    Task<IssueTypeResponse> UpdateAsync(long id, UpdateIssueTypeRequest request);
-    Task DeleteAsync(long id);
+    Task<IssueTypeResponse> UpdateAsync(Guid id, UpdateIssueTypeRequest request);
+    Task DeleteAsync(Guid id);
 }

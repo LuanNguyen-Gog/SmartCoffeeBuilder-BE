@@ -32,7 +32,7 @@ public class ShopOwnerService : IShopOwnerService
             paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
-    public async Task<ShopOwnerResponse> GetByIdAsync(long id)
+    public async Task<ShopOwnerResponse> GetByIdAsync(Guid id)
     {
         var shopOwner = await _repository.SingleOrDefaultAsync(predicate: s => s.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy shop owner với id {id}.");
@@ -70,7 +70,7 @@ public class ShopOwnerService : IShopOwnerService
         return ShopOwnerResponse.From(shopOwner);
     }
 
-    public async Task<ShopOwnerResponse> UpdateAsync(long id, UpdateShopOwnerRequest request)
+    public async Task<ShopOwnerResponse> UpdateAsync(Guid id, UpdateShopOwnerRequest request)
     {
         var shopOwner = await _repository.GetByIdAsync(id)
             ?? throw new KeyNotFoundException($"Không tìm thấy shop owner với id {id}.");
@@ -87,7 +87,7 @@ public class ShopOwnerService : IShopOwnerService
         return ShopOwnerResponse.From(shopOwner);
     }
 
-    public async Task DeleteAsync(long id)
+    public async Task DeleteAsync(Guid id)
     {
         var shopOwner = await _repository.GetByIdAsync(id)
             ?? throw new KeyNotFoundException($"Không tìm thấy shop owner với id {id}.");

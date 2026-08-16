@@ -16,7 +16,7 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.Chat;
 /// </remarks>
 public class SenderInfo
 {
-    public long AccountId { get; set; }
+    public Guid AccountId { get; set; }
 
     /// <summary>Tên hiển thị — ShopOwner.FullName với role=owner, ServiceProviderProfile.DisplayName với role=provider.</summary>
     public string? DisplayName { get; set; }

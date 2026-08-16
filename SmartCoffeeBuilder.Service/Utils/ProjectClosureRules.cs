@@ -30,7 +30,7 @@ public static class ProjectClosureRules
     /// giai đoạn khảo sát trước khi ký.
     /// </param>
     public static string? FindBlocker(
-        IEnumerable<ProjectWorking> projectEngagements, IReadOnlySet<long> signedEngagementIds)
+        IEnumerable<ProjectWorking> projectEngagements, IReadOnlySet<Guid> signedEngagementIds)
     {
         // Collection nguồn là ICollection từ navigation property — vật chất hoá một lần rồi duyệt lại.
         var engagements = projectEngagements as IList<ProjectWorking> ?? projectEngagements.ToList();

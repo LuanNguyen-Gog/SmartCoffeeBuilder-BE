@@ -26,16 +26,16 @@ public class IssueController : ControllerBase
     public async Task<IActionResult> GetAll(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
-        [FromQuery] long? projectWorkingId = null,
-        [FromQuery] long? constructionItemId = null,
+        [FromQuery] Guid? projectWorkingId = null,
+        [FromQuery] Guid? constructionItemId = null,
         [FromQuery] string? status = null)
     {
         var result = await _issueService.GetAllAsync(pageNumber, pageSize, projectWorkingId, constructionItemId, status);
         return Ok(result);
     }
 
-    [HttpGet("{id:long}")]
-    public async Task<IActionResult> GetById(long id)
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id)
     {
         var result = await _issueService.GetByIdAsync(id);
         return Ok(result);
@@ -48,24 +48,24 @@ public class IssueController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
-    [HttpPut("{id:long}")]
-    public async Task<IActionResult> Update(long id, [FromBody] UpdateIssueRequest request)
+    [HttpPut("{id:guid}")]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateIssueRequest request)
     {
         var result = await _issueService.UpdateAsync(id, request);
         return Ok(result);
     }
 
     /// <summary>Chuyển trạng thái: open → in_progress → resolved → closed.</summary>
-    [HttpPut("{id:long}/status")]
-    public async Task<IActionResult> UpdateStatus(long id, [FromBody] UpdateIssueStatusRequest request)
+    [HttpPut("{id:guid}/status")]
+    public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateIssueStatusRequest request)
     {
         var result = await _issueService.UpdateStatusAsync(id, request);
         return Ok(result);
     }
 
-    [HttpDelete("{id:long}")]
+    [HttpDelete("{id:guid}")]
     [Authorize(Roles = "admin")]
-    public async Task<IActionResult> Delete(long id)
+    public async Task<IActionResult> Delete(Guid id)
     {
         await _issueService.DeleteAsync(id);
         return NoContent();

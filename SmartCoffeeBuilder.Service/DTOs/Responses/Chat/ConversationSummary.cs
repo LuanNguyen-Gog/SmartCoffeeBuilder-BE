@@ -5,8 +5,8 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.Chat;
 /// <summary>Một dòng trong list thread — service build LastMessage bằng cách truy vấn riêng.</summary>
 public class ConversationSummary
 {
-    public long Id { get; set; }
-    public long ProjectWorkingId { get; set; }
+    public Guid Id { get; set; }
+    public Guid ProjectWorkingId { get; set; }
 
     /// <summary>Topic có thể đã được service tự đặt "Thread #N" nếu FE gửi rỗng.</summary>
     public string? Topic { get; set; }

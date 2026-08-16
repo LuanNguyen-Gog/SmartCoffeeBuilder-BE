@@ -6,10 +6,10 @@ namespace SmartCoffeeBuilder.Service.DTOs.Requests.ConstructionItem;
 public class CreateConstructionItemRequest
 {
     [Required]
-    public long ProjectWorkingId { get; set; }
+    public Guid ProjectWorkingId { get; set; }
 
     /// <summary>Milestone cha (phân cấp) — phải cùng engagement. Null nếu là milestone gốc.</summary>
-    public long? ParentId { get; set; }
+    public Guid? ParentId { get; set; }
 
     [Required]
     public string Name { get; set; } = null!;

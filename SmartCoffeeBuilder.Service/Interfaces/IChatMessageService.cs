@@ -10,18 +10,23 @@ namespace SmartCoffeeBuilder.Service.Interfaces;
 public interface IChatMessageService
 {
     /// <summary>
-    /// Polling: lấy mọi message <c>Id &gt; sinceId</c> trong 1 thread (<c>SentAt ASC</c>,
-    /// limit mặc định 100). sinceId null = lấy tất cả (lần đầu mở thread).
+    /// Polling: lấy mọi message GỬI SAU message <paramref name="sinceId"/> trong 1 thread
+    /// (<c>SentAt ASC</c>, limit mặc định 100). sinceId null = lấy tất cả (lần đầu mở thread).
+    /// <para>
+    /// Mốc so sánh là <c>SentAt</c> của chính message sinceId, KHÔNG phải <c>Id &gt; sinceId</c>:
+    /// Id là uuid ngẫu nhiên nên so sánh thứ tự trên nó không phản ánh thời điểm gửi.
+    /// </para>
     /// </summary>
+    /// <exception cref="KeyNotFoundException">sinceId không thuộc thread này (HTTP 404) — FE nên resync.</exception>
     Task<List<MessageResponse>> GetSinceIdAsync(
-        long accountId, long conversationId, long? sinceId, int limit = 100);
+        Guid accountId, Guid conversationId, Guid? sinceId, int limit = 100);
 
     /// <summary>
     /// Polling theo mốc thời gian — dùng khi FE không có <c>sinceId</c> (reconnect, refresh tab).
     /// Lấy message có <c>SentAt &gt; sinceSentAt</c>.
     /// </summary>
     Task<List<MessageResponse>> GetSinceSentAtAsync(
-        long accountId, long conversationId, DateTime? sinceSentAt, int limit = 100);
+        Guid accountId, Guid conversationId, DateTime? sinceSentAt, int limit = 100);
 
     /// <summary>
     /// Gửi 1 message trong thread — chỉ cần có <paramref name="body"/> hoặc ít nhất 1 file.
@@ -31,12 +36,12 @@ public interface IChatMessageService
     /// </summary>
     /// <exception cref="ArgumentException">Cả body và danh sách file đều rỗng (HTTP 400).</exception>
     Task<MessageResponse> SendAsync(
-        long accountId, long conversationId,
+        Guid accountId, Guid conversationId,
         string? body,
         IReadOnlyList<FilePayload>? files);
 
     /// <summary>Xoá message — chỉ sender (giống Discord). Ảnh hưởng cascade tới attachment.</summary>
-    Task DeleteAsync(long accountId, long messageId);
+    Task DeleteAsync(Guid accountId, Guid messageId);
 }
 
 /// <summary>

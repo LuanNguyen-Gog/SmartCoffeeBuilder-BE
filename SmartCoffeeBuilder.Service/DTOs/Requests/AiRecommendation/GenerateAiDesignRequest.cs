@@ -9,7 +9,7 @@ namespace SmartCoffeeBuilder.Service.DTOs.Requests.AiRecommendation;
 public class GenerateAiDesignRequest
 {
     [Required]
-    public long BriefId { get; set; }
+    public Guid BriefId { get; set; }
     
     /// <summary>
     /// Minimum zones required (defaults from common cafe zones)

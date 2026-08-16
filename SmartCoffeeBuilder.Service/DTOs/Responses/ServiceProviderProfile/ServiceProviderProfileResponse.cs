@@ -4,8 +4,8 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.ServiceProviderProfile;
 
 public class ServiceProviderProfileResponse
 {
-    public long Id { get; set; }
-    public long AccountId { get; set; }
+    public Guid Id { get; set; }
+    public Guid AccountId { get; set; }
     public string DisplayName { get; set; } = null!;
     public string ProviderType { get; set; } = null!;
     public string Capability { get; set; } = null!;

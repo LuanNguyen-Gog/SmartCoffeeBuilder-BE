@@ -4,7 +4,7 @@ namespace SmartCoffeeBuilder.Repository.Models;
 
 public class Account
 {
-    public long Id { get; set; }
+    public Guid Id { get; set; }
     public string Email { get; set; } = null!;
     public string? Phone { get; set; }
     public string PasswordHash { get; set; } = null!;

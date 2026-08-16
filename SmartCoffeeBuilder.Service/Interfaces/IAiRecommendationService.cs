@@ -9,17 +9,17 @@ public interface IAiRecommendationService
 {
     // GET all by briefId (paginated) — accountId lấy từ JWT, brief phải thuộc dự án của người gọi.
     Task<PaginationResponse<AiRecommendationResponse>> GetAllByBriefIdAsync(
-        long accountId, long briefId, int pageNumber = 1, int pageSize = 10);
-    Task<AiRecommendationResponse> GetByIdAsync(long accountId, long id);
+        Guid accountId, Guid briefId, int pageNumber = 1, int pageSize = 10);
+    Task<AiRecommendationResponse> GetByIdAsync(Guid accountId, Guid id);
 
     // POST - generate AI design (userId là account id dạng chuỗi, đọc từ claim sub)
-    Task<AiDesignJobStatusResponse> GenerateDesignAsync(long briefId, string userId, GenerateAiDesignRequest request);
+    Task<AiDesignJobStatusResponse> GenerateDesignAsync(Guid briefId, string userId, GenerateAiDesignRequest request);
 
     // CRUD nội bộ — KHÔNG có route HTTP nào trỏ tới (chỉ dùng cho quản lý thủ công / consumer),
     // nên không rào quyền ở đây. Nếu sau này expose ra controller thì phải thêm EnsureBriefOwnerAsync.
     Task<AiRecommendationResponse> CreateAsync(CreateAiRecommendationRequest request);
-    Task<AiRecommendationResponse> UpdateAsync(long id, UpdateAiRecommendationRequest request);
-    Task DeleteAsync(long id);
+    Task<AiRecommendationResponse> UpdateAsync(Guid id, UpdateAiRecommendationRequest request);
+    Task DeleteAsync(Guid id);
     
     // Process result from Pub/Sub
     Task ProcessAiDesignResultAsync(AiDesignResultMessage result);

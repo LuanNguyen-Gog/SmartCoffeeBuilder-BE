@@ -29,8 +29,8 @@ public class ConstructionItemController : ControllerBase
     public async Task<IActionResult> GetAll(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
-        [FromQuery] long? projectWorkingId = null,
-        [FromQuery] long? parentId = null,
+        [FromQuery] Guid? projectWorkingId = null,
+        [FromQuery] Guid? parentId = null,
         [FromQuery] string? status = null)
     {
         var result = await _constructionItemService.GetAllAsync(
@@ -38,8 +38,8 @@ public class ConstructionItemController : ControllerBase
         return Ok(result);
     }
 
-    [HttpGet("{id:long}")]
-    public async Task<IActionResult> GetById(long id)
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id)
     {
         var result = await _constructionItemService.GetByIdAsync(User.GetAccountId(), id);
         return Ok(result);
@@ -63,9 +63,9 @@ public class ConstructionItemController : ControllerBase
     /// Sửa milestone. Nếu có gửi estimateAt thì hạn mới không được nằm trước ngày hiện tại
     /// (hạn cũ đã trôi vào quá khứ vẫn sửa các trường khác bình thường).
     /// </summary>
-    [HttpPut("{id:long}")]
+    [HttpPut("{id:guid}")]
     [Authorize(Roles = "provider,admin")]
-    public async Task<IActionResult> Update(long id, [FromBody] UpdateConstructionItemRequest request)
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateConstructionItemRequest request)
     {
         var result = await _constructionItemService.UpdateAsync(User.GetAccountId(), id, request);
         return Ok(result);
@@ -76,17 +76,17 @@ public class ConstructionItemController : ControllerBase
     /// Sang 'completed' chỉ được khi MỌI task con VÀ MỌI milestone con đã 'completed' — còn
     /// việc dở thì trả 409 kèm số task / milestone con chưa xong.
     /// </summary>
-    [HttpPut("{id:long}/status")]
+    [HttpPut("{id:guid}/status")]
     [Authorize(Roles = "provider,admin")]
-    public async Task<IActionResult> UpdateStatus(long id, [FromBody] UpdateConstructionItemStatusRequest request)
+    public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateConstructionItemStatusRequest request)
     {
         var result = await _constructionItemService.UpdateStatusAsync(User.GetAccountId(), id, request);
         return Ok(result);
     }
 
-    [HttpDelete("{id:long}")]
+    [HttpDelete("{id:guid}")]
     [Authorize(Roles = "provider,admin")]
-    public async Task<IActionResult> Delete(long id)
+    public async Task<IActionResult> Delete(Guid id)
     {
         await _constructionItemService.DeleteAsync(User.GetAccountId(), id);
         return NoContent();

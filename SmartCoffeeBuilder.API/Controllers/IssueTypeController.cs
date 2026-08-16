@@ -25,8 +25,8 @@ public class IssueTypeController : ControllerBase
         return Ok(result);
     }
 
-    [HttpGet("{id:long}")]
-    public async Task<IActionResult> GetById(long id)
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id)
     {
         var result = await _issueTypeService.GetByIdAsync(id);
         return Ok(result);
@@ -41,17 +41,17 @@ public class IssueTypeController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
-    [HttpPut("{id:long}")]
+    [HttpPut("{id:guid}")]
     [Authorize(Roles = "admin")]
-    public async Task<IActionResult> Update(long id, [FromBody] UpdateIssueTypeRequest request)
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateIssueTypeRequest request)
     {
         var result = await _issueTypeService.UpdateAsync(id, request);
         return Ok(result);
     }
 
-    [HttpDelete("{id:long}")]
+    [HttpDelete("{id:guid}")]
     [Authorize(Roles = "admin")]
-    public async Task<IActionResult> Delete(long id)
+    public async Task<IActionResult> Delete(Guid id)
     {
         await _issueTypeService.DeleteAsync(id);
         return NoContent();
