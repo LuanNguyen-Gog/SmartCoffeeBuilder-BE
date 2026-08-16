@@ -7,8 +7,8 @@ namespace SmartCoffeeBuilder.Service.Interfaces;
 public interface ISurveyService
 {
     Task<PaginationResponse<SurveyResponse>> GetAllAsync(
-        int pageNumber = 1, int pageSize = 10, long? projectWorkingId = null);
-    Task<SurveyResponse> GetByIdAsync(long id);
-    Task<SurveyResponse> CreateAsync(long accountId, CreateSurveyRequest request);
-    Task<SurveyResponse> UpdateAsync(long accountId, long id, UpdateSurveyRequest request);
+        int pageNumber = 1, int pageSize = 10, Guid? projectWorkingId = null);
+    Task<SurveyResponse> GetByIdAsync(Guid id);
+    Task<SurveyResponse> CreateAsync(Guid accountId, CreateSurveyRequest request);
+    Task<SurveyResponse> UpdateAsync(Guid accountId, Guid id, UpdateSurveyRequest request);
 }

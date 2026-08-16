@@ -29,8 +29,8 @@ public class ProjectWorkingController : ControllerBase
     public async Task<IActionResult> GetAll(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
-        [FromQuery] long? projectShopOwnerId = null,
-        [FromQuery] long? serviceProviderProfileId = null,
+        [FromQuery] Guid? projectShopOwnerId = null,
+        [FromQuery] Guid? serviceProviderProfileId = null,
         [FromQuery] string? status = null)
     {
         var result = await _projectWorkingService.GetAllAsync(pageNumber, pageSize, projectShopOwnerId, serviceProviderProfileId, status);
@@ -47,8 +47,8 @@ public class ProjectWorkingController : ControllerBase
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
         [FromQuery] string? statuses = null,
-        [FromQuery] long? projectShopOwnerId = null,
-        [FromQuery] long? serviceProviderProfileId = null,
+        [FromQuery] Guid? projectShopOwnerId = null,
+        [FromQuery] Guid? serviceProviderProfileId = null,
         [FromQuery] string? contractType = null)
     {
         var result = await _projectWorkingService.FilterAsync(
@@ -56,8 +56,8 @@ public class ProjectWorkingController : ControllerBase
         return Ok(result);
     }
 
-    [HttpGet("{id:long}")]
-    public async Task<IActionResult> GetById(long id)
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id)
     {
         var result = await _projectWorkingService.GetByIdAsync(id);
         return Ok(result);
@@ -67,8 +67,8 @@ public class ProjectWorkingController : ControllerBase
     /// Provider xem brief owner tạo để quyết định nhận việc — mở cho cả designer lẫn constructor,
     /// từ lúc được mời (requested); engagement rejected/terminated bị chặn.
     /// </summary>
-    [HttpGet("{id:long}/brief")]
-    public async Task<IActionResult> GetBrief(long id)
+    [HttpGet("{id:guid}/brief")]
+    public async Task<IActionResult> GetBrief(Guid id)
     {
         var result = await _projectWorkingService.GetBriefAsync(User.GetAccountId(), id);
         return Ok(result);
@@ -78,8 +78,8 @@ public class ProjectWorkingController : ControllerBase
     /// Tổng quan dự án sau bước AI: engagement có design nhận brief + AI plan (state=completed);
     /// engagement chỉ construction nhận danh sách bản vẽ 'approved' của bên design.
     /// </summary>
-    [HttpGet("{id:long}/overview")]
-    public async Task<IActionResult> GetOverview(long id)
+    [HttpGet("{id:guid}/overview")]
+    public async Task<IActionResult> GetOverview(Guid id)
     {
         var result = await _projectWorkingService.GetOverviewAsync(User.GetAccountId(), id);
         return Ok(result);
@@ -100,18 +100,18 @@ public class ProjectWorkingController : ControllerBase
     }
 
     /// <summary>[ACCEPT] Provider chấp nhận lời mời thuê trực tiếp (requested → accepted).</summary>
-    [HttpPost("{id:long}/accept")]
+    [HttpPost("{id:guid}/accept")]
     [Authorize(Roles = "provider,admin")]
-    public async Task<IActionResult> Accept(long id)
+    public async Task<IActionResult> Accept(Guid id)
     {
         var result = await _projectWorkingService.AcceptAsync(User.GetAccountId(), id);
         return Ok(result);
     }
 
     /// <summary>[REJECT] Provider từ chối lời mời thuê trực tiếp (requested → rejected).</summary>
-    [HttpPost("{id:long}/reject")]
+    [HttpPost("{id:guid}/reject")]
     [Authorize(Roles = "provider,admin")]
-    public async Task<IActionResult> Reject(long id)
+    public async Task<IActionResult> Reject(Guid id)
     {
         var result = await _projectWorkingService.RejectAsync(User.GetAccountId(), id);
         return Ok(result);
@@ -124,10 +124,10 @@ public class ProjectWorkingController : ControllerBase
     /// Điều kiện: engagement 'accepted', có contract 'confirmed', và deliverable đã xong
     /// (design: ít nhất 1 bản 'approved'; construction: mọi milestone 'completed').
     /// </summary>
-    [HttpPost("{id:long}/request-completion")]
+    [HttpPost("{id:guid}/request-completion")]
     [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> RequestCompletion(
-        long id, [FromBody] RequestEngagementCompletionRequest request)
+        Guid id, [FromBody] RequestEngagementCompletionRequest request)
     {
         var result = await _projectWorkingService.RequestCompletionAsync(User.GetAccountId(), id, request);
         return Ok(result);
@@ -137,9 +137,9 @@ public class ProjectWorkingController : ControllerBase
     /// [OWNER — NGHIỆM THU] Owner xác nhận hoàn thành hợp tác với provider (accepted → completed).
     /// Cần contract 'confirmed'. Sau bước này review mới mở khoá.
     /// </summary>
-    [HttpPost("{id:long}/complete")]
+    [HttpPost("{id:guid}/complete")]
     [Authorize(Roles = "owner,admin")]
-    public async Task<IActionResult> Complete(long id)
+    public async Task<IActionResult> Complete(Guid id)
     {
         var result = await _projectWorkingService.CompleteAsync(User.GetAccountId(), id);
         return Ok(result);
@@ -150,9 +150,9 @@ public class ProjectWorkingController : ControllerBase
     /// KHÔNG huỷ ngay: engagement vẫn 'accepted', chỉ đặt mốc terminationRequestedAt và gửi
     /// noti + email cho bên còn lại. Chỉ khi bên kia đồng ý thì mới chuyển 'terminated'.
     /// </summary>
-    [HttpPost("{id:long}/termination-request")]
+    [HttpPost("{id:guid}/termination-request")]
     public async Task<IActionResult> RequestTermination(
-        long id, [FromBody] RequestEngagementTerminationRequest request)
+        Guid id, [FromBody] RequestEngagementTerminationRequest request)
     {
         var result = await _projectWorkingService.RequestTerminationAsync(User.GetAccountId(), id, request);
         return Ok(result);
@@ -163,9 +163,9 @@ public class ProjectWorkingController : ControllerBase
     /// approve=true → accepted → terminated; approve=false → xoá đề nghị, hợp tác chạy tiếp.
     /// Bên đề nghị nhận noti + email kết quả.
     /// </summary>
-    [HttpPost("{id:long}/termination-response")]
+    [HttpPost("{id:guid}/termination-response")]
     public async Task<IActionResult> RespondTermination(
-        long id, [FromBody] RespondEngagementTerminationRequest request)
+        Guid id, [FromBody] RespondEngagementTerminationRequest request)
     {
         var result = await _projectWorkingService.RespondTerminationAsync(User.GetAccountId(), id, request);
         return Ok(result);
@@ -175,8 +175,8 @@ public class ProjectWorkingController : ControllerBase
     /// [HUỶ NGANG — RÚT LẠI] Bên đề nghị tự rút đề nghị của mình khi bên kia chưa phản hồi.
     /// Bên còn lại nhận noti + email báo không cần phản hồi nữa.
     /// </summary>
-    [HttpDelete("{id:long}/termination-request")]
-    public async Task<IActionResult> CancelTerminationRequest(long id)
+    [HttpDelete("{id:guid}/termination-request")]
+    public async Task<IActionResult> CancelTerminationRequest(Guid id)
     {
         var result = await _projectWorkingService.CancelTerminationRequestAsync(User.GetAccountId(), id);
         return Ok(result);
@@ -188,8 +188,8 @@ public class ProjectWorkingController : ControllerBase
     /// bên kia đã đề nghị → coi như đồng ý và chuyển 'terminated'. Đọc cờ isAwaitingTerminationApproval
     /// trong response để biết đang ở bước nào. Admin gọi thì huỷ ngay (can thiệp hành chính).
     /// </summary>
-    [HttpPost("{id:long}/terminate")]
-    public async Task<IActionResult> Terminate(long id)
+    [HttpPost("{id:guid}/terminate")]
+    public async Task<IActionResult> Terminate(Guid id)
     {
         var result = await _projectWorkingService.TerminateAsync(User.GetAccountId(), id);
         return Ok(result);
@@ -201,8 +201,8 @@ public class ProjectWorkingController : ControllerBase
     /// status="terminated" được chuyển hướng sang luồng đồng thuận hai bên (như POST /terminate).
     /// Tiến độ design/construction là derived từ design/construction_item — không set ở đây.
     /// </summary>
-    [HttpPut("{id:long}/status")]
-    public async Task<IActionResult> UpdateStatus(long id, [FromBody] UpdateProjectWorkingStatusRequest request)
+    [HttpPut("{id:guid}/status")]
+    public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateProjectWorkingStatusRequest request)
     {
         var result = await _projectWorkingService.UpdateStatusAsync(User.GetAccountId(), id, request);
         return Ok(result);

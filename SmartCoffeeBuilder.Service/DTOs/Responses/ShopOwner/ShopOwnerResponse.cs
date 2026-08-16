@@ -4,8 +4,8 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.ShopOwner;
 
 public class ShopOwnerResponse
 {
-    public long Id { get; set; }
-    public long AccountId { get; set; }
+    public Guid Id { get; set; }
+    public Guid AccountId { get; set; }
     public string FullName { get; set; } = null!;
     public string ShopName { get; set; } = null!;
     public string Phone { get; set; } = null!;

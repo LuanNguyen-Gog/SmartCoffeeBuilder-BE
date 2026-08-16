@@ -4,7 +4,7 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.Account;
 
 public class AccountResponse
 {
-    public long Id { get; set; }
+    public Guid Id { get; set; }
     public string Email { get; set; } = null!;
     public string? Phone { get; set; }
     public string Role { get; set; } = null!;

@@ -13,11 +13,11 @@ public class CreateCommentRequest
     public string TargetType { get; set; } = null!;
 
     [Required]
-    public long TargetId { get; set; }
+    public Guid TargetId { get; set; }
 
     /// <summary>Nội dung comment. Nullable — mở đường cho việc chỉ đính kèm file/ảnh sau.</summary>
     public string? Body { get; set; }
 
     /// <summary>Account id người viết — controller mặc định lấy từ User.GetAccountId().</summary>
-    public long? CreatedBy { get; set; }
+    public Guid? CreatedBy { get; set; }
 }

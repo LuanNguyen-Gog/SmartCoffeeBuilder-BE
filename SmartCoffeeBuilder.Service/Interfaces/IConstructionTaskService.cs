@@ -17,19 +17,19 @@ public interface IConstructionTaskService
     /// tổng sẽ dính task của dự án khác.
     /// </summary>
     Task<PaginationResponse<ConstructionTaskResponse>> GetAllAsync(
-        long accountId, int pageNumber = 1, int pageSize = 10,
-        long? constructionItemId = null, string? status = null, long? projectWorkingId = null);
+        Guid accountId, int pageNumber = 1, int pageSize = 10,
+        Guid? constructionItemId = null, string? status = null, Guid? projectWorkingId = null);
 
-    Task<ConstructionTaskResponse> GetByIdAsync(long accountId, long id);
+    Task<ConstructionTaskResponse> GetByIdAsync(Guid accountId, Guid id);
 
     /// <summary>Tạo task trong milestone. Phải là provider của engagement; milestone chưa 'completed'.</summary>
-    Task<ConstructionTaskResponse> CreateAsync(long accountId, CreateConstructionTaskRequest request);
+    Task<ConstructionTaskResponse> CreateAsync(Guid accountId, CreateConstructionTaskRequest request);
 
-    Task<ConstructionTaskResponse> UpdateAsync(long accountId, long id, UpdateConstructionTaskRequest request);
+    Task<ConstructionTaskResponse> UpdateAsync(Guid accountId, Guid id, UpdateConstructionTaskRequest request);
 
     /// <summary>Chuyển trạng thái: pending → in_progress → completed (chỉ tiến, không lùi).</summary>
     Task<ConstructionTaskResponse> UpdateStatusAsync(
-        long accountId, long id, UpdateConstructionTaskStatusRequest request);
+        Guid accountId, Guid id, UpdateConstructionTaskStatusRequest request);
 
-    Task DeleteAsync(long accountId, long id);
+    Task DeleteAsync(Guid accountId, Guid id);
 }

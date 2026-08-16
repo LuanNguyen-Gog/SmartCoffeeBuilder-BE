@@ -4,8 +4,8 @@ namespace SmartCoffeeBuilder.Repository.Models;
 
 public class ServiceProviderProfile
 {
-    public long Id { get; set; }
-    public long AccountId { get; set; }
+    public Guid Id { get; set; }
+    public Guid AccountId { get; set; }
     public string DisplayName { get; set; } = null!;
     public ProviderType ProviderType { get; set; }
     public Capability Capability { get; set; }

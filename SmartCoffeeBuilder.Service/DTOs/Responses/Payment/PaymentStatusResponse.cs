@@ -16,11 +16,11 @@ public class PaymentStatusResponse
     public string PaymentLinkId { get; set; } = null!;
 
     /// <summary>Có giá trị khi Purpose = subscription.</summary>
-    public long? SubscriptionId { get; set; }
+    public Guid? SubscriptionId { get; set; }
     public SubscriptionStatus? SubscriptionStatus { get; set; }
 
     /// <summary>Có giá trị khi Purpose = post_boost.</summary>
-    public long? PostId { get; set; }
+    public Guid? PostId { get; set; }
     public DateTime? PostBoostedUntil { get; set; }
 
     public decimal Amount { get; set; }

@@ -5,7 +5,7 @@ namespace SmartCoffeeBuilder.Service.DTOs.Requests.Post;
 public class CreatePostRequest
 {
     [Required]
-    public long ProjectShopOwnerId { get; set; }
+    public Guid ProjectShopOwnerId { get; set; }
 
     /// <summary>design | construction | both</summary>
     [Required]

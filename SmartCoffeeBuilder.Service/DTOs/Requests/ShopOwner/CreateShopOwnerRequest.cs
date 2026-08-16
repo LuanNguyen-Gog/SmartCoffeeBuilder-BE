@@ -5,7 +5,7 @@ namespace SmartCoffeeBuilder.Service.DTOs.Requests.ShopOwner;
 public class CreateShopOwnerRequest
 {
     [Required]
-    public long AccountId { get; set; }
+    public Guid AccountId { get; set; }
 
     [Required]
     public string FullName { get; set; } = null!;

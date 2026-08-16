@@ -8,8 +8,8 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.Chat;
 /// </summary>
 public class ConversationDetailResponse
 {
-    public long Id { get; set; }
-    public long ProjectWorkingId { get; set; }
+    public Guid Id { get; set; }
+    public Guid ProjectWorkingId { get; set; }
     public string? Topic { get; set; }
     public SenderInfo CreatedBy { get; set; } = null!;
     public DateTime CreatedAt { get; set; }

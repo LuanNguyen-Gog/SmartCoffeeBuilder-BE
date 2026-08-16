@@ -7,7 +7,7 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.AiRecommendation;
 public class AiDesignJobStatusResponse
 {
     [JsonPropertyName("id")]
-    public long Id { get; set; }
+    public Guid Id { get; set; }
     
     [JsonPropertyName("jobId")]
     public string JobId { get; set; } = null!;

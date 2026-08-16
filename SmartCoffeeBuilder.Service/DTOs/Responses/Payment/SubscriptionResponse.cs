@@ -4,9 +4,9 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.Payment;
 
 public class SubscriptionResponse
 {
-    public long Id { get; set; }
-    public long AccountId { get; set; }
-    public long PlanId { get; set; }
+    public Guid Id { get; set; }
+    public Guid AccountId { get; set; }
+    public Guid PlanId { get; set; }
     public string PlanName { get; set; } = null!;
     public SubscriptionStatus Status { get; set; }
     public DateTime StartDate { get; set; }

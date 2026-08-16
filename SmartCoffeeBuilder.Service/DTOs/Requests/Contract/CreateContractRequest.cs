@@ -6,7 +6,7 @@ namespace SmartCoffeeBuilder.Service.DTOs.Requests.Contract;
 public class CreateContractRequest
 {
     [Required]
-    public long ProjectWorkingId { get; set; }
+    public Guid ProjectWorkingId { get; set; }
 
     [Required]
     public string Title { get; set; } = null!;

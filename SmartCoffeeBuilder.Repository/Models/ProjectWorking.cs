@@ -5,11 +5,11 @@ namespace SmartCoffeeBuilder.Repository.Models;
 /// <summary>Trục trung tâm: engagement giữa project và provider (design/construction/both).</summary>
 public class ProjectWorking
 {
-    public long Id { get; set; }
-    public long ProjectShopOwnerId { get; set; }
-    public long ServiceProviderProfileId { get; set; }
+    public Guid Id { get; set; }
+    public Guid ProjectShopOwnerId { get; set; }
+    public Guid ServiceProviderProfileId { get; set; }
     /// <summary>nullable = thuê trực tiếp; có giá trị = qua marketplace.</summary>
-    public long? ApplyId { get; set; }
+    public Guid? ApplyId { get; set; }
     public ServiceKind ContractType { get; set; }
     public ProviderStatus Status { get; set; } = ProviderStatus.requested;
     public string? RequestMessage { get; set; }

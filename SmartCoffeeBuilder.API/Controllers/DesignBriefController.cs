@@ -26,14 +26,14 @@ public class DesignBriefController : ControllerBase
     public async Task<IActionResult> GetAll(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
-        [FromQuery] long? projectShopOwnerId = null)
+        [FromQuery] Guid? projectShopOwnerId = null)
     {
         var result = await _designBriefService.GetAllAsync(User.GetAccountId(), pageNumber, pageSize, projectShopOwnerId);
         return Ok(result);
     }
 
-    [HttpGet("{id:long}")]
-    public async Task<IActionResult> GetById(long id)
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id)
     {
         var result = await _designBriefService.GetByIdAsync(User.GetAccountId(), id);
         return Ok(result);
@@ -47,17 +47,17 @@ public class DesignBriefController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
-    [HttpPut("{id:long}")]
+    [HttpPut("{id:guid}")]
     [Authorize(Roles = "owner,admin")]
-    public async Task<IActionResult> Update(long id, [FromBody] UpdateDesignBriefRequest request)
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateDesignBriefRequest request)
     {
         var result = await _designBriefService.UpdateAsync(User.GetAccountId(), id, request);
         return Ok(result);
     }
 
-    [HttpDelete("{id:long}")]
+    [HttpDelete("{id:guid}")]
     [Authorize(Roles = "owner,admin")]
-    public async Task<IActionResult> Delete(long id)
+    public async Task<IActionResult> Delete(Guid id)
     {
         await _designBriefService.DeleteAsync(User.GetAccountId(), id);
         return NoContent();

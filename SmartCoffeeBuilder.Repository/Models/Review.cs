@@ -2,8 +2,8 @@ namespace SmartCoffeeBuilder.Repository.Models;
 
 public class Review
 {
-    public long Id { get; set; }
-    public long ProjectWorkingId { get; set; }
+    public Guid Id { get; set; }
+    public Guid ProjectWorkingId { get; set; }
     public decimal OverallRating { get; set; }
     public string? Comment { get; set; }
     public DateTime CreatedAt { get; set; }

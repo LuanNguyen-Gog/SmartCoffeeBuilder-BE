@@ -5,7 +5,7 @@ namespace SmartCoffeeBuilder.Service.DTOs.Requests.Survey;
 public class CreateSurveyRequest
 {
     [Required]
-    public long ProjectWorkingId { get; set; }
+    public Guid ProjectWorkingId { get; set; }
 
     /// <summary>Ghi chú hiện trạng mặt bằng.</summary>
     [Required]

@@ -28,7 +28,7 @@ public class AiRecommendationController : ControllerBase
 
     [HttpGet]
     public async Task<IActionResult> GetAllByBriefId(
-        [FromQuery] long briefId,
+        [FromQuery] Guid briefId,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10)
     {
@@ -37,8 +37,8 @@ public class AiRecommendationController : ControllerBase
         return Ok(result);
     }
 
-    [HttpGet("{id:long}")]
-    public async Task<IActionResult> GetById(long id)
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id)
     {
         var result = await _aiRecommendationService.GetByIdAsync(User.GetAccountId(), id);
         return Ok(result);

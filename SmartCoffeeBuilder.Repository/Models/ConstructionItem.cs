@@ -4,9 +4,9 @@ namespace SmartCoffeeBuilder.Repository.Models;
 
 public class ConstructionItem
 {
-    public long Id { get; set; }
-    public long ProjectWorkingId { get; set; }
-    public long? ParentId { get; set; } // phân cấp
+    public Guid Id { get; set; }
+    public Guid ProjectWorkingId { get; set; }
+    public Guid? ParentId { get; set; } // phân cấp
     public string Name { get; set; } = null!;
     public string? Description { get; set; }
     public string? Category { get; set; }
@@ -14,7 +14,7 @@ public class ConstructionItem
     public DateOnly? ActualAt { get; set; }
     // v5: bỏ IsDone — trạng thái hoàn thành chỉ đọc từ Status = completed (một nguồn sự thật).
     public ItemStatus Status { get; set; } = ItemStatus.pending;
-    public long? CreatedBy { get; set; }
+    public Guid? CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

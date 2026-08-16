@@ -8,7 +8,7 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.ProjectShopOwner;
 /// </summary>
 public class ShopOwnerSummary
 {
-    public long Id { get; set; }
+    public Guid Id { get; set; }
     public string FullName { get; set; } = null!;
     public string ShopName { get; set; } = null!;
     public string Phone { get; set; } = null!;

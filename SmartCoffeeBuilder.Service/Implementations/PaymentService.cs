@@ -41,7 +41,7 @@ public class PaymentService : IPaymentService
         return plans.Select(SubscriptionPlanResponse.From).ToList();
     }
 
-    public async Task<CreatePaymentResponse> CreateSubscriptionPaymentAsync(long accountId, CreateSubscriptionPaymentRequest request)
+    public async Task<CreatePaymentResponse> CreateSubscriptionPaymentAsync(Guid accountId, CreateSubscriptionPaymentRequest request)
     {
         var plan = await _unitOfWork.GetRepository<SubscriptionPlan>()
                 .SingleOrDefaultAsync(predicate: p => p.Id == request.PlanId && p.IsActive)
@@ -150,7 +150,7 @@ public class PaymentService : IPaymentService
         };
     }
 
-    public async Task<CreatePaymentResponse> CreatePostBoostPaymentAsync(long accountId, CreatePostBoostRequest request)
+    public async Task<CreatePaymentResponse> CreatePostBoostPaymentAsync(Guid accountId, CreatePostBoostRequest request)
     {
         if (request.Days < 1 || request.Days > 90)
             throw new ArgumentException("Số ngày đẩy bài phải từ 1 đến 90.");
@@ -244,7 +244,7 @@ public class PaymentService : IPaymentService
         };
     }
 
-    public async Task<SubscriptionResponse?> GetActiveSubscriptionAsync(long accountId)
+    public async Task<SubscriptionResponse?> GetActiveSubscriptionAsync(Guid accountId)
     {
         var now = DateTime.UtcNow;
         var subscription = await _unitOfWork.GetRepository<Subscription>().SingleOrDefaultAsync(
@@ -255,7 +255,7 @@ public class PaymentService : IPaymentService
         return subscription == null ? null : SubscriptionResponse.From(subscription);
     }
 
-    public async Task<ICollection<SubscriptionResponse>> GetSubscriptionHistoryAsync(long accountId)
+    public async Task<ICollection<SubscriptionResponse>> GetSubscriptionHistoryAsync(Guid accountId)
     {
         var subscriptions = await _unitOfWork.GetRepository<Subscription>().GetListAsync(
             predicate: s => s.AccountId == accountId,
@@ -265,7 +265,7 @@ public class PaymentService : IPaymentService
         return subscriptions.Select(SubscriptionResponse.From).ToList();
     }
 
-    public async Task<PaymentStatusResponse> GetPaymentStatusAsync(long accountId, long? orderCode, string? paymentLinkId)
+    public async Task<PaymentStatusResponse> GetPaymentStatusAsync(Guid accountId, long? orderCode, string? paymentLinkId)
     {
         if (orderCode == null && string.IsNullOrWhiteSpace(paymentLinkId))
             throw new ArgumentException("Cần cung cấp orderCode hoặc paymentLinkId.");
@@ -279,7 +279,7 @@ public class PaymentService : IPaymentService
         return PaymentStatusResponse.From(transaction);
     }
 
-    public async Task<PaymentStatusResponse> CancelPaymentAsync(long accountId, long orderCode)
+    public async Task<PaymentStatusResponse> CancelPaymentAsync(Guid accountId, long orderCode)
     {
         var transaction = await FindTransactionAsync(orderCode, null)
             ?? throw new KeyNotFoundException($"Không tìm thấy giao dịch với orderCode {orderCode}.");
@@ -576,7 +576,7 @@ public class PaymentService : IPaymentService
     /// tiếp. Đây là truy vấn có điều kiện mà GenericRepository.Update (attach + set toàn bộ Modified,
     /// không có WHERE) không diễn đạt được, nên dùng thẳng _unitOfWork.Context cho riêng thao tác này.
     /// </summary>
-    private async Task<bool> TryClaimPendingTransactionAsync(long transactionId, PaymentTransactionStatus newStatus)
+    private async Task<bool> TryClaimPendingTransactionAsync(Guid transactionId, PaymentTransactionStatus newStatus)
     {
         var affected = await _unitOfWork.Context.Set<PaymentTransaction>()
             .Where(t => t.Id == transactionId && t.Status == PaymentTransactionStatus.pending)
@@ -598,8 +598,8 @@ public class PaymentService : IPaymentService
     /// giờ thấy URL quay về để đóng → user kẹt ở màn thanh toán dù đã trả tiền xong.
     /// </summary>
     private Task<PaymentTransaction?> FindReusablePendingTransactionAsync(
-        long accountId, PaymentPurpose purpose, PaymentPlatform platform,
-        long? planId, long? postId, int expirationSeconds)
+        Guid accountId, PaymentPurpose purpose, PaymentPlatform platform,
+        Guid? planId, Guid? postId, int expirationSeconds)
     {
         var notExpiredAfter = DateTime.UtcNow.AddSeconds(-expirationSeconds);
 

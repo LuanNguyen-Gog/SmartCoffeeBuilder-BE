@@ -51,7 +51,7 @@ public class ServiceProviderProfileService : IServiceProviderProfileService
             paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
-    public async Task<ServiceProviderProfileResponse> GetByIdAsync(long id)
+    public async Task<ServiceProviderProfileResponse> GetByIdAsync(Guid id)
     {
         var provider = await _repository.SingleOrDefaultAsync(predicate: p => p.Id == id && p.DeletedAt == null)
             ?? throw new KeyNotFoundException($"Không tìm thấy service provider với id {id}.");
@@ -100,7 +100,7 @@ public class ServiceProviderProfileService : IServiceProviderProfileService
         return ServiceProviderProfileResponse.From(provider);
     }
 
-    public async Task<ServiceProviderProfileResponse> UpdateAsync(long id, UpdateServiceProviderProfileRequest request)
+    public async Task<ServiceProviderProfileResponse> UpdateAsync(Guid id, UpdateServiceProviderProfileRequest request)
     {
         var provider = await _repository.GetByIdAsync(id);
         if (provider == null || provider.DeletedAt != null)
@@ -135,7 +135,7 @@ public class ServiceProviderProfileService : IServiceProviderProfileService
         return ServiceProviderProfileResponse.From(provider);
     }
 
-    public async Task DeleteAsync(long id)
+    public async Task DeleteAsync(Guid id)
     {
         var provider = await _repository.GetByIdAsync(id);
         if (provider == null || provider.DeletedAt != null)

@@ -24,8 +24,8 @@ public class ShopOwnerController : ControllerBase
         return Ok(result);
     }
 
-    [HttpGet("{id:long}")]
-    public async Task<IActionResult> GetById(long id)
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id)
     {
         var result = await _shopOwnerService.GetByIdAsync(id);
         return Ok(result);
@@ -39,17 +39,17 @@ public class ShopOwnerController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
-    [HttpPut("{id:long}")]
+    [HttpPut("{id:guid}")]
     [Authorize(Roles = "owner,admin")]
-    public async Task<IActionResult> Update(long id, [FromBody] UpdateShopOwnerRequest request)
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateShopOwnerRequest request)
     {
         var result = await _shopOwnerService.UpdateAsync(id, request);
         return Ok(result);
     }
 
-    [HttpDelete("{id:long}")]
+    [HttpDelete("{id:guid}")]
     [Authorize(Roles = "admin")]
-    public async Task<IActionResult> Delete(long id)
+    public async Task<IActionResult> Delete(Guid id)
     {
         await _shopOwnerService.DeleteAsync(id);
         return NoContent();

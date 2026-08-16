@@ -32,7 +32,7 @@ public class DesignController : ControllerBase
     public async Task<IActionResult> GetAll(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
-        [FromQuery] long? projectWorkingId = null,
+        [FromQuery] Guid? projectWorkingId = null,
         [FromQuery] string? status = null,
         [FromQuery] string? type = null)
     {
@@ -41,8 +41,8 @@ public class DesignController : ControllerBase
         return Ok(result);
     }
 
-    [HttpGet("{id:long}")]
-    public async Task<IActionResult> GetById(long id)
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id)
     {
         var result = await _designService.GetByIdAsync(User.GetAccountId(), id);
         return Ok(result);
@@ -61,45 +61,45 @@ public class DesignController : ControllerBase
     }
 
     /// <summary>Cập nhật title/type — chỉ khi design đang 'in_progress' hoặc 'revision'.</summary>
-    [HttpPut("{id:long}")]
+    [HttpPut("{id:guid}")]
     [Authorize(Roles = "provider,admin")]
-    public async Task<IActionResult> Update(long id, [FromBody] UpdateDesignRequest request)
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateDesignRequest request)
     {
         var result = await _designService.UpdateAsync(User.GetAccountId(), id, request);
         return Ok(result);
     }
 
     /// <summary>[SUBMIT] Provider nộp bản design cho owner duyệt (in_progress → submitted). Phải có ít nhất 1 ảnh.</summary>
-    [HttpPost("{id:long}/submit")]
+    [HttpPost("{id:guid}/submit")]
     [Authorize(Roles = "provider,admin")]
-    public async Task<IActionResult> Submit(long id)
+    public async Task<IActionResult> Submit(Guid id)
     {
         var result = await _designService.SubmitAsync(id, User.GetAccountId());
         return Ok(result);
     }
 
     /// <summary>[APPROVE] Owner duyệt bản design (submitted → approved).</summary>
-    [HttpPost("{id:long}/approve")]
+    [HttpPost("{id:guid}/approve")]
     [Authorize(Roles = "owner,admin")]
-    public async Task<IActionResult> Approve(long id)
+    public async Task<IActionResult> Approve(Guid id)
     {
         var result = await _designService.ApproveAsync(id, User.GetAccountId());
         return Ok(result);
     }
 
     /// <summary>[REVISION] Owner yêu cầu chỉnh sửa kèm lý do (submitted → revision).</summary>
-    [HttpPost("{id:long}/request-revision")]
+    [HttpPost("{id:guid}/request-revision")]
     [Authorize(Roles = "owner,admin")]
-    public async Task<IActionResult> RequestRevision(long id, [FromBody] RequestDesignRevisionRequest request)
+    public async Task<IActionResult> RequestRevision(Guid id, [FromBody] RequestDesignRevisionRequest request)
     {
         var result = await _designService.RequestRevisionAsync(User.GetAccountId(), id, request);
         return Ok(result);
     }
 
     /// <summary>[REWORK] Provider bắt đầu sửa theo yêu cầu (revision → in_progress, version +0.1).</summary>
-    [HttpPost("{id:long}/start-revision")]
+    [HttpPost("{id:guid}/start-revision")]
     [Authorize(Roles = "provider,admin")]
-    public async Task<IActionResult> StartRevision(long id)
+    public async Task<IActionResult> StartRevision(Guid id)
     {
         var result = await _designService.StartRevisionAsync(User.GetAccountId(), id);
         return Ok(result);
@@ -110,10 +110,10 @@ public class DesignController : ControllerBase
     /// của api/files: object nằm ở "{role}/{accountId}/{yyyy}/{MM}/{guid}{ext}".
     /// Multipart form-data: file (bắt buộc), caption. Không thêm được khi design đã approved.
     /// </summary>
-    [HttpPost("{id:long}/files")]
+    [HttpPost("{id:guid}/files")]
     [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> UploadFile(
-        long id, IFormFile file,
+        Guid id, IFormFile file,
         [FromForm] string? caption = null)
     {
         if (file == null || file.Length == 0)
@@ -131,9 +131,9 @@ public class DesignController : ControllerBase
     }
 
     /// <summary>Xóa file khỏi design (xoá cả object trên bucket) — không xóa được khi đã approved.</summary>
-    [HttpDelete("{id:long}/files/{fileId:long}")]
+    [HttpDelete("{id:guid}/files/{fileId:guid}")]
     [Authorize(Roles = "provider,admin")]
-    public async Task<IActionResult> RemoveFile(long id, long fileId)
+    public async Task<IActionResult> RemoveFile(Guid id, Guid fileId)
     {
         await _designService.RemoveFileAsync(User.GetAccountId(), id, fileId);
         return NoContent();
@@ -144,9 +144,9 @@ public class DesignController : ControllerBase
     /// đều sinh 1 bản mới. Bản 'revision' giữ LÝ DO của đúng vòng sửa đó kèm bộ ảnh lúc owner trả về.
     /// Phân trang theo pageNumber / pageSize (mặc định 1 / 20).
     /// </summary>
-    [HttpGet("{id:long}/versions")]
+    [HttpGet("{id:guid}/versions")]
     public async Task<IActionResult> GetVersions(
-        long id,
+        Guid id,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20)
     {
@@ -155,8 +155,8 @@ public class DesignController : ControllerBase
     }
 
     /// <summary>Chi tiết 1 version kèm ảnh snapshot.</summary>
-    [HttpGet("{id:long}/versions/{versionId:long}")]
-    public async Task<IActionResult> GetVersion(long id, long versionId)
+    [HttpGet("{id:guid}/versions/{versionId:guid}")]
+    public async Task<IActionResult> GetVersion(Guid id, Guid versionId)
     {
         var result = await _designService.GetVersionByIdAsync(User.GetAccountId(), id, versionId);
         return Ok(result);

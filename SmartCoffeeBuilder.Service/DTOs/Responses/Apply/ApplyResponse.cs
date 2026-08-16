@@ -2,11 +2,11 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.Apply;
 
 public class ApplyResponse
 {
-    public long Id { get; set; }
-    public long PostId { get; set; }
+    public Guid Id { get; set; }
+    public Guid PostId { get; set; }
     public string? PostTitle { get; set; }
-    public long? ProjectShopOwnerId { get; set; }
-    public long ServiceProviderProfileId { get; set; }
+    public Guid? ProjectShopOwnerId { get; set; }
+    public Guid ServiceProviderProfileId { get; set; }
     public string? ProviderDisplayName { get; set; }
     public string Proposal { get; set; } = null!;
     public int? EstimatedDurationDays { get; set; }

@@ -30,7 +30,7 @@ public class ContractController : ControllerBase
     public async Task<IActionResult> GetAll(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
-        [FromQuery] long? projectWorkingId = null)
+        [FromQuery] Guid? projectWorkingId = null)
     {
         var result = await _contractService.GetAllAsync(
             User.GetAccountId(), pageNumber, pageSize, projectWorkingId);
@@ -40,8 +40,8 @@ public class ContractController : ControllerBase
     /// <summary>
     /// Chi tiết hợp đồng — chỉ hai bên của chính engagement đó (hoặc admin) đọc được, 401 nếu không.
     /// </summary>
-    [HttpGet("{id:long}")]
-    public async Task<IActionResult> GetById(long id)
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id)
     {
         var result = await _contractService.GetByIdAsync(User.GetAccountId(), id);
         return Ok(result);
@@ -67,9 +67,9 @@ public class ContractController : ControllerBase
     /// <summary>
     /// Cập nhật nội dung hợp đồng — chỉ provider của engagement, và chỉ khi còn 'drafted'.
     /// </summary>
-    [HttpPut("{id:long}")]
+    [HttpPut("{id:guid}")]
     [Authorize(Roles = "provider,admin")]
-    public async Task<IActionResult> Update(long id, [FromBody] UpdateContractRequest request)
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateContractRequest request)
     {
         var result = await _contractService.UpdateAsync(User.GetAccountId(), id, request);
         return Ok(result);
@@ -82,9 +82,9 @@ public class ContractController : ControllerBase
     /// </summary>
     // Chỉ owner — KHÔNG mở cho admin, giống confirm-otp: cả lượt ký hợp đồng không uỷ quyền được
     // (service dùng EnsureOwnerOfEngagement chứ không phải EnsureActor).
-    [HttpPost("{id:long}/send-otp")]
+    [HttpPost("{id:guid}/send-otp")]
     [Authorize(Roles = "owner")]
-    public async Task<IActionResult> SendOtp(long id)
+    public async Task<IActionResult> SendOtp(Guid id)
     {
         var result = await _contractService.SendOtpAsync(User.GetAccountId(), id);
         return Ok(result);
@@ -96,9 +96,9 @@ public class ContractController : ControllerBase
     /// </summary>
     // Chỉ owner — KHÔNG mở cho admin: chữ ký hợp đồng không uỷ quyền được
     // (service dùng EnsureOwnerOfEngagement chứ không phải EnsureActor).
-    [HttpPost("{id:long}/confirm-otp")]
+    [HttpPost("{id:guid}/confirm-otp")]
     [Authorize(Roles = "owner")]
-    public async Task<IActionResult> ConfirmOtp(long id, [FromBody] ConfirmContractOtpRequest request)
+    public async Task<IActionResult> ConfirmOtp(Guid id, [FromBody] ConfirmContractOtpRequest request)
     {
         var result = await _contractService.ConfirmOtpAsync(User.GetAccountId(), id, request);
         return Ok(result);
@@ -109,8 +109,8 @@ public class ContractController : ControllerBase
     /// Cả owner lẫn provider của engagement đều huỷ được; người ngoài → 401.
     /// Đây cũng là cách giải phóng "chỗ" để provider lập được hợp đồng mới cho dự án.
     /// </summary>
-    [HttpPost("{id:long}/cancel")]
-    public async Task<IActionResult> Cancel(long id)
+    [HttpPost("{id:guid}/cancel")]
+    public async Task<IActionResult> Cancel(Guid id)
     {
         var result = await _contractService.CancelAsync(User.GetAccountId(), id);
         return Ok(result);

@@ -5,8 +5,8 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.Design;
 
 public class DesignVersionImageResponse
 {
-    public long Id { get; set; }
-    public long DesignVersionId { get; set; }
+    public Guid Id { get; set; }
+    public Guid DesignVersionId { get; set; }
 
     /// <summary>ObjectName trên bucket — giá trị COPY tại thời điểm snapshot (không phụ thuộc ảnh gốc).</summary>
     public string ImageUrl { get; set; } = null!;
@@ -15,7 +15,7 @@ public class DesignVersionImageResponse
     public string? ViewUrl { get; set; }
 
     public string? Caption { get; set; }
-    public long? UploadedBy { get; set; }
+    public Guid? UploadedBy { get; set; }
 
     /// <summary>CreatedAt của ảnh gốc — giữ lại cho lịch sử.</summary>
     public DateTime UploadedAt { get; set; }

@@ -9,8 +9,8 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.ProjectShopOwner;
 /// </summary>
 public class ProjectWorkingSummary
 {
-    public long ProjectWorkingId { get; set; }
-    public long ServiceProviderProfileId { get; set; }
+    public Guid ProjectWorkingId { get; set; }
+    public Guid ServiceProviderProfileId { get; set; }
     public string DisplayName { get; set; } = null!;
     public string ProviderType { get; set; } = null!;
     public string Capability { get; set; } = null!;

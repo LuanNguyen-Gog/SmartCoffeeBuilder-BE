@@ -28,8 +28,8 @@ public class ConstructionItemService : IConstructionItemService
     }
 
     public async Task<PaginationResponse<ConstructionItemResponse>> GetAllAsync(
-        long accountId, int pageNumber = 1, int pageSize = 10,
-        long? projectWorkingId = null, long? parentId = null, string? status = null)
+        Guid accountId, int pageNumber = 1, int pageSize = 10,
+        Guid? projectWorkingId = null, Guid? parentId = null, string? status = null)
     {
         ItemStatus? st = null;
         if (!string.IsNullOrWhiteSpace(status))
@@ -59,7 +59,7 @@ public class ConstructionItemService : IConstructionItemService
             paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
-    public async Task<ConstructionItemResponse> GetByIdAsync(long accountId, long id)
+    public async Task<ConstructionItemResponse> GetByIdAsync(Guid accountId, Guid id)
     {
         var item = await LoadForActionAsync(accountId, id, "xem hạng mục thi công",
             EngagementActor.Owner, EngagementActor.Provider);
@@ -67,7 +67,7 @@ public class ConstructionItemService : IConstructionItemService
         return ConstructionItemResponse.From(item);
     }
 
-    public async Task<ConstructionItemResponse> CreateAsync(long accountId, CreateConstructionItemRequest request)
+    public async Task<ConstructionItemResponse> CreateAsync(Guid accountId, CreateConstructionItemRequest request)
     {
         var engagement = await _unitOfWork.GetRepository<ProjectWorking>()
             .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectWorkingId)
@@ -134,7 +134,7 @@ public class ConstructionItemService : IConstructionItemService
     }
 
     public async Task<ConstructionItemResponse> UpdateAsync(
-        long accountId, long id, UpdateConstructionItemRequest request)
+        Guid accountId, Guid id, UpdateConstructionItemRequest request)
     {
         var item = await LoadForActionAsync(accountId, id, "sửa hạng mục thi công", EngagementActor.Provider);
 
@@ -158,7 +158,7 @@ public class ConstructionItemService : IConstructionItemService
     }
 
     public async Task<ConstructionItemResponse> UpdateStatusAsync(
-        long accountId, long id, UpdateConstructionItemStatusRequest request)
+        Guid accountId, Guid id, UpdateConstructionItemStatusRequest request)
     {
         if (!Enum.TryParse<ItemStatus>(request.Status, ignoreCase: true, out var target))
             throw new ArgumentException($"Status '{request.Status}' không hợp lệ. Cho phép: pending, in_progress, completed.");
@@ -211,7 +211,7 @@ public class ConstructionItemService : IConstructionItemService
         return ConstructionItemResponse.From(item);
     }
 
-    public async Task DeleteAsync(long accountId, long id)
+    public async Task DeleteAsync(Guid accountId, Guid id)
     {
         var item = await LoadForActionAsync(accountId, id, "xoá hạng mục thi công", EngagementActor.Provider);
 
@@ -233,7 +233,7 @@ public class ConstructionItemService : IConstructionItemService
     /// Nạp milestone và chốt quyền trong một bước — mọi endpoint theo id đều phải đi qua đây.
     /// </summary>
     private async Task<ConstructionItem> LoadForActionAsync(
-        long accountId, long id, string action, params EngagementActor[] allowed)
+        Guid accountId, Guid id, string action, params EngagementActor[] allowed)
     {
         var item = await _repository.SingleOrDefaultAsync(predicate: e => e.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy construction item với id {id}.");
