@@ -31,7 +31,7 @@ public class AiRecommendationService : IAiRecommendationService
     {
         // briefId đến từ client nên bản thân nó không chứng minh được gì: không có check này thì
         // owner A chỉ cần đổi số là đọc trọn kết quả AI của owner B (dự toán chi phí, layout).
-        await EnsureBriefOwnerAsync(accountId, briefId);
+        await EnsureBriefVisibleAsync(accountId, briefId);
 
         var query = _repository
             .GetQueryable(r => r.BriefId == briefId)
@@ -49,7 +49,7 @@ public class AiRecommendationService : IAiRecommendationService
         var recommendation = await _repository.GetByIdAsync(id)
             ?? throw new KeyNotFoundException($"Không tìm thấy ai recommendation với id {id}.");
 
-        await EnsureBriefOwnerAsync(accountId, recommendation.BriefId);
+        await EnsureBriefVisibleAsync(accountId, recommendation.BriefId);
 
         return AiRecommendationResponse.From(recommendation);
     }
@@ -284,9 +284,52 @@ public class AiRecommendationService : IAiRecommendationService
     }
 
     /// <summary>
-    /// Kết quả AI là tài sản của CHỦ DỰ ÁN mang brief — chỉ owner đó (hoặc admin) đọc/chạy được.
-    /// Provider không đi qua controller này (role gate <c>owner,admin</c>); phần AI mà provider
-    /// được thấy nằm ở <c>GET api/project-workings/{id}/overview</c>, đã lọc theo engagement.
+    /// Ai được ĐỌC kết quả AI của một brief. Cố ý khớp từng vế với
+    /// <c>DesignBriefService.EnsureProjectVisibleAsync</c>: brief và ảnh AI là cùng một gói thông
+    /// tin mà provider cần để quyết định có nộp hồ sơ hay không, nên hai bên lệch luật thì
+    /// marketplace hiện nửa nội dung — đọc được yêu cầu nhưng không xem được concept.
+    /// <list type="bullet">
+    /// <item>chủ dự án — brief là của họ;</item>
+    /// <item>provider có engagement còn hiệu lực (rejected/terminated thì hết quyền);</item>
+    /// <item>mọi tài khoản khi dự án còn bài đăng 'open' — bài đăng là lời mời thầu công khai;</item>
+    /// <item>admin.</item>
+    /// </list>
+    /// CHỈ dùng cho đường ĐỌC. Đường generate/tạo/sửa/xoá vẫn phải qua
+    /// <see cref="EnsureBriefOwnerAsync"/>: chạy job AI tốn quota và ghi bản ghi vào brief,
+    /// nới quyền ở đó là cho người ngoài tiêu tiền và làm bẩn dữ liệu của chủ dự án.
+    /// </summary>
+    /// <exception cref="KeyNotFoundException">Brief không tồn tại (HTTP 404).</exception>
+    /// <exception cref="UnauthorizedAccessException">Dự án không mở thầu và người gọi không tham gia (HTTP 401).</exception>
+    private async Task EnsureBriefVisibleAsync(long accountId, long briefId)
+    {
+        // Một query trả về đúng một cờ bool: null = brief không tồn tại (404), false = tồn tại
+        // nhưng không được xem (401). Gộp lại thì không phân biệt được hai ca này.
+        var visible = await _unitOfWork.GetRepository<DesignBrief>()
+            .SingleOrDefaultAsync(
+                selector: b => (bool?)(
+                    b.ProjectShopOwner.DeletedAt == null
+                    && (b.ProjectShopOwner.Owner.AccountId == accountId
+                        || b.ProjectShopOwner.ProjectWorkings.Any(
+                            e => e.ServiceProviderProfile.AccountId == accountId
+                                 && e.Status != ProviderStatus.rejected
+                                 && e.Status != ProviderStatus.terminated)
+                        || b.ProjectShopOwner.Posts.Any(p => p.Status == PostStatus.open))),
+                predicate: b => b.Id == briefId)
+            ?? throw new KeyNotFoundException($"Không tìm thấy design brief với id {briefId}.");
+
+        if (visible) return;
+
+        var account = await _unitOfWork.GetRepository<Account>()
+            .SingleOrDefaultAsync(predicate: a => a.Id == accountId && a.DeletedAt == null);
+        if (account?.Role == AccountRole.admin) return;
+
+        throw new UnauthorizedAccessException(
+            "Dự án mang brief này không mở thầu công khai và tài khoản đang đăng nhập không tham gia.");
+    }
+
+    /// <summary>
+    /// Ai được GHI (generate/tạo/sửa/xoá) trên brief: chỉ chủ dự án hoặc admin.
+    /// Quyền ĐỌC rộng hơn — xem <see cref="EnsureBriefVisibleAsync"/>.
     /// </summary>
     /// <exception cref="KeyNotFoundException">Brief không tồn tại (HTTP 404).</exception>
     /// <exception cref="UnauthorizedAccessException">Brief của chủ quán khác (HTTP 401).</exception>

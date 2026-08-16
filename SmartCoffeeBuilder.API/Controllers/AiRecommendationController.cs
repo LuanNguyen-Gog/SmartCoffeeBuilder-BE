@@ -9,9 +9,13 @@ namespace SmartCoffeeBuilder.API.Controllers;
 
 [ApiController]
 [Route("api/ai-recommendations")]
-// Bước AI thuộc luồng brief của owner. Provider xem kết quả AI qua
-// GET api/project-workings/{id}/overview (đã lọc theo engagement), không qua controller này.
-[Authorize(Roles = "owner,admin")]
+// Role gate nằm ở TỪNG endpoint, không đặt ở cấp class nữa: đọc và ghi có hai tập người dùng
+// khác nhau. Trước đây cả controller khoá 'owner,admin' nên provider duyệt marketplace ăn 403
+// ngay ở gate, không bao giờ tới được service — mà bài đăng vốn là lời mời thầu công khai,
+// không xem được concept AI thì không đủ căn cứ nộp hồ sơ.
+// Quyền theo từng bản ghi vẫn do service quyết (EnsureBriefVisibleAsync / EnsureBriefOwnerAsync);
+// role gate ở đây chỉ là lớp phụ, KHÔNG thay được ownership check.
+[Authorize]
 public class AiRecommendationController : ControllerBase
 {
     private readonly IAiRecommendationService _aiRecommendationService;
@@ -26,6 +30,10 @@ public class AiRecommendationController : ControllerBase
         ?? User.FindFirstValue("sub")
         ?? throw new UnauthorizedAccessException("User ID not found in token");
 
+    /// <summary>
+    /// [XEM AI] Kết quả AI của một brief. Chủ dự án, provider có engagement còn hiệu lực, và
+    /// mọi tài khoản khi dự án còn bài đăng 'open' (marketplace) đều đọc được — service lọc.
+    /// </summary>
     [HttpGet]
     public async Task<IActionResult> GetAllByBriefId(
         [FromQuery] long briefId,
@@ -44,7 +52,12 @@ public class AiRecommendationController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>
+    /// [CHẠY AI] Sinh concept cho brief. Chỉ chủ dự án (hoặc admin) — job tốn quota và ghi
+    /// bản ghi vào brief, nên đây là đường GHI và giữ nguyên role gate cũ.
+    /// </summary>
     [HttpPost]
+    [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> GenerateDesign([FromBody] GenerateAiDesignRequest request)
     {
         var userId = GetUserId();

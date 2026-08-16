@@ -7,12 +7,15 @@ namespace SmartCoffeeBuilder.Service.Interfaces;
 
 public interface IAiRecommendationService
 {
-    // GET all by briefId (paginated) — accountId lấy từ JWT, brief phải thuộc dự án của người gọi.
+    // GET (paginated) — accountId lấy từ JWT. Quyền ĐỌC rộng hơn quyền ghi: chủ dự án, provider
+    // có engagement còn hiệu lực, mọi tài khoản khi dự án còn bài đăng 'open', và admin.
+    // Xem EnsureBriefVisibleAsync; luật khớp DesignBriefService.EnsureProjectVisibleAsync.
     Task<PaginationResponse<AiRecommendationResponse>> GetAllByBriefIdAsync(
         long accountId, long briefId, int pageNumber = 1, int pageSize = 10);
     Task<AiRecommendationResponse> GetByIdAsync(long accountId, long id);
 
-    // POST - generate AI design (userId là account id dạng chuỗi, đọc từ claim sub)
+    // POST - generate AI design (userId là account id dạng chuỗi, đọc từ claim sub).
+    // Đường GHI: chỉ chủ dự án hoặc admin (EnsureBriefOwnerAsync) — job tốn quota.
     Task<AiDesignJobStatusResponse> GenerateDesignAsync(long briefId, string userId, GenerateAiDesignRequest request);
 
     // CRUD nội bộ — KHÔNG có route HTTP nào trỏ tới (chỉ dùng cho quản lý thủ công / consumer),
