@@ -2,8 +2,8 @@ namespace SmartCoffeeBuilder.Repository.Models;
 
 public class RefreshToken
 {
-    public long Id { get; set; }
-    public long AccountId { get; set; }
+    public Guid Id { get; set; }
+    public Guid AccountId { get; set; }
     public string Token { get; set; } = null!;
     public DateTime ExpiresAt { get; set; }
     public DateTime CreatedAt { get; set; }

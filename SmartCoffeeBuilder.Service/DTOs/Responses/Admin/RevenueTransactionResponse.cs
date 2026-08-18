@@ -3,8 +3,8 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.Admin;
 /// <summary>Một giao dịch payOS (dùng cho danh sách drill-down trong báo cáo doanh thu).</summary>
 public class RevenueTransactionResponse
 {
-    public long Id { get; set; }
-    public long AccountId { get; set; }
+    public Guid Id { get; set; }
+    public Guid AccountId { get; set; }
     public string Purpose { get; set; } = null!;
     public string Status { get; set; } = null!;
     public string Platform { get; set; } = null!;

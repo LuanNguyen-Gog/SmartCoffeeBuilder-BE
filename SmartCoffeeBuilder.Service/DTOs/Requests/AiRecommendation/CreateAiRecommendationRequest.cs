@@ -5,7 +5,7 @@ namespace SmartCoffeeBuilder.Service.DTOs.Requests.AiRecommendation;
 public class CreateAiRecommendationRequest
 {
     [Required]
-    public long BriefId { get; set; }
+    public Guid BriefId { get; set; }
 
     [Required]
     public string ConceptSummary { get; set; } = null!;

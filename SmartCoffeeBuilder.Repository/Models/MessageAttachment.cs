@@ -8,8 +8,8 @@ namespace SmartCoffeeBuilder.Repository.Models;
 /// </summary>
 public class MessageAttachment
 {
-    public long Id { get; set; }
-    public long MessageId { get; set; }
+    public Guid Id { get; set; }
+    public Guid MessageId { get; set; }
     /// <summary>ObjectName trên GCS — giá trị thật lưu DB.</summary>
     public string Url { get; set; } = null!;
     public string? FileName { get; set; }

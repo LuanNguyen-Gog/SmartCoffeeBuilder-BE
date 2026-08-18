@@ -34,8 +34,8 @@ public class ServiceProviderProfileController : ControllerBase
         return Ok(result);
     }
 
-    [HttpGet("{id:long}")]
-    public async Task<IActionResult> GetById(long id)
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id)
     {
         var result = await _serviceProviderProfileService.GetByIdAsync(id);
         return Ok(result);
@@ -49,17 +49,17 @@ public class ServiceProviderProfileController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
-    [HttpPut("{id:long}")]
+    [HttpPut("{id:guid}")]
     [Authorize(Roles = "provider,admin")]
-    public async Task<IActionResult> Update(long id, [FromBody] UpdateServiceProviderProfileRequest request)
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateServiceProviderProfileRequest request)
     {
         var result = await _serviceProviderProfileService.UpdateAsync(id, request);
         return Ok(result);
     }
 
-    [HttpDelete("{id:long}")]
+    [HttpDelete("{id:guid}")]
     [Authorize(Roles = "admin")]
-    public async Task<IActionResult> Delete(long id)
+    public async Task<IActionResult> Delete(Guid id)
     {
         await _serviceProviderProfileService.DeleteAsync(id);
         return NoContent();

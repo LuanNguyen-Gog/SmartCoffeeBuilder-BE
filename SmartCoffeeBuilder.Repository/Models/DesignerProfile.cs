@@ -2,8 +2,8 @@ namespace SmartCoffeeBuilder.Repository.Models;
 
 public class DesignerProfile
 {
-    public long Id { get; set; }
-    public long ServiceProviderProfileId { get; set; }
+    public Guid Id { get; set; }
+    public Guid ServiceProviderProfileId { get; set; }
     public string Specialties { get; set; } = null!;
     public string SoftwareSkills { get; set; } = null!;
     public string DesignStyle { get; set; } = null!;

@@ -6,7 +6,7 @@ namespace SmartCoffeeBuilder.Service.DTOs.Requests.Apply;
 public class CreateApplyRequest
 {
     [Required]
-    public long PostId { get; set; }
+    public Guid PostId { get; set; }
 
     [Required]
     public string Proposal { get; set; } = null!;

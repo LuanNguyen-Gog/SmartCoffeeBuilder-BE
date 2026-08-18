@@ -42,7 +42,7 @@ public class ContractService : IContractService
     }
 
     public async Task<PaginationResponse<ContractResponse>> GetAllAsync(
-        long accountId, int pageNumber = 1, int pageSize = 10, long? projectWorkingId = null)
+        Guid accountId, int pageNumber = 1, int pageSize = 10, Guid? projectWorkingId = null)
     {
         // Hợp đồng là tài liệu RIÊNG của một engagement: chỉ owner của dự án và provider của chính
         // engagement đó được thấy. Lọc ngay trong query — không trả về rồi mới ẩn, để phân trang
@@ -63,7 +63,7 @@ public class ContractService : IContractService
             paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
-    public async Task<ContractResponse> GetByIdAsync(long accountId, long id)
+    public async Task<ContractResponse> GetByIdAsync(Guid accountId, Guid id)
     {
         var contract = await _repository.SingleOrDefaultAsync(predicate: c => c.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy contract với id {id}.");
@@ -74,7 +74,7 @@ public class ContractService : IContractService
         return ContractResponse.From(contract);
     }
 
-    public async Task<ContractResponse> CreateAsync(long accountId, CreateContractRequest request)
+    public async Task<ContractResponse> CreateAsync(Guid accountId, CreateContractRequest request)
     {
         var engagement = await _unitOfWork.GetRepository<ProjectWorking>()
             .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectWorkingId)
@@ -150,7 +150,7 @@ public class ContractService : IContractService
         });
     }
 
-    public async Task<ContractResponse> UpdateAsync(long accountId, long id, UpdateContractRequest request)
+    public async Task<ContractResponse> UpdateAsync(Guid accountId, Guid id, UpdateContractRequest request)
     {
         var contract = await _repository.SingleOrDefaultAsync(predicate: c => c.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy contract với id {id}.");
@@ -187,7 +187,7 @@ public class ContractService : IContractService
         return ContractResponse.From(contract);
     }
 
-    public async Task<ContractResponse> SendOtpAsync(long accountId, long id)
+    public async Task<ContractResponse> SendOtpAsync(Guid accountId, Guid id)
     {
         var contract = await _repository.SingleOrDefaultAsync(predicate: c => c.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy contract với id {id}.");
@@ -248,7 +248,7 @@ public class ContractService : IContractService
     }
 
     public async Task<ContractResponse> ConfirmOtpAsync(
-        long accountId, long id, ConfirmContractOtpRequest request)
+        Guid accountId, Guid id, ConfirmContractOtpRequest request)
     {
         var contract = await _repository.SingleOrDefaultAsync(predicate: c => c.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy contract với id {id}.");
@@ -285,7 +285,7 @@ public class ContractService : IContractService
         return ContractResponse.From(contract);
     }
 
-    public async Task<ContractResponse> CancelAsync(long accountId, long id)
+    public async Task<ContractResponse> CancelAsync(Guid accountId, Guid id)
     {
         var contract = await _repository.SingleOrDefaultAsync(predicate: c => c.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy contract với id {id}.");
@@ -356,7 +356,7 @@ public class ContractService : IContractService
     // Include tới Account vì send-otp cần email owner ngay trên instance vừa check quyền
     // (confirm-otp không dùng email, nhưng ký hợp đồng là luồng thưa — thêm một join rẻ hơn
     // là nuôi hai loader gần giống nhau).
-    private async Task<ProjectWorking> LoadEngagementForSigningAsync(long projectWorkingId) =>
+    private async Task<ProjectWorking> LoadEngagementForSigningAsync(Guid projectWorkingId) =>
         await _unitOfWork.GetRepository<ProjectWorking>()
             .SingleOrDefaultAsync(
                 predicate: e => e.Id == projectWorkingId,
@@ -369,7 +369,7 @@ public class ContractService : IContractService
     private enum ContractActor { Owner, Provider, Admin }
 
     /// <summary>Hai đầu account của một engagement, lấy bằng projection để khỏi nạp cả graph.</summary>
-    private sealed record EngagementParties(long OwnerAccountId, long ProviderAccountId);
+    private sealed record EngagementParties(Guid OwnerAccountId, Guid ProviderAccountId);
 
     /// <summary>
     /// Người gọi phải là MỘT BÊN của chính engagement mang hợp đồng này (owner của dự án, hoặc
@@ -380,7 +380,7 @@ public class ContractService : IContractService
     /// được hợp đồng của nhau, dù cả hai đều mang role 'provider'.
     /// </summary>
     /// <exception cref="UnauthorizedAccessException">Không phải bên nào của engagement (HTTP 401).</exception>
-    private async Task<ContractActor> ResolveActorAsync(long accountId, long projectWorkingId)
+    private async Task<ContractActor> ResolveActorAsync(Guid accountId, Guid projectWorkingId)
     {
         var parties = (await _unitOfWork.GetRepository<ProjectWorking>().GetListAsync(
                 selector: e => new EngagementParties(
@@ -410,7 +410,7 @@ public class ContractService : IContractService
     }
 
     /// <summary>Admin xem được mọi hợp đồng (phục vụ giám sát/hỗ trợ).</summary>
-    private async Task<bool> IsAdminAsync(long accountId)
+    private async Task<bool> IsAdminAsync(Guid accountId)
     {
         var account = await _unitOfWork.GetRepository<Account>()
             .SingleOrDefaultAsync(predicate: a => a.Id == accountId && a.DeletedAt == null);
@@ -424,7 +424,7 @@ public class ContractService : IContractService
     /// Sai người → UnauthorizedAccessException (401).
     /// </summary>
     private static void EnsureOwnerOfEngagement(
-        long accountId, ProjectWorking engagement, string action = "xác nhận hợp đồng")
+        Guid accountId, ProjectWorking engagement, string action = "xác nhận hợp đồng")
     {
         if (engagement.ProjectShopOwner?.Owner?.AccountId != accountId)
             throw new UnauthorizedAccessException($"Chỉ chủ quán của dự án này mới được {action}.");

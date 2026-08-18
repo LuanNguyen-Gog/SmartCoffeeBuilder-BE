@@ -21,7 +21,7 @@ public class CreateDesignJobPayload
     public string UserId { get; set; } = null!;
     public CafeProjectInput Input { get; set; } = null!;
     public GenerateOptions Options { get; set; } = null!;
-    public long? RecommendationId { get; set; }
+    public Guid? RecommendationId { get; set; }
 }
 
 public class CafeProjectInput

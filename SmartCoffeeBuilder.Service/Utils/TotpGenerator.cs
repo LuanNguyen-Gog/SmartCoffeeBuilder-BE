@@ -15,7 +15,7 @@ namespace SmartCoffeeBuilder.Service.Utils;
 public static class TotpGenerator
 {
     /// <summary>Tính mã TOTP của tài khoản tại thời điểm chỉ định (mặc định là hiện tại).</summary>
-    public static string ComputeCode(string appSecretKey, long accountId, int stepSeconds, int codeLength,
+    public static string ComputeCode(string appSecretKey, Guid accountId, int stepSeconds, int codeLength,
         DateTime? timestamp = null)
     {
         var totp = CreateTotp(appSecretKey, accountId, stepSeconds, codeLength);
@@ -29,7 +29,7 @@ public static class TotpGenerator
     /// Trả kèm thời điểm bắt đầu chu kỳ của mã (để lưu CodeRefreshedAt) và thời điểm mã hết hạn.
     /// </summary>
     public static (string Code, DateTime StepStart, DateTime ExpiresAt) ComputeDeliveryCode(
-        string appSecretKey, long accountId, int stepSeconds, int codeLength, int lookAheadSeconds)
+        string appSecretKey, Guid accountId, int stepSeconds, int codeLength, int lookAheadSeconds)
     {
         if (lookAheadSeconds >= stepSeconds) lookAheadSeconds = stepSeconds - 1; // luôn còn ít nhất mã hiện tại
         if (lookAheadSeconds < 0) lookAheadSeconds = 0;
@@ -53,7 +53,7 @@ public static class TotpGenerator
     /// chưa quá flexSeconds; và (khi lookAheadSeconds > 0) mã của chu kỳ KẾ TIẾP nếu chu kỳ hiện tại
     /// còn ≤ lookAheadSeconds — vì lúc đó hệ thống đã gửi trước mã chu kỳ kế tiếp cho người dùng.
     /// </summary>
-    public static bool VerifyWithFlex(string appSecretKey, long accountId, string code,
+    public static bool VerifyWithFlex(string appSecretKey, Guid accountId, string code,
         int stepSeconds, int codeLength, int flexSeconds, int lookAheadSeconds = 0)
     {
         var now = DateTime.UtcNow;
@@ -88,12 +88,12 @@ public static class TotpGenerator
 
     // ──────────────────────────────────────────────────────────────
     /// <summary>Key TOTP riêng của tài khoản = HMACSHA256(secret app, accountId).</summary>
-    private static byte[] DeriveAccountKey(string appSecretKey, long accountId)
+    private static byte[] DeriveAccountKey(string appSecretKey, Guid accountId)
     {
         using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(appSecretKey));
         return hmac.ComputeHash(Encoding.UTF8.GetBytes(accountId.ToString()));
     }
 
-    private static Totp CreateTotp(string appSecretKey, long accountId, int stepSeconds, int codeLength)
+    private static Totp CreateTotp(string appSecretKey, Guid accountId, int stepSeconds, int codeLength)
         => new(DeriveAccountKey(appSecretKey, accountId), step: stepSeconds, totpSize: codeLength);
 }

@@ -2,7 +2,7 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.Review;
 
 public class ReviewScoreResponse
 {
-    public long Id { get; set; }
+    public Guid Id { get; set; }
     public string Dimension { get; set; } = null!;
     public int Score { get; set; }
 
@@ -16,10 +16,10 @@ public class ReviewScoreResponse
 
 public class ReviewResponse
 {
-    public long Id { get; set; }
-    public long ProjectWorkingId { get; set; }
-    public long? ProjectShopOwnerId { get; set; }
-    public long? ServiceProviderProfileId { get; set; }
+    public Guid Id { get; set; }
+    public Guid ProjectWorkingId { get; set; }
+    public Guid? ProjectShopOwnerId { get; set; }
+    public Guid? ServiceProviderProfileId { get; set; }
     public decimal OverallRating { get; set; }
     public string? Comment { get; set; }
     public List<ReviewScoreResponse> Scores { get; set; } = new();

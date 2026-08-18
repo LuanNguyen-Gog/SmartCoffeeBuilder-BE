@@ -6,9 +6,9 @@ namespace SmartCoffeeBuilder.Repository.Models;
 /// </summary>
 public class Message
 {
-    public long Id { get; set; }
-    public long ConversationId { get; set; }
-    public long SenderId { get; set; }
+    public Guid Id { get; set; }
+    public Guid ConversationId { get; set; }
+    public Guid SenderId { get; set; }
     /// <summary>Nội dung văn bản — có thể null/rỗng nếu chỉ gửi file.</summary>
     public string? Body { get; set; }
     public DateTime SentAt { get; set; }

@@ -8,12 +8,12 @@ namespace SmartCoffeeBuilder.Repository.Models;
 /// </summary>
 public class Conversation
 {
-    public long Id { get; set; }
-    public long ProjectWorkingId { get; set; }
+    public Guid Id { get; set; }
+    public Guid ProjectWorkingId { get; set; }
     /// <summary>Tên thread do người tạo đặt; trống thì tự sinh "Thread #N" của engagement.</summary>
     public string? Topic { get; set; }
     /// <summary>Account id của người tạo thread — chỉ người này được xoá thread.</summary>
-    public long CreatedBy { get; set; }
+    public Guid CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
     /// <summary>Cập nhật mỗi khi có message mới — để sắp xếp "hoạt động gần nhất" và polling list thread.</summary>
     public DateTime UpdatedAt { get; set; }

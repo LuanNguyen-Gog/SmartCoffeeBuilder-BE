@@ -5,7 +5,7 @@ namespace SmartCoffeeBuilder.Service.DTOs.Requests.ServiceProviderProfile;
 public class CreateServiceProviderProfileRequest
 {
     [Required]
-    public long AccountId { get; set; }
+    public Guid AccountId { get; set; }
 
     [Required]
     public string DisplayName { get; set; } = null!;

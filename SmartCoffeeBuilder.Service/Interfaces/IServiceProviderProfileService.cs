@@ -13,8 +13,8 @@ public interface IServiceProviderProfileService
     Task<PaginationResponse<ServiceProviderProfileResponse>> GetAllAsync(
         int pageNumber = 1, int pageSize = 10,
         string? capability = null, bool? isVerified = null, string? search = null);
-    Task<ServiceProviderProfileResponse> GetByIdAsync(long id);
+    Task<ServiceProviderProfileResponse> GetByIdAsync(Guid id);
     Task<ServiceProviderProfileResponse> CreateAsync(CreateServiceProviderProfileRequest request);
-    Task<ServiceProviderProfileResponse> UpdateAsync(long id, UpdateServiceProviderProfileRequest request);
-    Task DeleteAsync(long id);
+    Task<ServiceProviderProfileResponse> UpdateAsync(Guid id, UpdateServiceProviderProfileRequest request);
+    Task DeleteAsync(Guid id);
 }

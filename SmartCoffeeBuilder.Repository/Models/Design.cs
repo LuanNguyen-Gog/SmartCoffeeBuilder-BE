@@ -4,14 +4,14 @@ namespace SmartCoffeeBuilder.Repository.Models;
 
 public class Design
 {
-    public long Id { get; set; }
-    public long ProjectWorkingId { get; set; }
+    public Guid Id { get; set; }
+    public Guid ProjectWorkingId { get; set; }
     public string? Title { get; set; }
     public decimal Version { get; set; } // decimal(4,1)
     public DesignType Type { get; set; }
     public string? Reason { get; set; }
     public DesignStatus Status { get; set; } = DesignStatus.in_progress;
-    public long? CreatedBy { get; set; }
+    public Guid? CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

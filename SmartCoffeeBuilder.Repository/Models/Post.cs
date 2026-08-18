@@ -4,8 +4,8 @@ namespace SmartCoffeeBuilder.Repository.Models;
 
 public class Post
 {
-    public long Id { get; set; }
-    public long ProjectShopOwnerId { get; set; }
+    public Guid Id { get; set; }
+    public Guid ProjectShopOwnerId { get; set; }
     public ServiceKind ServiceKind { get; set; }
     public string Title { get; set; } = null!;
     public string Description { get; set; } = null!;

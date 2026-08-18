@@ -23,16 +23,16 @@ public class ApplyController : ControllerBase
     public async Task<IActionResult> GetAll(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
-        [FromQuery] long? postId = null,
-        [FromQuery] long? serviceProviderProfileId = null,
+        [FromQuery] Guid? postId = null,
+        [FromQuery] Guid? serviceProviderProfileId = null,
         [FromQuery] string? status = null)
     {
         var result = await _applyService.GetAllAsync(pageNumber, pageSize, postId, serviceProviderProfileId, status);
         return Ok(result);
     }
 
-    [HttpGet("{id:long}")]
-    public async Task<IActionResult> GetById(long id)
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id)
     {
         var result = await _applyService.GetByIdAsync(id);
         return Ok(result);
@@ -54,36 +54,36 @@ public class ApplyController : ControllerBase
     }
 
     /// <summary>Provider sửa proposal / thời gian dự kiến — chỉ khi hồ sơ còn pending.</summary>
-    [HttpPut("{id:long}/proposal")]
+    [HttpPut("{id:guid}/proposal")]
     [Authorize(Roles = "provider,admin")]
-    public async Task<IActionResult> UpdateProposal(long id, [FromBody] UpdateApplyRequest request)
+    public async Task<IActionResult> UpdateProposal(Guid id, [FromBody] UpdateApplyRequest request)
     {
         var result = await _applyService.UpdateProposalAsync(id, request);
         return Ok(result);
     }
 
     /// <summary>Owner chấp nhận hồ sơ — trả về engagement (project_provider) vừa tạo.</summary>
-    [HttpPost("{id:long}/accept")]
+    [HttpPost("{id:guid}/accept")]
     [Authorize(Roles = "owner,admin")]
-    public async Task<IActionResult> Accept(long id)
+    public async Task<IActionResult> Accept(Guid id)
     {
         var result = await _applyService.AcceptAsync(id);
         return Ok(result);
     }
 
     /// <summary>Owner từ chối hồ sơ.</summary>
-    [HttpPost("{id:long}/reject")]
+    [HttpPost("{id:guid}/reject")]
     [Authorize(Roles = "owner,admin")]
-    public async Task<IActionResult> Reject(long id)
+    public async Task<IActionResult> Reject(Guid id)
     {
         var result = await _applyService.RejectAsync(id);
         return Ok(result);
     }
 
     /// <summary>Provider rút hồ sơ khi còn pending — xoá hẳn bản ghi.</summary>
-    [HttpDelete("{id:long}/withdraw")]
+    [HttpDelete("{id:guid}/withdraw")]
     [Authorize(Roles = "provider,admin")]
-    public async Task<IActionResult> Withdraw(long id)
+    public async Task<IActionResult> Withdraw(Guid id)
     {
         await _applyService.WithdrawAsync(id);
         return NoContent();

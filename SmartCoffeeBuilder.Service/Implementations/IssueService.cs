@@ -25,7 +25,7 @@ public class IssueService : IIssueService
 
     public async Task<PaginationResponse<IssueResponse>> GetAllAsync(
         int pageNumber = 1, int pageSize = 10,
-        long? projectWorkingId = null, long? constructionItemId = null, string? status = null)
+        Guid? projectWorkingId = null, Guid? constructionItemId = null, string? status = null)
     {
         IssueStatus? st = null;
         if (!string.IsNullOrWhiteSpace(status))
@@ -50,7 +50,7 @@ public class IssueService : IIssueService
             paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
-    public async Task<IssueResponse> GetByIdAsync(long id)
+    public async Task<IssueResponse> GetByIdAsync(Guid id)
     {
         var issue = await _repository.SingleOrDefaultAsync(
             predicate: e => e.Id == id,
@@ -111,7 +111,7 @@ public class IssueService : IIssueService
         return IssueResponse.From(issue);
     }
 
-    public async Task<IssueResponse> UpdateAsync(long id, UpdateIssueRequest request)
+    public async Task<IssueResponse> UpdateAsync(Guid id, UpdateIssueRequest request)
     {
         var issue = await _repository.SingleOrDefaultAsync(
             predicate: e => e.Id == id,
@@ -162,7 +162,7 @@ public class IssueService : IIssueService
         return IssueResponse.From(issue);
     }
 
-    public async Task<IssueResponse> UpdateStatusAsync(long id, UpdateIssueStatusRequest request)
+    public async Task<IssueResponse> UpdateStatusAsync(Guid id, UpdateIssueStatusRequest request)
     {
         if (!Enum.TryParse<IssueStatus>(request.Status, ignoreCase: true, out var target))
             throw new ArgumentException($"Status '{request.Status}' không hợp lệ. Cho phép: open, in_progress, resolved, closed.");
@@ -194,7 +194,7 @@ public class IssueService : IIssueService
         return IssueResponse.From(issue);
     }
 
-    public async Task DeleteAsync(long id)
+    public async Task DeleteAsync(Guid id)
     {
         var issue = await _repository.SingleOrDefaultAsync(predicate: e => e.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy issue với id {id}.");

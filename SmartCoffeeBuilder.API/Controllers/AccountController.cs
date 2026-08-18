@@ -26,8 +26,8 @@ public class AccountController : ControllerBase
         return Ok(result);
     }
 
-    [HttpGet("{id:long}")]
-    public async Task<IActionResult> GetById(long id)
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id)
     {
         var result = await _accountService.GetByIdAsync(id);
         return Ok(result);
@@ -40,15 +40,15 @@ public class AccountController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
-    [HttpPut("{id:long}")]
-    public async Task<IActionResult> Update(long id, [FromBody] UpdateAccountRequest request)
+    [HttpPut("{id:guid}")]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateAccountRequest request)
     {
         var result = await _accountService.UpdateAsync(id, request);
         return Ok(result);
     }
 
-    [HttpDelete("{id:long}")]
-    public async Task<IActionResult> Delete(long id)
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id)
     {
         await _accountService.DeleteAsync(id);
         return NoContent();

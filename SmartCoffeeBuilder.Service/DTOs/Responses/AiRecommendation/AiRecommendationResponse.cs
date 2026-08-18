@@ -5,8 +5,8 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.AiRecommendation;
 
 public class AiRecommendationResponse
 {
-    public long Id { get; set; }
-    public long BriefId { get; set; }
+    public Guid Id { get; set; }
+    public Guid BriefId { get; set; }
     public string ConceptSummary { get; set; } = null!;
     public string Payload { get; set; } = null!;
     public decimal? EstimatedDesignCost { get; set; }

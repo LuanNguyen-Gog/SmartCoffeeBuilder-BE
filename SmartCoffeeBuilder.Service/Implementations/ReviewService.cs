@@ -24,7 +24,7 @@ public class ReviewService : IReviewService
 
     public async Task<PaginationResponse<ReviewResponse>> GetAllAsync(
         int pageNumber = 1, int pageSize = 10,
-        long? projectWorkingId = null, long? serviceProviderProfileId = null)
+        Guid? projectWorkingId = null, Guid? serviceProviderProfileId = null)
     {
         var query = _repository
             .GetQueryable(
@@ -40,7 +40,7 @@ public class ReviewService : IReviewService
             paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
-    public async Task<ReviewResponse> GetByIdAsync(long id)
+    public async Task<ReviewResponse> GetByIdAsync(Guid id)
     {
         var review = await _repository.SingleOrDefaultAsync(
             predicate: r => r.Id == id,
@@ -50,7 +50,7 @@ public class ReviewService : IReviewService
         return ReviewResponse.From(review);
     }
 
-    public async Task<ProviderRatingSummaryResponse> GetProviderSummaryAsync(long serviceProviderProfileId)
+    public async Task<ProviderRatingSummaryResponse> GetProviderSummaryAsync(Guid serviceProviderProfileId)
     {
         _ = await _unitOfWork.GetRepository<ServiceProviderProfile>()
             .SingleOrDefaultAsync(predicate: s => s.Id == serviceProviderProfileId && s.DeletedAt == null)
@@ -78,7 +78,7 @@ public class ReviewService : IReviewService
         return summary;
     }
 
-    public async Task<ReviewResponse> CreateAsync(long accountId, CreateReviewRequest request)
+    public async Task<ReviewResponse> CreateAsync(Guid accountId, CreateReviewRequest request)
     {
         var engagement = await _unitOfWork.GetRepository<ProjectWorking>()
             .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectWorkingId)
@@ -121,7 +121,7 @@ public class ReviewService : IReviewService
         return ReviewResponse.From(review);
     }
 
-    public async Task<ReviewResponse> UpdateAsync(long accountId, long id, UpdateReviewRequest request)
+    public async Task<ReviewResponse> UpdateAsync(Guid accountId, Guid id, UpdateReviewRequest request)
     {
         var review = await _repository.SingleOrDefaultAsync(
             predicate: r => r.Id == id,
@@ -154,7 +154,7 @@ public class ReviewService : IReviewService
         return ReviewResponse.From(review);
     }
 
-    public async Task DeleteAsync(long accountId, long id)
+    public async Task DeleteAsync(Guid accountId, Guid id)
     {
         var review = await _repository.SingleOrDefaultAsync(predicate: r => r.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy review với id {id}.");

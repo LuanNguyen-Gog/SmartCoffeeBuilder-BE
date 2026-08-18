@@ -24,12 +24,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Account", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -92,19 +91,18 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.AiRecommendation", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<int>("Attempts")
                         .HasColumnType("integer")
                         .HasColumnName("attempts");
 
-                    b.Property<long>("BriefId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("BriefId")
+                        .HasColumnType("uuid")
                         .HasColumnName("brief_id");
 
                     b.Property<DateTime?>("CompletedAt")
@@ -269,12 +267,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Apply", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -286,8 +283,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("estimated_duration_days");
 
-                    b.Property<long>("PostId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("PostId")
+                        .HasColumnType("uuid")
                         .HasColumnName("post_id");
 
                     b.Property<string>("Proposal")
@@ -295,8 +292,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("text")
                         .HasColumnName("proposal");
 
-                    b.Property<long>("ServiceProviderProfileId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ServiceProviderProfileId")
+                        .HasColumnType("uuid")
                         .HasColumnName("provider_id");
 
                     b.Property<string>("Status")
@@ -329,12 +326,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.BudgetItem", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<decimal?>("ActualAmount")
                         .HasPrecision(15, 2)
@@ -357,8 +353,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("numeric(15,2)")
                         .HasColumnName("planned_amount");
 
-                    b.Property<long>("ProjectShopOwnerId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ProjectShopOwnerId")
+                        .HasColumnType("uuid")
                         .HasColumnName("project_id");
 
                     b.Property<DateTime>("UpdatedAt")
@@ -378,12 +374,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Comment", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("Body")
                         .HasColumnType("text")
@@ -395,12 +390,12 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
-                    b.Property<long?>("CreatedBy")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
                         .HasColumnName("created_by");
 
-                    b.Property<long>("TargetId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uuid")
                         .HasColumnName("target_id");
 
                     b.Property<string>("TargetType")
@@ -429,12 +424,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ConstructionItem", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<DateOnly?>("ActualAt")
                         .HasColumnType("date")
@@ -450,8 +444,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
-                    b.Property<long?>("CreatedBy")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
                         .HasColumnName("created_by");
 
                     b.Property<string>("Description")
@@ -467,12 +461,12 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("text")
                         .HasColumnName("name");
 
-                    b.Property<long?>("ParentId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("ParentId")
+                        .HasColumnType("uuid")
                         .HasColumnName("parent_id");
 
-                    b.Property<long>("ProjectWorkingId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ProjectWorkingId")
+                        .HasColumnType("uuid")
                         .HasColumnName("project_provider_id");
 
                     b.Property<string>("Status")
@@ -504,19 +498,18 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ConstructionTask", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<DateOnly?>("ActualAt")
                         .HasColumnType("date")
                         .HasColumnName("actual_at");
 
-                    b.Property<long>("ConstructionItemId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ConstructionItemId")
+                        .HasColumnType("uuid")
                         .HasColumnName("construction_item_id");
 
                     b.Property<DateTime>("CreatedAt")
@@ -525,8 +518,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
-                    b.Property<long?>("CreatedBy")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
                         .HasColumnName("created_by");
 
                     b.Property<string>("Description")
@@ -576,12 +569,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ConstructorProfile", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -604,8 +596,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("numeric(15,2)")
                         .HasColumnName("max_project_value");
 
-                    b.Property<long>("ServiceProviderProfileId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ServiceProviderProfileId")
+                        .HasColumnType("uuid")
                         .HasColumnName("provider_id");
 
                     b.Property<int>("TeamSize")
@@ -634,12 +626,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Contract", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<decimal?>("AgreedValue")
                         .HasPrecision(15, 2)
@@ -650,8 +641,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("confirmed_at");
 
-                    b.Property<long?>("ConfirmedBy")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("ConfirmedBy")
+                        .HasColumnType("uuid")
                         .HasColumnName("confirmed_by");
 
                     b.Property<DateTime>("CreatedAt")
@@ -677,8 +668,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("text")
                         .HasColumnName("party_info");
 
-                    b.Property<long>("ProjectWorkingId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ProjectWorkingId")
+                        .HasColumnType("uuid")
                         .HasColumnName("project_provider_id");
 
                     b.Property<string>("Status")
@@ -716,12 +707,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Conversation", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -729,12 +719,12 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
-                    b.Property<long>("CreatedBy")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid")
                         .HasColumnName("created_by");
 
-                    b.Property<long>("ProjectWorkingId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ProjectWorkingId")
+                        .HasColumnType("uuid")
                         .HasColumnName("project_working_id");
 
                     b.Property<string>("Topic")
@@ -762,12 +752,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Design", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -775,12 +764,12 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
-                    b.Property<long?>("CreatedBy")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
                         .HasColumnName("created_by");
 
-                    b.Property<long>("ProjectWorkingId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ProjectWorkingId")
+                        .HasColumnType("uuid")
                         .HasColumnName("project_provider_id");
 
                     b.Property<string>("Reason")
@@ -828,12 +817,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.DesignBrief", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("BrandNote")
                         .HasColumnType("text")
@@ -862,8 +850,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("text")
                         .HasColumnName("operation_note");
 
-                    b.Property<long>("ProjectShopOwnerId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ProjectShopOwnerId")
+                        .HasColumnType("uuid")
                         .HasColumnName("project_id");
 
                     b.Property<int?>("SeatCount")
@@ -902,12 +890,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.DesignImage", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("Caption")
                         .HasColumnType("text")
@@ -919,8 +906,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
-                    b.Property<long>("DesignId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("DesignId")
+                        .HasColumnType("uuid")
                         .HasColumnName("design_id");
 
                     b.Property<string>("ImageUrl")
@@ -928,8 +915,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("text")
                         .HasColumnName("image_url");
 
-                    b.Property<long?>("UploadedBy")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("UploadedBy")
+                        .HasColumnType("uuid")
                         .HasColumnName("uploaded_by");
 
                     b.HasKey("Id")
@@ -946,12 +933,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.DesignVersion", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -959,12 +945,12 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
-                    b.Property<long?>("CreatedBy")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
                         .HasColumnName("created_by");
 
-                    b.Property<long>("DesignId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("DesignId")
+                        .HasColumnType("uuid")
                         .HasColumnName("design_id");
 
                     b.Property<string>("Reason")
@@ -981,8 +967,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("snapshotted_at");
 
-                    b.Property<long?>("SnapshottedBy")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("SnapshottedBy")
+                        .HasColumnType("uuid")
                         .HasColumnName("snapshotted_by");
 
                     b.Property<string>("Status")
@@ -1026,19 +1012,18 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.DesignVersionImage", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("Caption")
                         .HasColumnType("text")
                         .HasColumnName("caption");
 
-                    b.Property<long>("DesignVersionId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("DesignVersionId")
+                        .HasColumnType("uuid")
                         .HasColumnName("design_version_id");
 
                     b.Property<string>("ImageUrl")
@@ -1046,16 +1031,16 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("text")
                         .HasColumnName("image_url");
 
-                    b.Property<long?>("OriginalImageId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("OriginalImageId")
+                        .HasColumnType("uuid")
                         .HasColumnName("original_image_id");
 
                     b.Property<DateTime>("UploadedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("uploaded_at");
 
-                    b.Property<long?>("UploadedBy")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("UploadedBy")
+                        .HasColumnType("uuid")
                         .HasColumnName("uploaded_by");
 
                     b.HasKey("Id")
@@ -1075,12 +1060,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.DesignerProfile", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -1098,8 +1082,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("numeric(15,2)")
                         .HasColumnName("min_project_budget");
 
-                    b.Property<long>("ServiceProviderProfileId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ServiceProviderProfileId")
+                        .HasColumnType("uuid")
                         .HasColumnName("provider_id");
 
                     b.Property<string>("SoftwareSkills")
@@ -1130,12 +1114,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Doc", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("Caption")
                         .HasColumnType("text")
@@ -1147,8 +1130,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
-                    b.Property<long>("DocTypeId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("DocTypeId")
+                        .HasColumnType("uuid")
                         .HasColumnName("doc_type_id");
 
                     b.Property<string>("FileName")
@@ -1160,12 +1143,12 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("text")
                         .HasColumnName("file_url");
 
-                    b.Property<long>("ProjectWorkingId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ProjectWorkingId")
+                        .HasColumnType("uuid")
                         .HasColumnName("project_provider_id");
 
-                    b.Property<long?>("UploadedBy")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("UploadedBy")
+                        .HasColumnType("uuid")
                         .HasColumnName("uploaded_by");
 
                     b.HasKey("Id")
@@ -1185,12 +1168,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.DocType", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("Code")
                         .IsRequired()
@@ -1216,12 +1198,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Issue", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<DateOnly?>("ActualAt")
                         .HasColumnType("date")
@@ -1235,8 +1216,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("text")
                         .HasColumnName("confirm_image");
 
-                    b.Property<long?>("ConstructionItemId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("ConstructionItemId")
+                        .HasColumnType("uuid")
                         .HasColumnName("construction_item_id");
 
                     b.Property<DateTime>("CreatedAt")
@@ -1245,8 +1226,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
-                    b.Property<long?>("CreatedBy")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
                         .HasColumnName("created_by");
 
                     b.Property<DateOnly?>("EstimateAt")
@@ -1257,12 +1238,12 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("text")
                         .HasColumnName("issue_image");
 
-                    b.Property<long>("IssueTypeId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("IssueTypeId")
+                        .HasColumnType("uuid")
                         .HasColumnName("issue_type_id");
 
-                    b.Property<long>("ProjectWorkingId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ProjectWorkingId")
+                        .HasColumnType("uuid")
                         .HasColumnName("project_provider_id");
 
                     b.Property<string>("Reason")
@@ -1305,12 +1286,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.IssueType", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("Code")
                         .IsRequired()
@@ -1336,23 +1316,22 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Message", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("Body")
                         .HasColumnType("text")
                         .HasColumnName("body");
 
-                    b.Property<long>("ConversationId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uuid")
                         .HasColumnName("conversation_id");
 
-                    b.Property<long>("SenderId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("SenderId")
+                        .HasColumnType("uuid")
                         .HasColumnName("sender_id");
 
                     b.Property<DateTime>("SentAt")
@@ -1375,12 +1354,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.MessageAttachment", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("ContentType")
                         .HasMaxLength(100)
@@ -1398,8 +1376,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("character varying(255)")
                         .HasColumnName("file_name");
 
-                    b.Property<long>("MessageId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("MessageId")
+                        .HasColumnType("uuid")
                         .HasColumnName("message_id");
 
                     b.Property<long?>("SizeBytes")
@@ -1423,15 +1401,14 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Notification", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<string>("Content")
@@ -1454,8 +1431,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_read");
 
-                    b.Property<long?>("ReferenceId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("ReferenceId")
+                        .HasColumnType("uuid")
                         .HasColumnName("reference_id");
 
                     b.Property<string>("ReferenceType")
@@ -1488,15 +1465,14 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Otp", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<DateTime>("CodeRefreshedAt")
@@ -1543,15 +1519,14 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.PaymentTransaction", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<decimal>("Amount")
@@ -1596,8 +1571,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("platform");
 
-                    b.Property<long?>("PostId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("PostId")
+                        .HasColumnType("uuid")
                         .HasColumnName("post_id");
 
                     b.Property<string>("Purpose")
@@ -1618,8 +1593,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("status");
 
-                    b.Property<long?>("SubscriptionId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("SubscriptionId")
+                        .HasColumnType("uuid")
                         .HasColumnName("subscription_id");
 
                     b.Property<DateTime>("UpdatedAt")
@@ -1649,12 +1624,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Post", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<DateTime?>("BoostedUntil")
                         .HasColumnType("timestamp with time zone")
@@ -1671,8 +1645,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("text")
                         .HasColumnName("description");
 
-                    b.Property<long>("ProjectShopOwnerId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ProjectShopOwnerId")
+                        .HasColumnType("uuid")
                         .HasColumnName("project_id");
 
                     b.Property<string>("ServiceKind")
@@ -1713,12 +1687,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ProjectShopOwner", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("Address")
                         .IsRequired()
@@ -1750,8 +1723,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("text")
                         .HasColumnName("name");
 
-                    b.Property<long>("OwnerId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid")
                         .HasColumnName("owner_id");
 
                     b.Property<string>("Status")
@@ -1777,15 +1750,14 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ProjectWorking", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long?>("ApplyId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("ApplyId")
+                        .HasColumnType("uuid")
                         .HasColumnName("application_id");
 
                     b.Property<string>("CompletionRequestNote")
@@ -1809,16 +1781,16 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
-                    b.Property<long>("ProjectShopOwnerId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ProjectShopOwnerId")
+                        .HasColumnType("uuid")
                         .HasColumnName("project_id");
 
                     b.Property<string>("RequestMessage")
                         .HasColumnType("text")
                         .HasColumnName("request_message");
 
-                    b.Property<long>("ServiceProviderProfileId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ServiceProviderProfileId")
+                        .HasColumnType("uuid")
                         .HasColumnName("provider_id");
 
                     b.Property<DateTime?>("StartedAt")
@@ -1872,15 +1844,14 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.RefreshToken", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<DateTime>("CreatedAt")
@@ -1918,12 +1889,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Review", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("Comment")
                         .HasColumnType("text")
@@ -1940,8 +1910,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("numeric(3,2)")
                         .HasColumnName("overall_rating");
 
-                    b.Property<long>("ProjectWorkingId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ProjectWorkingId")
+                        .HasColumnType("uuid")
                         .HasColumnName("project_provider_id");
 
                     b.Property<DateTime>("UpdatedAt")
@@ -1961,12 +1931,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ReviewScore", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("Dimension")
                         .IsRequired()
@@ -1974,8 +1943,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("dimension");
 
-                    b.Property<long>("ReviewId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ReviewId")
+                        .HasColumnType("uuid")
                         .HasColumnName("review_id");
 
                     b.Property<int>("Score")
@@ -1993,15 +1962,14 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ServiceProviderProfile", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<decimal>("AvgRating")
@@ -2074,15 +2042,14 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ShopOwner", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<string>("Address")
@@ -2129,15 +2096,14 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Subscription", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<DateTime>("CreatedAt")
@@ -2155,8 +2121,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("numeric(15,2)")
                         .HasColumnName("paid_amount");
 
-                    b.Property<long>("PlanId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("PlanId")
+                        .HasColumnType("uuid")
                         .HasColumnName("plan_id");
 
                     b.Property<DateTime>("StartDate")
@@ -2189,12 +2155,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.SubscriptionPlan", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -2246,12 +2211,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Survey", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("ConditionNote")
                         .IsRequired()
@@ -2264,12 +2228,12 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
-                    b.Property<long?>("CreatedBy")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
                         .HasColumnName("created_by");
 
-                    b.Property<long>("ProjectWorkingId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ProjectWorkingId")
+                        .HasColumnType("uuid")
                         .HasColumnName("project_provider_id");
 
                     b.Property<string>("ReportUrl")

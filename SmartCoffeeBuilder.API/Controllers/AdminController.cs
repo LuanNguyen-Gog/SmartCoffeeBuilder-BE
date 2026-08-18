@@ -86,24 +86,24 @@ public class AdminController : ControllerBase
         return Ok(result);
     }
 
-    [HttpGet("accounts/{id:long}")]
-    public async Task<IActionResult> GetAccount(long id)
+    [HttpGet("accounts/{id:guid}")]
+    public async Task<IActionResult> GetAccount(Guid id)
     {
         var result = await _accountService.GetByIdAsync(id);
         return Ok(result);
     }
 
     /// <summary>Đổi trạng thái tài khoản (khoá/mở khoá): active | inactive | banned | pending.</summary>
-    [HttpPatch("accounts/{id:long}/status")]
-    public async Task<IActionResult> SetAccountStatus(long id, [FromBody] SetAccountStatusRequest request)
+    [HttpPatch("accounts/{id:guid}/status")]
+    public async Task<IActionResult> SetAccountStatus(Guid id, [FromBody] SetAccountStatusRequest request)
     {
         var result = await _accountService.SetStatusAsync(id, request.Status);
         return Ok(result);
     }
 
     /// <summary>Xoá mềm tài khoản.</summary>
-    [HttpDelete("accounts/{id:long}")]
-    public async Task<IActionResult> DeleteAccount(long id)
+    [HttpDelete("accounts/{id:guid}")]
+    public async Task<IActionResult> DeleteAccount(Guid id)
     {
         await _accountService.DeleteAsync(id);
         return NoContent();

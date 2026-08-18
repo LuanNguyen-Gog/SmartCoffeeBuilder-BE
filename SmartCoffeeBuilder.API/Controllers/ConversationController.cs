@@ -28,7 +28,7 @@ public class ConversationController : ControllerBase
     /// </summary>
     [HttpGet]
     public async Task<IActionResult> GetByEngagement(
-        [FromQuery] long projectWorkingId,
+        [FromQuery] Guid projectWorkingId,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20)
     {
@@ -38,9 +38,9 @@ public class ConversationController : ControllerBase
     }
 
     /// <summary>Chi tiết một thread kèm danh sách message phân trang (SentAt ASC).</summary>
-    [HttpGet("{id:long}")]
+    [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(
-        long id,
+        Guid id,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 50)
     {
@@ -61,16 +61,16 @@ public class ConversationController : ControllerBase
     }
 
     /// <summary>Đổi tên thread — cả owner và provider đều được sửa.</summary>
-    [HttpPatch("{id:long}")]
-    public async Task<IActionResult> Update(long id, [FromBody] UpdateConversationRequest request)
+    [HttpPatch("{id:guid}")]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateConversationRequest request)
     {
         var result = await _service.UpdateAsync(User.GetAccountId(), id, request);
         return Ok(result);
     }
 
     /// <summary>Xoá thread — chỉ creator. Cascade xoá message và attachment.</summary>
-    [HttpDelete("{id:long}")]
-    public async Task<IActionResult> Delete(long id)
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id)
     {
         await _service.DeleteAsync(User.GetAccountId(), id);
         return NoContent();

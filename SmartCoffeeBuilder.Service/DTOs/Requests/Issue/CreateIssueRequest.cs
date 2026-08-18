@@ -6,13 +6,13 @@ namespace SmartCoffeeBuilder.Service.DTOs.Requests.Issue;
 public class CreateIssueRequest
 {
     [Required]
-    public long ProjectWorkingId { get; set; }
+    public Guid ProjectWorkingId { get; set; }
 
     /// <summary>Chỉ set khi gắn với một milestone thi công — phải cùng engagement.</summary>
-    public long? ConstructionItemId { get; set; }
+    public Guid? ConstructionItemId { get; set; }
 
     [Required]
-    public long IssueTypeId { get; set; }
+    public Guid IssueTypeId { get; set; }
 
     public string? Cause { get; set; }
     public string? Reason { get; set; }
@@ -22,5 +22,5 @@ public class CreateIssueRequest
     public DateOnly? EstimateAt { get; set; }
 
     /// <summary>Account id của người tạo.</summary>
-    public long? CreatedBy { get; set; }
+    public Guid? CreatedBy { get; set; }
 }

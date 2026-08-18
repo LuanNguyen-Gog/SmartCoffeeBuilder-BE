@@ -2,8 +2,8 @@ namespace SmartCoffeeBuilder.Repository.Models;
 
 public class ConstructorProfile
 {
-    public long Id { get; set; }
-    public long ServiceProviderProfileId { get; set; }
+    public Guid Id { get; set; }
+    public Guid ServiceProviderProfileId { get; set; }
     public string LicenseNo { get; set; } = null!;
     public int TeamSize { get; set; }
     public string Equipment { get; set; } = null!;

@@ -25,7 +25,7 @@ public class PostController : ControllerBase
     public async Task<IActionResult> GetAll(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
-        [FromQuery] long? projectShopOwnerId = null,
+        [FromQuery] Guid? projectShopOwnerId = null,
         [FromQuery] string? serviceKind = null,
         [FromQuery] string? status = null,
         [FromQuery] string? search = null)
@@ -35,8 +35,8 @@ public class PostController : ControllerBase
         return Ok(result);
     }
 
-    [HttpGet("{id:long}")]
-    public async Task<IActionResult> GetById(long id)
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id)
     {
         var result = await _postService.GetByIdAsync(id);
         return Ok(result);
@@ -54,17 +54,17 @@ public class PostController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
-    [HttpPut("{id:long}")]
+    [HttpPut("{id:guid}")]
     [Authorize(Roles = "owner,admin")]
-    public async Task<IActionResult> Update(long id, [FromBody] UpdatePostRequest request)
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdatePostRequest request)
     {
         var result = await _postService.UpdateAsync(id, request);
         return Ok(result);
     }
 
-    [HttpDelete("{id:long}")]
+    [HttpDelete("{id:guid}")]
     [Authorize(Roles = "owner,admin")]
-    public async Task<IActionResult> Delete(long id)
+    public async Task<IActionResult> Delete(Guid id)
     {
         await _postService.DeleteAsync(id);
         return NoContent();

@@ -38,7 +38,7 @@ public class NotificationService : INotificationService
     }
 
     public async Task<PaginationResponse<NotificationResponse>> GetForAccountAsync(
-        long accountId, int pageNumber = 1, int pageSize = 20, bool? isRead = null)
+        Guid accountId, int pageNumber = 1, int pageSize = 20, bool? isRead = null)
     {
         var query = _repository
             .GetQueryable(n => n.AccountId == accountId && (isRead == null || n.IsRead == isRead))
@@ -51,16 +51,16 @@ public class NotificationService : INotificationService
             paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
-    public async Task<NotificationResponse> GetByIdAsync(long accountId, long id)
+    public async Task<NotificationResponse> GetByIdAsync(Guid accountId, Guid id)
     {
         var noti = await LoadOwnNotificationAsync(accountId, id);
         return NotificationResponse.From(noti);
     }
 
-    public Task<int> GetUnreadCountAsync(long accountId) =>
+    public Task<int> GetUnreadCountAsync(Guid accountId) =>
         _repository.CountAsync(n => n.AccountId == accountId && !n.IsRead);
 
-    public async Task<NotificationResponse> MarkAsReadAsync(long accountId, long id)
+    public async Task<NotificationResponse> MarkAsReadAsync(Guid accountId, Guid id)
     {
         var noti = await LoadOwnNotificationAsync(accountId, id);
 
@@ -74,7 +74,7 @@ public class NotificationService : INotificationService
         return NotificationResponse.From(noti);
     }
 
-    public async Task<int> MarkAllAsReadAsync(long accountId)
+    public async Task<int> MarkAllAsReadAsync(Guid accountId)
     {
         var unread = await _repository.GetListAsync(
             predicate: n => n.AccountId == accountId && !n.IsRead);
@@ -88,7 +88,7 @@ public class NotificationService : INotificationService
         return unread.Count;
     }
 
-    public async Task<NotificationResponse> ResendAsync(long accountId, long id)
+    public async Task<NotificationResponse> ResendAsync(Guid accountId, Guid id)
     {
         // Gửi lại email = phát tán nội dung noti tới hộp thư của chủ noti — chỉ chính chủ được gọi.
         var noti = await _repository.SingleOrDefaultAsync(
@@ -114,13 +114,13 @@ public class NotificationService : INotificationService
     /// Nạp noti CỦA CHÍNH tài khoản đang đăng nhập. Noti của người khác trả 404 chứ không phải 401:
     /// không tiết lộ rằng id đó có tồn tại.
     /// </summary>
-    private async Task<Notification> LoadOwnNotificationAsync(long accountId, long id) =>
+    private async Task<Notification> LoadOwnNotificationAsync(Guid accountId, Guid id) =>
         await _repository.SingleOrDefaultAsync(predicate: n => n.Id == id && n.AccountId == accountId)
         ?? throw new KeyNotFoundException($"Không tìm thấy notification với id {id}.");
 
     // ──────────────────────────────── Domain triggers ────────────────────────────────
 
-    public async Task NotifyApplicationReceivedAsync(long applicationId)
+    public async Task NotifyApplicationReceivedAsync(Guid applicationId)
     {
         var app = await _unitOfWork.GetRepository<Apply>().SingleOrDefaultAsync(
             predicate: a => a.Id == applicationId,
@@ -148,7 +148,7 @@ public class NotificationService : INotificationService
             title, content, referenceType: "project_application", referenceId: app.Id);
     }
 
-    public async Task NotifyApplicationDecisionAsync(long applicationId, bool accepted)
+    public async Task NotifyApplicationDecisionAsync(Guid applicationId, bool accepted)
     {
         var app = await _unitOfWork.GetRepository<Apply>().SingleOrDefaultAsync(
             predicate: a => a.Id == applicationId,
@@ -187,7 +187,7 @@ public class NotificationService : INotificationService
             title, content, referenceType: "project_application", referenceId: app.Id);
     }
 
-    public async Task NotifyEngagementInvitedAsync(long projectWorkingId)
+    public async Task NotifyEngagementInvitedAsync(Guid projectWorkingId)
     {
         var engagement = await LoadEngagementWithPartiesAsync(projectWorkingId);
         var providerAccount = engagement?.ServiceProviderProfile?.Account;
@@ -215,7 +215,7 @@ public class NotificationService : INotificationService
             referenceType: EngagementReference, referenceId: engagement.Id);
     }
 
-    public async Task NotifyEngagementInviteDecisionAsync(long projectWorkingId, bool accepted)
+    public async Task NotifyEngagementInviteDecisionAsync(Guid projectWorkingId, bool accepted)
     {
         var engagement = await LoadEngagementWithPartiesAsync(projectWorkingId);
         var ownerAccount = engagement?.ProjectShopOwner?.Owner?.Account;
@@ -251,7 +251,7 @@ public class NotificationService : INotificationService
             referenceType: EngagementReference, referenceId: engagement.Id);
     }
 
-    public async Task NotifyEngagementCompletionRequestedAsync(long projectWorkingId)
+    public async Task NotifyEngagementCompletionRequestedAsync(Guid projectWorkingId)
     {
         var engagement = await LoadEngagementWithPartiesAsync(projectWorkingId);
         var ownerAccount = engagement?.ProjectShopOwner?.Owner?.Account;
@@ -278,7 +278,7 @@ public class NotificationService : INotificationService
             referenceType: EngagementReference, referenceId: engagement.Id);
     }
 
-    public async Task NotifyEngagementCompletedAsync(long projectWorkingId)
+    public async Task NotifyEngagementCompletedAsync(Guid projectWorkingId)
     {
         var engagement = await LoadEngagementWithPartiesAsync(projectWorkingId);
         var providerAccount = engagement?.ServiceProviderProfile?.Account;
@@ -300,7 +300,7 @@ public class NotificationService : INotificationService
             referenceType: EngagementReference, referenceId: engagement.Id);
     }
 
-    public async Task NotifyEngagementTerminatedAsync(long projectWorkingId, bool terminatedByOwner)
+    public async Task NotifyEngagementTerminatedAsync(Guid projectWorkingId, bool terminatedByOwner)
     {
         var engagement = await LoadEngagementWithPartiesAsync(projectWorkingId);
         if (engagement is null)
@@ -332,7 +332,7 @@ public class NotificationService : INotificationService
             referenceType: EngagementReference, referenceId: engagement.Id);
     }
 
-    public async Task NotifyEngagementTerminationRequestedAsync(long projectWorkingId, bool requestedByOwner)
+    public async Task NotifyEngagementTerminationRequestedAsync(Guid projectWorkingId, bool requestedByOwner)
     {
         var ctx = await LoadTerminationContextAsync(
             projectWorkingId, requestedByOwner, toRequester: false, logFor: "engagement_termination_requested");
@@ -352,7 +352,7 @@ public class NotificationService : INotificationService
     }
 
     public async Task NotifyEngagementTerminationDecisionAsync(
-        long projectWorkingId, bool requestedByOwner, bool approved)
+        Guid projectWorkingId, bool requestedByOwner, bool approved)
     {
         var ctx = await LoadTerminationContextAsync(
             projectWorkingId, requestedByOwner, toRequester: true, logFor: "engagement_termination decision");
@@ -374,7 +374,7 @@ public class NotificationService : INotificationService
             referenceType: EngagementReference, referenceId: projectWorkingId);
     }
 
-    public async Task NotifyEngagementTerminationCancelledAsync(long projectWorkingId, bool requestedByOwner)
+    public async Task NotifyEngagementTerminationCancelledAsync(Guid projectWorkingId, bool requestedByOwner)
     {
         var ctx = await LoadTerminationContextAsync(
             projectWorkingId, requestedByOwner, toRequester: false, logFor: "engagement_termination_cancelled");
@@ -388,7 +388,7 @@ public class NotificationService : INotificationService
             referenceType: EngagementReference, referenceId: projectWorkingId);
     }
 
-    public async Task NotifyProjectReadyToCloseAsync(long projectShopOwnerId)
+    public async Task NotifyProjectReadyToCloseAsync(Guid projectShopOwnerId)
     {
         var project = await _unitOfWork.GetRepository<ProjectShopOwner>().SingleOrDefaultAsync(
             predicate: p => p.Id == projectShopOwnerId && p.DeletedAt == null,
@@ -434,7 +434,7 @@ public class NotificationService : INotificationService
     }
 
     public async Task NotifyProjectClosedAsync(
-        long projectShopOwnerId, bool cancelled, IReadOnlyCollection<long> affectedProjectWorkingIds)
+        Guid projectShopOwnerId, bool cancelled, IReadOnlyCollection<Guid> affectedProjectWorkingIds)
     {
         if (affectedProjectWorkingIds.Count == 0) return;
 
@@ -488,7 +488,7 @@ public class NotificationService : INotificationService
     /// Trả null (kèm log) khi không resolve được — noti là best-effort, không chặn nghiệp vụ.
     /// </summary>
     private async Task<TerminationNotificationContext?> LoadTerminationContextAsync(
-        long projectWorkingId, bool requestedByOwner, bool toRequester, string logFor)
+        Guid projectWorkingId, bool requestedByOwner, bool toRequester, string logFor)
     {
         var engagement = await LoadEngagementWithPartiesAsync(projectWorkingId);
         if (engagement is null)
@@ -523,7 +523,7 @@ public class NotificationService : INotificationService
     }
 
     /// <summary>Nạp engagement kèm tài khoản của cả hai bên (owner + provider).</summary>
-    private Task<ProjectWorking?> LoadEngagementWithPartiesAsync(long projectWorkingId) =>
+    private Task<ProjectWorking?> LoadEngagementWithPartiesAsync(Guid projectWorkingId) =>
         _unitOfWork.GetRepository<ProjectWorking>().SingleOrDefaultAsync(
             predicate: e => e.Id == projectWorkingId,
             include: q => q
@@ -532,8 +532,8 @@ public class NotificationService : INotificationService
 
     /// <summary>Tạo bản ghi noti (lưu trước để làm lịch sử), rồi cố gắng gửi email (best-effort).</summary>
     private async Task CreateAndDispatchAsync(
-        long accountId, string? email, string type, string title, string content,
-        string referenceType, long referenceId)
+        Guid accountId, string? email, string type, string title, string content,
+        string referenceType, Guid referenceId)
     {
         var noti = new Notification
         {

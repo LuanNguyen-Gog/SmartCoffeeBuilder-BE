@@ -109,7 +109,7 @@ public class AuthService : IAuthService
     }
 
     // ──────────────────────────────────────────────────────────────
-    public async Task<MeResponse> GetMeAsync(long accountId)
+    public async Task<MeResponse> GetMeAsync(Guid accountId)
     {
         // GetByIdAsync đã lọc DeletedAt == null nên tài khoản đã xoá mềm sẽ trả null → 404.
         var account = await _authRepository.GetByIdAsync(accountId)
@@ -229,7 +229,7 @@ public class AuthService : IAuthService
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    private async Task<string> CreateRefreshTokenAsync(long accountId)
+    private async Task<string> CreateRefreshTokenAsync(Guid accountId)
     {
         var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
         var expiryDays = int.Parse(_configuration["Jwt:RefreshTokenExpirationDays"]!);

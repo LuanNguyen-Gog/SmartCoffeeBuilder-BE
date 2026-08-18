@@ -23,7 +23,7 @@ public enum EngagementActor { Owner, Provider, Admin }
 public static class EngagementAuthorization
 {
     /// <summary>Hai đầu account của một engagement, lấy bằng projection để khỏi nạp cả graph.</summary>
-    private sealed record EngagementParties(long OwnerAccountId, long ProviderAccountId);
+    private sealed record EngagementParties(Guid OwnerAccountId, Guid ProviderAccountId);
 
     /// <summary>
     /// Người gọi là owner của dự án hay provider của engagement — admin đi cửa riêng.
@@ -31,7 +31,7 @@ public static class EngagementAuthorization
     /// <exception cref="KeyNotFoundException">Không có engagement với id đó (HTTP 404).</exception>
     /// <exception cref="UnauthorizedAccessException">Không phải bên nào của engagement (HTTP 401).</exception>
     public static async Task<EngagementActor> ResolveActorAsync(
-        IUnitOfWork<SmartCafeBuilderContext> unitOfWork, long accountId, long projectWorkingId)
+        IUnitOfWork<SmartCafeBuilderContext> unitOfWork, Guid accountId, Guid projectWorkingId)
     {
         var parties = (await unitOfWork.GetRepository<ProjectWorking>().GetListAsync(
                 selector: e => new EngagementParties(
@@ -68,8 +68,8 @@ public static class EngagementAuthorization
     /// Lọc sau khi lấy về sẽ làm sai <c>TotalItems</c> của phân trang. Trả <c>null</c> khi tài khoản
     /// là admin: admin xem tất cả, caller bỏ qua bước lọc.
     /// </summary>
-    public static async Task<List<long>?> GetVisibleEngagementIdsAsync(
-        IUnitOfWork<SmartCafeBuilderContext> unitOfWork, long accountId)
+    public static async Task<List<Guid>?> GetVisibleEngagementIdsAsync(
+        IUnitOfWork<SmartCafeBuilderContext> unitOfWork, Guid accountId)
     {
         var account = await unitOfWork.GetRepository<Account>()
             .SingleOrDefaultAsync(predicate: a => a.Id == accountId && a.DeletedAt == null);

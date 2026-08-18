@@ -14,7 +14,7 @@ public class OtpRepository : IOtpRepository
         _context = context;
     }
 
-    public async Task<Otp?> GetActiveAsync(long accountId)
+    public async Task<Otp?> GetActiveAsync(Guid accountId)
         => await _context.Otps
             .Where(o => o.AccountId == accountId
                         && !o.IsUsed

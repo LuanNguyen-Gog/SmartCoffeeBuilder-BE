@@ -8,9 +8,9 @@ namespace SmartCoffeeBuilder.Repository.Models;
 /// </summary>
 public class Subscription
 {
-    public long Id { get; set; }
-    public long AccountId { get; set; }
-    public long PlanId { get; set; }
+    public Guid Id { get; set; }
+    public Guid AccountId { get; set; }
+    public Guid PlanId { get; set; }
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
     public SubscriptionStatus Status { get; set; } = SubscriptionStatus.pending;

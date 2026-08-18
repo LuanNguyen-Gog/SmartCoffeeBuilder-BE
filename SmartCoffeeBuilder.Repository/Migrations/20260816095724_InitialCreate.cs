@@ -1,6 +1,5 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
@@ -16,8 +15,7 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 name: "accounts",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
                     email = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
                     phone = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: true),
                     password_hash = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
@@ -34,11 +32,23 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "doc_types",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    code = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    name = table.Column<string>(type: "character varying(150)", maxLength: 150, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_doc_types", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "issue_types",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
                     code = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
                     name = table.Column<string>(type: "character varying(150)", maxLength: 150, nullable: false)
                 },
@@ -48,15 +58,60 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "subscription_plans",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    name = table.Column<string>(type: "character varying(150)", maxLength: 150, nullable: false),
+                    description = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    target_role = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    price = table.Column<decimal>(type: "numeric(15,2)", precision: 15, scale: 2, nullable: false),
+                    duration_in_days = table.Column<int>(type: "integer", nullable: false),
+                    is_active = table.Column<bool>(type: "boolean", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()"),
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_subscription_plans", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "comments",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    target_type = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    target_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    body = table.Column<string>(type: "text", nullable: true),
+                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()"),
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_comments", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_comments_accounts_created_by",
+                        column: x => x.created_by,
+                        principalTable: "accounts",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.SetNull);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "notifications",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    account_id = table.Column<long>(type: "bigint", nullable: false),
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    account_id = table.Column<Guid>(type: "uuid", nullable: false),
                     type = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    title = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false, defaultValue: ""),
                     content = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    reference_type = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    reference_id = table.Column<Guid>(type: "uuid", nullable: true),
                     is_read = table.Column<bool>(type: "boolean", nullable: false),
+                    email_sent_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
                 },
                 constraints: table =>
@@ -71,12 +126,36 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "otps",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    account_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    current_code = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: false),
+                    previous_code = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: true),
+                    code_refreshed_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    failed_attempts = table.Column<int>(type: "integer", nullable: false),
+                    is_used = table.Column<bool>(type: "boolean", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()"),
+                    expires_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_otps", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_otps_accounts_account_id",
+                        column: x => x.account_id,
+                        principalTable: "accounts",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "refresh_tokens",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    account_id = table.Column<long>(type: "bigint", nullable: false),
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    account_id = table.Column<Guid>(type: "uuid", nullable: false),
                     token = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
                     expires_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()"),
@@ -97,9 +176,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 name: "service_providers",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    account_id = table.Column<long>(type: "bigint", nullable: false),
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    account_id = table.Column<Guid>(type: "uuid", nullable: false),
                     display_name = table.Column<string>(type: "text", nullable: false),
                     provider_type = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     capability = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
@@ -128,9 +206,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 name: "shop_owners",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    account_id = table.Column<long>(type: "bigint", nullable: false),
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    account_id = table.Column<Guid>(type: "uuid", nullable: false),
                     full_name = table.Column<string>(type: "text", nullable: false),
                     shop_name = table.Column<string>(type: "text", nullable: false),
                     phone = table.Column<string>(type: "text", nullable: false),
@@ -150,12 +227,42 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "subscriptions",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    account_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    plan_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    start_date = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    end_date = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    paid_amount = table.Column<decimal>(type: "numeric(15,2)", precision: 15, scale: 2, nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()"),
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_subscriptions", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_subscriptions_accounts_account_id",
+                        column: x => x.account_id,
+                        principalTable: "accounts",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "fk_subscriptions_subscription_plans_plan_id",
+                        column: x => x.plan_id,
+                        principalTable: "subscription_plans",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "constructor_profiles",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    provider_id = table.Column<long>(type: "bigint", nullable: false),
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    provider_id = table.Column<Guid>(type: "uuid", nullable: false),
                     license_no = table.Column<string>(type: "text", nullable: false),
                     team_size = table.Column<int>(type: "integer", nullable: false),
                     equipment = table.Column<string>(type: "text", nullable: false),
@@ -179,9 +286,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 name: "designer_profiles",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    provider_id = table.Column<long>(type: "bigint", nullable: false),
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    provider_id = table.Column<Guid>(type: "uuid", nullable: false),
                     specialties = table.Column<string>(type: "text", nullable: false),
                     software_skills = table.Column<string>(type: "text", nullable: false),
                     design_style = table.Column<string>(type: "text", nullable: false),
@@ -204,9 +310,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 name: "projects",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    owner_id = table.Column<long>(type: "bigint", nullable: false),
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    owner_id = table.Column<Guid>(type: "uuid", nullable: false),
                     name = table.Column<string>(type: "text", nullable: false),
                     address = table.Column<string>(type: "text", nullable: false),
                     area_m2 = table.Column<decimal>(type: "numeric(10,2)", precision: 10, scale: 2, nullable: false),
@@ -231,9 +336,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 name: "budget_items",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    project_id = table.Column<long>(type: "bigint", nullable: false),
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    project_id = table.Column<Guid>(type: "uuid", nullable: false),
                     category = table.Column<string>(type: "text", nullable: false),
                     planned_amount = table.Column<decimal>(type: "numeric(15,2)", precision: 15, scale: 2, nullable: false),
                     actual_amount = table.Column<decimal>(type: "numeric(15,2)", precision: 15, scale: 2, nullable: true),
@@ -255,9 +359,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 name: "design_briefs",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    project_id = table.Column<long>(type: "bigint", nullable: false),
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    project_id = table.Column<Guid>(type: "uuid", nullable: false),
                     target_customer = table.Column<string>(type: "text", nullable: false),
                     style = table.Column<string>(type: "text", nullable: false),
                     mood = table.Column<string>(type: "text", nullable: false),
@@ -285,15 +388,14 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 name: "project_posts",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    project_id = table.Column<long>(type: "bigint", nullable: false),
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    project_id = table.Column<Guid>(type: "uuid", nullable: false),
                     service_kind = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     title = table.Column<string>(type: "text", nullable: false),
                     description = table.Column<string>(type: "text", nullable: false),
                     status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     submission_deadline = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    estimated_budget = table.Column<decimal>(type: "numeric(15,2)", precision: 15, scale: 2, nullable: true),
+                    boosted_until = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()"),
                     updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
                 },
@@ -309,47 +411,47 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "reviews",
-                columns: table => new
-                {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    provider_id = table.Column<long>(type: "bigint", nullable: false),
-                    project_id = table.Column<long>(type: "bigint", nullable: false),
-                    overall_rating = table.Column<decimal>(type: "numeric(3,2)", precision: 3, scale: 2, nullable: false),
-                    comment = table.Column<string>(type: "text", nullable: true),
-                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()"),
-                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("pk_reviews", x => x.id);
-                    table.ForeignKey(
-                        name: "fk_reviews_projects_project_id",
-                        column: x => x.project_id,
-                        principalTable: "projects",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "fk_reviews_service_providers_provider_id",
-                        column: x => x.provider_id,
-                        principalTable: "service_providers",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "ai_recommendations",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    brief_id = table.Column<long>(type: "bigint", nullable: false),
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    brief_id = table.Column<Guid>(type: "uuid", nullable: false),
                     concept_summary = table.Column<string>(type: "text", nullable: false),
                     payload = table.Column<string>(type: "jsonb", nullable: false),
                     estimated_design_cost = table.Column<decimal>(type: "numeric(15,2)", precision: 15, scale: 2, nullable: true),
                     estimated_construction_cost = table.Column<decimal>(type: "numeric(15,2)", precision: 15, scale: 2, nullable: true),
-                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()"),
+                    job_id = table.Column<string>(type: "text", nullable: true),
+                    state = table.Column<string>(type: "text", nullable: true),
+                    last_error = table.Column<string>(type: "text", nullable: true),
+                    attempts = table.Column<int>(type: "integer", nullable: false),
+                    started_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    completed_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    parent_job_id = table.Column<string>(type: "text", nullable: true),
+                    plan_concept_name = table.Column<string>(type: "text", nullable: true),
+                    plan_summary = table.Column<string>(type: "text", nullable: true),
+                    layout_width = table.Column<double>(type: "double precision", nullable: true),
+                    layout_height = table.Column<double>(type: "double precision", nullable: true),
+                    layout_unit = table.Column<string>(type: "text", nullable: true),
+                    layout_zones = table.Column<string>(type: "jsonb", nullable: true),
+                    layout_adjacency_rules = table.Column<string>(type: "jsonb", nullable: true),
+                    fitout_min_vnd = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: true),
+                    fitout_max_vnd = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: true),
+                    equipment_min_vnd = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: true),
+                    equipment_max_vnd = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: true),
+                    contingency_percent = table.Column<decimal>(type: "numeric(5,2)", precision: 5, scale: 2, nullable: true),
+                    cost_notes = table.Column<string>(type: "text", nullable: true),
+                    customer_flow = table.Column<string>(type: "jsonb", nullable: true),
+                    recommendations = table.Column<string>(type: "jsonb", nullable: true),
+                    risk_notes = table.Column<string>(type: "jsonb", nullable: true),
+                    image_view = table.Column<string>(type: "text", nullable: true),
+                    image_prompt = table.Column<string>(type: "text", nullable: true),
+                    image_aspect_ratio = table.Column<string>(type: "text", nullable: true),
+                    image_negative_prompt = table.Column<string>(type: "text", nullable: true),
+                    image_reference_urls = table.Column<string>(type: "jsonb", nullable: true),
+                    image_artifact_url = table.Column<string>(type: "text", nullable: true),
+                    seat_capacity_recommendation = table.Column<int>(type: "integer", nullable: true),
+                    plan_json = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -363,15 +465,57 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "payment_transactions",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    subscription_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    account_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    purpose = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    post_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    boost_days = table.Column<int>(type: "integer", nullable: true),
+                    order_code = table.Column<long>(type: "bigint", nullable: false),
+                    platform = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    payment_link_id = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    checkout_url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    qr_code = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    amount = table.Column<decimal>(type: "numeric(15,2)", precision: 15, scale: 2, nullable: false),
+                    description = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()"),
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_payment_transactions", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_payment_transactions_accounts_account_id",
+                        column: x => x.account_id,
+                        principalTable: "accounts",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "fk_payment_transactions_posts_post_id",
+                        column: x => x.post_id,
+                        principalTable: "project_posts",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "fk_payment_transactions_subscriptions_subscription_id",
+                        column: x => x.subscription_id,
+                        principalTable: "subscriptions",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "project_applications",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    post_id = table.Column<long>(type: "bigint", nullable: false),
-                    provider_id = table.Column<long>(type: "bigint", nullable: false),
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    post_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    provider_id = table.Column<Guid>(type: "uuid", nullable: false),
                     proposal = table.Column<string>(type: "text", nullable: false),
-                    bid_amount = table.Column<decimal>(type: "numeric(15,2)", precision: 15, scale: 2, nullable: true),
                     estimated_duration_days = table.Column<int>(type: "integer", nullable: true),
                     status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     submitted_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
@@ -396,39 +540,23 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "review_scores",
-                columns: table => new
-                {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    review_id = table.Column<long>(type: "bigint", nullable: false),
-                    dimension = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
-                    score = table.Column<int>(type: "integer", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("pk_review_scores", x => x.id);
-                    table.ForeignKey(
-                        name: "fk_review_scores_reviews_review_id",
-                        column: x => x.review_id,
-                        principalTable: "reviews",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "project_providers",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    project_id = table.Column<long>(type: "bigint", nullable: false),
-                    provider_id = table.Column<long>(type: "bigint", nullable: false),
-                    application_id = table.Column<long>(type: "bigint", nullable: true),
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    project_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    provider_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    application_id = table.Column<Guid>(type: "uuid", nullable: true),
                     contract_type = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     request_message = table.Column<string>(type: "text", nullable: true),
                     started_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    completion_requested_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    completion_request_note = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
+                    termination_requested_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    termination_requested_by = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
+                    termination_request_note = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
+                    terminated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()"),
                     updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
                 },
@@ -459,18 +587,16 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 name: "construction_items",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    project_provider_id = table.Column<long>(type: "bigint", nullable: false),
-                    parent_id = table.Column<long>(type: "bigint", nullable: true),
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    project_provider_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    parent_id = table.Column<Guid>(type: "uuid", nullable: true),
                     name = table.Column<string>(type: "text", nullable: false),
                     description = table.Column<string>(type: "text", nullable: true),
                     category = table.Column<string>(type: "text", nullable: true),
                     estimate_at = table.Column<DateOnly>(type: "date", nullable: true),
                     actual_at = table.Column<DateOnly>(type: "date", nullable: true),
-                    is_done = table.Column<bool>(type: "boolean", nullable: false),
                     status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
-                    created_by = table.Column<long>(type: "bigint", nullable: true),
+                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()"),
                     updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
                 },
@@ -501,9 +627,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 name: "contracts",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    project_provider_id = table.Column<long>(type: "bigint", nullable: false),
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    project_provider_id = table.Column<Guid>(type: "uuid", nullable: false),
                     title = table.Column<string>(type: "text", nullable: false),
                     party_info = table.Column<string>(type: "text", nullable: true),
                     terms = table.Column<string>(type: "text", nullable: true),
@@ -512,7 +637,7 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     otp_code = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: true),
                     otp_expires_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     confirmed_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    confirmed_by = table.Column<long>(type: "bigint", nullable: true),
+                    confirmed_by = table.Column<Guid>(type: "uuid", nullable: true),
                     status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()"),
                     updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
@@ -538,18 +663,25 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 name: "conversations",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    project_provider_id = table.Column<long>(type: "bigint", nullable: false),
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    project_working_id = table.Column<Guid>(type: "uuid", nullable: false),
                     topic = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
-                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
+                    created_by = table.Column<Guid>(type: "uuid", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()"),
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("pk_conversations", x => x.id);
                     table.ForeignKey(
-                        name: "fk_conversations_project_providers_project_provider_id",
-                        column: x => x.project_provider_id,
+                        name: "fk_conversations_accounts_created_by",
+                        column: x => x.created_by,
+                        principalTable: "accounts",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "fk_conversations_project_workings_project_working_id",
+                        column: x => x.project_working_id,
                         principalTable: "project_providers",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
@@ -559,15 +691,14 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 name: "designs",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    project_provider_id = table.Column<long>(type: "bigint", nullable: false),
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    project_provider_id = table.Column<Guid>(type: "uuid", nullable: false),
                     title = table.Column<string>(type: "text", nullable: true),
                     version = table.Column<decimal>(type: "numeric(4,1)", precision: 4, scale: 1, nullable: false),
                     type = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     reason = table.Column<string>(type: "text", nullable: true),
                     status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
-                    created_by = table.Column<long>(type: "bigint", nullable: true),
+                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()"),
                     updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
                 },
@@ -592,14 +723,13 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 name: "docs",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    project_provider_id = table.Column<long>(type: "bigint", nullable: false),
-                    type = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    project_provider_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    doc_type_id = table.Column<Guid>(type: "uuid", nullable: false),
                     file_url = table.Column<string>(type: "text", nullable: false),
                     file_name = table.Column<string>(type: "text", nullable: true),
                     caption = table.Column<string>(type: "text", nullable: true),
-                    uploaded_by = table.Column<long>(type: "bigint", nullable: true),
+                    uploaded_by = table.Column<Guid>(type: "uuid", nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
                 },
                 constraints: table =>
@@ -612,7 +742,35 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.SetNull);
                     table.ForeignKey(
+                        name: "fk_docs_doc_types_doc_type_id",
+                        column: x => x.doc_type_id,
+                        principalTable: "doc_types",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
                         name: "fk_docs_project_providers_project_provider_id",
+                        column: x => x.project_provider_id,
+                        principalTable: "project_providers",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "reviews",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    project_provider_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    overall_rating = table.Column<decimal>(type: "numeric(3,2)", precision: 3, scale: 2, nullable: false),
+                    comment = table.Column<string>(type: "text", nullable: true),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()"),
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_reviews", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_reviews_project_providers_project_provider_id",
                         column: x => x.project_provider_id,
                         principalTable: "project_providers",
                         principalColumn: "id",
@@ -623,13 +781,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 name: "surveys",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    project_provider_id = table.Column<long>(type: "bigint", nullable: false),
-                    version = table.Column<decimal>(type: "numeric(4,1)", precision: 4, scale: 1, nullable: false),
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    project_provider_id = table.Column<Guid>(type: "uuid", nullable: false),
                     condition_note = table.Column<string>(type: "text", nullable: false),
                     report_url = table.Column<string>(type: "text", nullable: true),
-                    created_by = table.Column<long>(type: "bigint", nullable: true),
+                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()"),
                     updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
                 },
@@ -651,14 +807,47 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "construction_tasks",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    construction_item_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    name = table.Column<string>(type: "text", nullable: false),
+                    description = table.Column<string>(type: "text", nullable: true),
+                    image_url = table.Column<string>(type: "text", nullable: true),
+                    estimate_at = table.Column<DateOnly>(type: "date", nullable: true),
+                    actual_at = table.Column<DateOnly>(type: "date", nullable: true),
+                    reason = table.Column<string>(type: "text", nullable: true),
+                    status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()"),
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_construction_tasks", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_construction_tasks_accounts_created_by",
+                        column: x => x.created_by,
+                        principalTable: "accounts",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "fk_construction_tasks_construction_items_construction_item_id",
+                        column: x => x.construction_item_id,
+                        principalTable: "construction_items",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "issues",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    project_provider_id = table.Column<long>(type: "bigint", nullable: false),
-                    construction_item_id = table.Column<long>(type: "bigint", nullable: true),
-                    issue_type_id = table.Column<long>(type: "bigint", nullable: false),
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    project_provider_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    construction_item_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    issue_type_id = table.Column<Guid>(type: "uuid", nullable: false),
                     cause = table.Column<string>(type: "text", nullable: true),
                     reason = table.Column<string>(type: "text", nullable: true),
                     solution = table.Column<string>(type: "text", nullable: true),
@@ -667,7 +856,7 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     estimate_at = table.Column<DateOnly>(type: "date", nullable: true),
                     actual_at = table.Column<DateOnly>(type: "date", nullable: true),
                     status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
-                    created_by = table.Column<long>(type: "bigint", nullable: true),
+                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()"),
                     updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
                 },
@@ -704,11 +893,10 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 name: "messages",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    conversation_id = table.Column<long>(type: "bigint", nullable: false),
-                    sender_id = table.Column<long>(type: "bigint", nullable: false),
-                    body = table.Column<string>(type: "text", nullable: false),
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    conversation_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    sender_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    body = table.Column<string>(type: "text", nullable: true),
                     sent_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
                 },
                 constraints: table =>
@@ -732,12 +920,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 name: "design_images",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    design_id = table.Column<long>(type: "bigint", nullable: false),
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    design_id = table.Column<Guid>(type: "uuid", nullable: false),
                     image_url = table.Column<string>(type: "text", nullable: false),
                     caption = table.Column<string>(type: "text", nullable: true),
-                    uploaded_by = table.Column<long>(type: "bigint", nullable: true),
+                    uploaded_by = table.Column<Guid>(type: "uuid", nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
                 },
                 constraints: table =>
@@ -753,6 +940,124 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         name: "fk_design_images_designs_design_id",
                         column: x => x.design_id,
                         principalTable: "designs",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "design_versions",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    design_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    snapshot_kind = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    version = table.Column<decimal>(type: "numeric(4,1)", precision: 4, scale: 1, nullable: false),
+                    title = table.Column<string>(type: "text", nullable: true),
+                    type = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    reason = table.Column<string>(type: "text", nullable: true),
+                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    snapshotted_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()"),
+                    snapshotted_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_design_versions", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_design_versions_accounts_created_by",
+                        column: x => x.created_by,
+                        principalTable: "accounts",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "fk_design_versions_accounts_snapshotted_by",
+                        column: x => x.snapshotted_by,
+                        principalTable: "accounts",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "fk_design_versions_designs_design_id",
+                        column: x => x.design_id,
+                        principalTable: "designs",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "review_scores",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    review_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    dimension = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    score = table.Column<int>(type: "integer", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_review_scores", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_review_scores_reviews_review_id",
+                        column: x => x.review_id,
+                        principalTable: "reviews",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "message_attachments",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    message_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    file_name = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    content_type = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    size_bytes = table.Column<long>(type: "bigint", nullable: true),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_message_attachments", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_message_attachments_messages_message_id",
+                        column: x => x.message_id,
+                        principalTable: "messages",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "design_version_images",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    design_version_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    original_image_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    image_url = table.Column<string>(type: "text", nullable: false),
+                    caption = table.Column<string>(type: "text", nullable: true),
+                    uploaded_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    uploaded_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_design_version_images", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_design_version_images_accounts_uploaded_by",
+                        column: x => x.uploaded_by,
+                        principalTable: "accounts",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "fk_design_version_images_design_images_original_image_id",
+                        column: x => x.original_image_id,
+                        principalTable: "design_images",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "fk_design_version_images_design_versions_design_version_id",
+                        column: x => x.design_version_id,
+                        principalTable: "design_versions",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -774,6 +1079,16 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 column: "project_id");
 
             migrationBuilder.CreateIndex(
+                name: "ix_comments_created_by",
+                table: "comments",
+                column: "created_by");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_comments_target_type_target_id",
+                table: "comments",
+                columns: new[] { "target_type", "target_id" });
+
+            migrationBuilder.CreateIndex(
                 name: "ix_construction_items_created_by",
                 table: "construction_items",
                 column: "created_by");
@@ -787,6 +1102,16 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 name: "ix_construction_items_project_provider_id",
                 table: "construction_items",
                 column: "project_provider_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_construction_tasks_construction_item_id",
+                table: "construction_tasks",
+                column: "construction_item_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_construction_tasks_created_by",
+                table: "construction_tasks",
+                column: "created_by");
 
             migrationBuilder.CreateIndex(
                 name: "ix_constructor_profiles_provider_id",
@@ -805,9 +1130,14 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 column: "project_provider_id");
 
             migrationBuilder.CreateIndex(
-                name: "ix_conversations_project_provider_id",
+                name: "ix_conversations_created_by",
                 table: "conversations",
-                column: "project_provider_id");
+                column: "created_by");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_conversations_project_working_id",
+                table: "conversations",
+                column: "project_working_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_design_briefs_project_id",
@@ -826,6 +1156,41 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 column: "uploaded_by");
 
             migrationBuilder.CreateIndex(
+                name: "ix_design_version_images_design_version_id",
+                table: "design_version_images",
+                column: "design_version_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_design_version_images_original_image_id",
+                table: "design_version_images",
+                column: "original_image_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_design_version_images_uploaded_by",
+                table: "design_version_images",
+                column: "uploaded_by");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_design_versions_created_by",
+                table: "design_versions",
+                column: "created_by");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_design_versions_design_id",
+                table: "design_versions",
+                column: "design_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_design_versions_design_id_snapshot_kind",
+                table: "design_versions",
+                columns: new[] { "design_id", "snapshot_kind" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_design_versions_snapshotted_by",
+                table: "design_versions",
+                column: "snapshotted_by");
+
+            migrationBuilder.CreateIndex(
                 name: "ix_designer_profiles_provider_id",
                 table: "designer_profiles",
                 column: "provider_id",
@@ -840,6 +1205,17 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 name: "ix_designs_project_provider_id",
                 table: "designs",
                 column: "project_provider_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_doc_types_code",
+                table: "doc_types",
+                column: "code",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "ix_docs_doc_type_id",
+                table: "docs",
+                column: "doc_type_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_docs_project_provider_id",
@@ -878,6 +1254,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 column: "project_provider_id");
 
             migrationBuilder.CreateIndex(
+                name: "ix_message_attachments_message_id",
+                table: "message_attachments",
+                column: "message_id");
+
+            migrationBuilder.CreateIndex(
                 name: "ix_messages_conversation_id",
                 table: "messages",
                 column: "conversation_id");
@@ -891,6 +1272,32 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 name: "ix_notifications_account_id",
                 table: "notifications",
                 column: "account_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_otps_account_id",
+                table: "otps",
+                column: "account_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_payment_transactions_account_id",
+                table: "payment_transactions",
+                column: "account_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_payment_transactions_order_code",
+                table: "payment_transactions",
+                column: "order_code",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "ix_payment_transactions_post_id",
+                table: "payment_transactions",
+                column: "post_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_payment_transactions_subscription_id",
+                table: "payment_transactions",
+                column: "subscription_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_project_applications_post_id",
@@ -944,14 +1351,9 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 column: "review_id");
 
             migrationBuilder.CreateIndex(
-                name: "ix_reviews_project_id",
+                name: "ix_reviews_project_provider_id",
                 table: "reviews",
-                column: "project_id");
-
-            migrationBuilder.CreateIndex(
-                name: "ix_reviews_provider_id",
-                table: "reviews",
-                column: "provider_id");
+                column: "project_provider_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_service_providers_account_id",
@@ -964,6 +1366,16 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 table: "shop_owners",
                 column: "account_id",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "ix_subscriptions_account_id",
+                table: "subscriptions",
+                column: "account_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_subscriptions_plan_id",
+                table: "subscriptions",
+                column: "plan_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_surveys_created_by",
@@ -986,13 +1398,19 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 name: "budget_items");
 
             migrationBuilder.DropTable(
+                name: "comments");
+
+            migrationBuilder.DropTable(
+                name: "construction_tasks");
+
+            migrationBuilder.DropTable(
                 name: "constructor_profiles");
 
             migrationBuilder.DropTable(
                 name: "contracts");
 
             migrationBuilder.DropTable(
-                name: "design_images");
+                name: "design_version_images");
 
             migrationBuilder.DropTable(
                 name: "designer_profiles");
@@ -1004,10 +1422,16 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 name: "issues");
 
             migrationBuilder.DropTable(
-                name: "messages");
+                name: "message_attachments");
 
             migrationBuilder.DropTable(
                 name: "notifications");
+
+            migrationBuilder.DropTable(
+                name: "otps");
+
+            migrationBuilder.DropTable(
+                name: "payment_transactions");
 
             migrationBuilder.DropTable(
                 name: "refresh_tokens");
@@ -1022,7 +1446,13 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 name: "design_briefs");
 
             migrationBuilder.DropTable(
-                name: "designs");
+                name: "design_images");
+
+            migrationBuilder.DropTable(
+                name: "design_versions");
+
+            migrationBuilder.DropTable(
+                name: "doc_types");
 
             migrationBuilder.DropTable(
                 name: "construction_items");
@@ -1031,10 +1461,22 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 name: "issue_types");
 
             migrationBuilder.DropTable(
-                name: "conversations");
+                name: "messages");
+
+            migrationBuilder.DropTable(
+                name: "subscriptions");
 
             migrationBuilder.DropTable(
                 name: "reviews");
+
+            migrationBuilder.DropTable(
+                name: "designs");
+
+            migrationBuilder.DropTable(
+                name: "conversations");
+
+            migrationBuilder.DropTable(
+                name: "subscription_plans");
 
             migrationBuilder.DropTable(
                 name: "project_providers");

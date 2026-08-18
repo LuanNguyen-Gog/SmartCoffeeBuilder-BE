@@ -6,7 +6,7 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.ProjectWorking;
 
 public class OverviewProjectSummary
 {
-    public long Id { get; set; }
+    public Guid Id { get; set; }
     public string Name { get; set; } = null!;
     public string Address { get; set; } = null!;
     public decimal AreaM2 { get; set; }
@@ -31,7 +31,7 @@ public class OverviewProjectSummary
 /// </summary>
 public class EngagementOverviewResponse
 {
-    public long ProjectWorkingId { get; set; }
+    public Guid ProjectWorkingId { get; set; }
     public string ContractType { get; set; } = null!;
     public string Status { get; set; } = null!;
     public OverviewProjectSummary ProjectShopOwner { get; set; } = null!;

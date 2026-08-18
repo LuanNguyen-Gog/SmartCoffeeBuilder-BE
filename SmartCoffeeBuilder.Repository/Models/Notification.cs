@@ -6,8 +6,8 @@ namespace SmartCoffeeBuilder.Repository.Models;
 /// </summary>
 public class Notification
 {
-    public long Id { get; set; }
-    public long AccountId { get; set; }
+    public Guid Id { get; set; }
+    public Guid AccountId { get; set; }
     /// <summary>Loại noti (xem NotificationTypes) — dùng để chọn template email + hiển thị icon ở FE.</summary>
     public string Type { get; set; } = null!;
     /// <summary>Tiêu đề ngắn — dùng cho subject email và tiêu đề trong danh sách noti.</summary>
@@ -16,7 +16,7 @@ public class Notification
     /// <summary>Loại tài nguyên liên quan (vd "project_application") — cho FE deep-link.</summary>
     public string? ReferenceType { get; set; }
     /// <summary>Id tài nguyên liên quan (vd application id).</summary>
-    public long? ReferenceId { get; set; }
+    public Guid? ReferenceId { get; set; }
     public bool IsRead { get; set; }
     /// <summary>Lần cuối gửi email thành công; null = chưa gửi được (có thể resend).</summary>
     public DateTime? EmailSentAt { get; set; }

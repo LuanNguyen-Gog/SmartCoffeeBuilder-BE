@@ -29,7 +29,7 @@ public class ApplyService : IApplyService
 
     public async Task<PaginationResponse<ApplyResponse>> GetAllAsync(
         int pageNumber = 1, int pageSize = 10,
-        long? postId = null, long? serviceProviderProfileId = null, string? status = null)
+        Guid? postId = null, Guid? serviceProviderProfileId = null, string? status = null)
     {
         ApplicationStatus? st = null;
         if (!string.IsNullOrWhiteSpace(status))
@@ -56,7 +56,7 @@ public class ApplyService : IApplyService
             paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
-    public async Task<ApplyResponse> GetByIdAsync(long id)
+    public async Task<ApplyResponse> GetByIdAsync(Guid id)
     {
         var application = await _repository.SingleOrDefaultAsync(
             predicate: a => a.Id == id
@@ -68,7 +68,7 @@ public class ApplyService : IApplyService
         return ApplyResponse.From(application);
     }
 
-    public async Task<ApplyResponse> ApplyAsync(long accountId, CreateApplyRequest request)
+    public async Task<ApplyResponse> ApplyAsync(Guid accountId, CreateApplyRequest request)
     {
         var post = await _unitOfWork.GetRepository<Post>()
             .SingleOrDefaultAsync(predicate: p => p.Id == request.PostId)
@@ -127,7 +127,7 @@ public class ApplyService : IApplyService
         return ApplyResponse.From(application);
     }
 
-    public async Task<ApplyResponse> UpdateProposalAsync(long id, UpdateApplyRequest request)
+    public async Task<ApplyResponse> UpdateProposalAsync(Guid id, UpdateApplyRequest request)
     {
         var application = await _repository.SingleOrDefaultAsync(
             predicate: a => a.Id == id,
@@ -147,7 +147,7 @@ public class ApplyService : IApplyService
         return ApplyResponse.From(application);
     }
 
-    public async Task<ProjectWorkingResponse> AcceptAsync(long id)
+    public async Task<ProjectWorkingResponse> AcceptAsync(Guid id)
     {
         var application = await _repository.SingleOrDefaultAsync(
             predicate: a => a.Id == id,
@@ -225,7 +225,7 @@ public class ApplyService : IApplyService
         return ProjectWorkingResponse.From(engagement);
     }
 
-    public async Task<ApplyResponse> RejectAsync(long id)
+    public async Task<ApplyResponse> RejectAsync(Guid id)
     {
         var application = await _repository.SingleOrDefaultAsync(
             predicate: a => a.Id == id,
@@ -251,7 +251,7 @@ public class ApplyService : IApplyService
     /// Dùng chung cho lúc nộp hồ sơ và lúc owner chấp nhận hồ sơ.
     /// </summary>
     private async Task EnsureProjectSlotFreeAsync(
-        long projectShopOwnerId, ServiceKind wanted, string action)
+        Guid projectShopOwnerId, ServiceKind wanted, string action)
     {
         var activeKinds = await _unitOfWork.GetRepository<ProjectWorking>().GetListAsync(
             selector: e => e.ContractType,
@@ -261,7 +261,7 @@ public class ApplyService : IApplyService
         ProjectSlotRules.EnsureSlotFree(activeKinds, wanted, action);
     }
 
-    public async Task WithdrawAsync(long id)
+    public async Task WithdrawAsync(Guid id)
     {
         var application = await _repository.GetByIdAsync(id)
             ?? throw new KeyNotFoundException($"Không tìm thấy application với id {id}.");

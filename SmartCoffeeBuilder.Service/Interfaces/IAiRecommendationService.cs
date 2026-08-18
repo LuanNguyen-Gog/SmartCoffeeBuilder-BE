@@ -11,18 +11,18 @@ public interface IAiRecommendationService
     // có engagement còn hiệu lực, mọi tài khoản khi dự án còn bài đăng 'open', và admin.
     // Xem EnsureBriefVisibleAsync; luật khớp DesignBriefService.EnsureProjectVisibleAsync.
     Task<PaginationResponse<AiRecommendationResponse>> GetAllByBriefIdAsync(
-        long accountId, long briefId, int pageNumber = 1, int pageSize = 10);
-    Task<AiRecommendationResponse> GetByIdAsync(long accountId, long id);
+        Guid accountId, Guid briefId, int pageNumber = 1, int pageSize = 10);
+    Task<AiRecommendationResponse> GetByIdAsync(Guid accountId, Guid id);
 
     // POST - generate AI design (userId là account id dạng chuỗi, đọc từ claim sub).
     // Đường GHI: chỉ chủ dự án hoặc admin (EnsureBriefOwnerAsync) — job tốn quota.
-    Task<AiDesignJobStatusResponse> GenerateDesignAsync(long briefId, string userId, GenerateAiDesignRequest request);
+    Task<AiDesignJobStatusResponse> GenerateDesignAsync(Guid briefId, string userId, GenerateAiDesignRequest request);
 
     // CRUD nội bộ — KHÔNG có route HTTP nào trỏ tới (chỉ dùng cho quản lý thủ công / consumer),
     // nên không rào quyền ở đây. Nếu sau này expose ra controller thì phải thêm EnsureBriefOwnerAsync.
     Task<AiRecommendationResponse> CreateAsync(CreateAiRecommendationRequest request);
-    Task<AiRecommendationResponse> UpdateAsync(long id, UpdateAiRecommendationRequest request);
-    Task DeleteAsync(long id);
+    Task<AiRecommendationResponse> UpdateAsync(Guid id, UpdateAiRecommendationRequest request);
+    Task DeleteAsync(Guid id);
     
     // Process result from Pub/Sub
     Task ProcessAiDesignResultAsync(AiDesignResultMessage result);

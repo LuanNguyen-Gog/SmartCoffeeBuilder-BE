@@ -2,8 +2,8 @@ namespace SmartCoffeeBuilder.Repository.Models;
 
 public class AiRecommendation
 {
-    public long Id { get; set; }
-    public long BriefId { get; set; }
+    public Guid Id { get; set; }
+    public Guid BriefId { get; set; }
     public string ConceptSummary { get; set; } = null!;
     public string Payload { get; set; } = null!; // jsonb
     public decimal? EstimatedDesignCost { get; set; }

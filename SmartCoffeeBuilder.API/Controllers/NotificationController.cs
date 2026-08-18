@@ -45,16 +45,16 @@ public class NotificationController : ControllerBase
         return Ok(new { accountId, unreadCount = count });
     }
 
-    [HttpGet("{id:long}")]
-    public async Task<IActionResult> GetById(long id)
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id)
     {
         var result = await _notificationService.GetByIdAsync(User.GetAccountId(), id);
         return Ok(result);
     }
 
     /// <summary>Đánh dấu một noti đã đọc.</summary>
-    [HttpPatch("{id:long}/read")]
-    public async Task<IActionResult> MarkAsRead(long id)
+    [HttpPatch("{id:guid}/read")]
+    public async Task<IActionResult> MarkAsRead(Guid id)
     {
         var result = await _notificationService.MarkAsReadAsync(User.GetAccountId(), id);
         return Ok(result);
@@ -70,8 +70,8 @@ public class NotificationController : ControllerBase
     }
 
     /// <summary>Gửi lại email cho một noti của chính mình (vd lần trước gửi lỗi).</summary>
-    [HttpPost("{id:long}/resend")]
-    public async Task<IActionResult> Resend(long id)
+    [HttpPost("{id:guid}/resend")]
+    public async Task<IActionResult> Resend(Guid id)
     {
         var result = await _notificationService.ResendAsync(User.GetAccountId(), id);
         return Ok(result);
