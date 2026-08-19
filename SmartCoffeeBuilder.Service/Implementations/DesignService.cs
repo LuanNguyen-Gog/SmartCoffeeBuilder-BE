@@ -141,6 +141,9 @@ public class DesignService : IDesignService
                     $"Type '{request.Type}' không hợp lệ. Cho phép: concept, layout_2d, render_3d, technical_drawing.");
             design.Type = type;
         }
+        // Mô tả thay đổi so với bản trước — provider điền trước khi submit (review 3). Cột này bị
+        // ghi đè ở vòng sau, bản lưu vĩnh viễn nằm trong snapshot design_version.
+        if (request.ChangeSummary != null) design.ChangeSummary = request.ChangeSummary;
         design.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(design);
@@ -409,6 +412,7 @@ public class DesignService : IDesignService
                     Type = design.Type,
                     Status = design.Status,
                     Reason = design.Reason,
+                    ChangeSummary = design.ChangeSummary,
                     CreatedBy = design.CreatedBy,
                     SnapshottedBy = snapshottedBy,
                     CreatedAt = design.CreatedAt,

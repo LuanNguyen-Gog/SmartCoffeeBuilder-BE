@@ -99,12 +99,16 @@ public static class DbSeeder
     }
 
     /// <summary>
-    /// Ba tài khoản provider để test, phân biệt nhau bằng <see cref="Capability"/>:
-    /// designer / constructor / both. Idempotent theo email nên chạy lại không tạo trùng.
+    /// Bốn tài khoản test: ba provider phân biệt nhau bằng <see cref="Capability"/>
+    /// (designer / constructor / both) và một quản trị viên.
+    /// Idempotent theo email nên chạy lại không tạo trùng.
+    ///
+    /// Admin KHÔNG có <see cref="ServiceProviderProfile"/> — nó là vai trò quản trị, không phải
+    /// một bên tham gia dự án; gắn hồ sơ năng lực cho admin sẽ làm hỏng mọi query lọc theo provider.
     /// </summary>
     private static async Task SeedTestAccountsAsync(SmartCafeBuilderContext db, CancellationToken ct)
     {
-        var emails = new[] { "designer@scb.com", "constructor@scb.com", "both@scb.com" };
+        var emails = new[] { "designer@scb.com", "constructor@scb.com", "both@scb.com", "admin@scb.com" };
 
         var existing = await db.Accounts
             .Where(a => emails.Contains(a.Email))
@@ -203,6 +207,21 @@ public static class DbSeeder
                     MaxProjectValue = 800_000_000m,
                     WarrantyPolicy = "Bảo hành 12 tháng toàn bộ hạng mục.",
                 },
+            });
+        }
+
+        // Quản trị viên: chỉ một bản ghi accounts, không kèm hồ sơ nào. Dùng để test các endpoint
+        // [Authorize(Roles = "admin")] và các đường "admin đi xuyên" trong service.
+        if (!existing.Contains("admin@scb.com"))
+        {
+            db.Accounts.Add(new Account
+            {
+                Email = "admin@scb.com",
+                Phone = "0900000009",
+                PasswordHash = PasswordHash,
+                Role = AccountRole.admin,
+                Status = AccountStatus.active,
+                EmailVerifiedAt = DateTime.UtcNow,
             });
         }
 

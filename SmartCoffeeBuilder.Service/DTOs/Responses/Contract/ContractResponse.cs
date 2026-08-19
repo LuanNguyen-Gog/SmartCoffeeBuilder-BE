@@ -17,6 +17,8 @@ public class ContractResponse
     public DateTime? OtpExpiresAt { get; set; }
     public DateTime? ConfirmedAt { get; set; }
     public Guid? ConfirmedBy { get; set; }
+    /// <summary>Báo giá nguồn của hợp đồng — null với hợp đồng lập tay theo luồng cũ.</summary>
+    public Guid? QuotationId { get; set; }
     /// <summary>drafted | pending_otp | confirmed | cancelled</summary>
     public string Status { get; set; } = null!;
     public DateTime CreatedAt { get; set; }
@@ -36,6 +38,7 @@ public class ContractResponse
         OtpExpiresAt = e.OtpExpiresAt,
         ConfirmedAt = e.ConfirmedAt,
         ConfirmedBy = e.ConfirmedBy,
+        QuotationId = e.QuotationId,
         Status = e.Status.ToString(),
         CreatedAt = e.CreatedAt,
         UpdatedAt = e.UpdatedAt

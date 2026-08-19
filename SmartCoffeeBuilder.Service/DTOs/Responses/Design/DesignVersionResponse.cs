@@ -17,6 +17,8 @@ public class DesignVersionResponse
     public string Type { get; set; } = null!;
     public string Status { get; set; } = null!;
     public string? Reason { get; set; }
+    /// <summary>Mô tả thay đổi so với bản trước, đóng băng tại thời điểm snapshot.</summary>
+    public string? ChangeSummary { get; set; }
     public Guid? CreatedBy { get; set; }
     public Guid? SnapshottedBy { get; set; }
 
@@ -37,6 +39,7 @@ public class DesignVersionResponse
         Type = v.Type.ToString(),
         Status = v.Status.ToString(),
         Reason = v.Reason,
+        ChangeSummary = v.ChangeSummary,
         CreatedBy = v.CreatedBy,
         SnapshottedBy = v.SnapshottedBy,
         CreatedAt = v.CreatedAt,

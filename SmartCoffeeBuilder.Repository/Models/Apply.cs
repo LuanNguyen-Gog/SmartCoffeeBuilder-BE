@@ -17,4 +17,7 @@ public class Apply
     public Post Post { get; set; } = null!;
     public ServiceProviderProfile ServiceProviderProfile { get; set; } = null!;
     public ICollection<ProjectWorking> ProjectWorkings { get; set; } = new List<ProjectWorking>();
+
+    /// <summary>Các bản báo giá provider gửi kèm hồ sơ ứng tuyển này (nhiều version).</summary>
+    public ICollection<Quotation> Quotations { get; set; } = new List<Quotation>();
 }

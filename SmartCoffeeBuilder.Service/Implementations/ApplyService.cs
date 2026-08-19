@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Query;
 using SmartCoffeeBuilder.Repository.DBContext;
 using SmartCoffeeBuilder.Repository.Interfaces;
 using SmartCoffeeBuilder.Repository.Models;
@@ -46,7 +47,7 @@ public class ApplyService : IApplyService
                      && (postId == null || a.PostId == postId)
                      && (serviceProviderProfileId == null || a.ServiceProviderProfileId == serviceProviderProfileId)
                      && (st == null || a.Status == st),
-                include: q => q.Include(a => a.Post).Include(a => a.ServiceProviderProfile))
+                include: BuildApplyInclude())
             .OrderByDescending(a => a.CreatedAt);
 
         var paged = await query.ToPaginationResponseAsync(pageNumber, pageSize);
@@ -62,11 +63,27 @@ public class ApplyService : IApplyService
             predicate: a => a.Id == id
                             && a.ServiceProviderProfile.DeletedAt == null
                             && a.Post.ProjectShopOwner.DeletedAt == null,
-            include: q => q.Include(a => a.Post).Include(a => a.ServiceProviderProfile))
+            include: BuildApplyInclude())
             ?? throw new KeyNotFoundException($"Không tìm thấy application với id {id}.");
 
         return ApplyResponse.From(application);
     }
+
+    /// <summary>
+    /// Include dùng chung cho hai đường đọc hồ sơ ứng tuyển. Nạp kèm hồ sơ năng lực, lịch sử
+    /// engagement + review (để tính điểm theo hạng mục) và các bản báo giá — đây là bộ dữ liệu
+    /// owner cần để CHỌN provider, đúng yêu cầu review 3.
+    ///
+    /// Chấp nhận join rộng vì đây là màn hình cân nhắc, mỗi bài đăng chỉ vài hồ sơ; đổi lại FE
+    /// không phải gọi thêm 3 API cho mỗi dòng danh sách.
+    /// </summary>
+    private static Func<IQueryable<Apply>, IIncludableQueryable<Apply, object>> BuildApplyInclude() =>
+        q => q.Include(a => a.Post)
+              .Include(a => a.Quotations)
+              .Include(a => a.ServiceProviderProfile)
+                  .ThenInclude(p => p.ProjectWorkings)
+                  .ThenInclude(e => e.Reviews)
+                  .ThenInclude(r => r.ReviewScores);
 
     public async Task<ApplyResponse> ApplyAsync(Guid accountId, CreateApplyRequest request)
     {

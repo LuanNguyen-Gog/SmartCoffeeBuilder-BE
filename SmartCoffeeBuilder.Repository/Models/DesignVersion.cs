@@ -32,6 +32,10 @@ public class DesignVersion
     /// <summary>Lý do revision tại thời điểm snapshot (nếu có).</summary>
     public string? Reason { get; set; }
 
+    /// <summary>Mô tả thay đổi so với bản trước tại thời điểm snapshot — nguồn duy nhất giữ lại
+    /// diễn giải của TỪNG vòng (designs.change_summary bị ghi đè ở vòng kế tiếp).</summary>
+    public string? ChangeSummary { get; set; }
+
     /// <summary>Account id người tạo design gốc (copy nguyên trạng).</summary>
     public Guid? CreatedBy { get; set; }
 

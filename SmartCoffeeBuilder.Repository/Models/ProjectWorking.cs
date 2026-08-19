@@ -59,4 +59,7 @@ public class ProjectWorking
     public ICollection<Doc> Docs { get; set; } = new List<Doc>();
     public ICollection<Conversation> Conversations { get; set; } = new List<Conversation>();
     public ICollection<Review> Reviews { get; set; } = new List<Review>();
+
+    /// <summary>Báo giá của đường MỜI TRỰC TIẾP (không qua hồ sơ ứng tuyển).</summary>
+    public ICollection<Quotation> Quotations { get; set; } = new List<Quotation>();
 }
