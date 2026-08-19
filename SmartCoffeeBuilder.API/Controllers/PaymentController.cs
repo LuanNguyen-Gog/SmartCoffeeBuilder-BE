@@ -28,12 +28,12 @@ public class PaymentController : ControllerBase
         _paymentService = paymentService;
     }
 
-    private long GetAccountId()
+    private Guid GetAccountId()
     {
         var accountId = User.FindFirstValue(ClaimTypes.NameIdentifier)
             ?? User.FindFirstValue("sub")
             ?? throw new UnauthorizedAccessException("User ID not found in token");
-        return long.Parse(accountId);
+        return Guid.Parse(accountId);
     }
 
     /// <summary>Danh sách gói phí nền tảng đang mở bán (lọc theo role nếu truyền targetRole).</summary>

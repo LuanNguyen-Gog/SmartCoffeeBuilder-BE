@@ -36,16 +36,33 @@ public class ChatMessageService : IChatMessageService
     }
 
     public async Task<List<MessageResponse>> GetSinceIdAsync(
-        long accountId, long conversationId, long? sinceId, int limit = 100)
+        Guid accountId, Guid conversationId, Guid? sinceId, int limit = 100)
     {
         limit = Math.Clamp(limit, 1, 500);
 
         var conversation = await LoadConversationAsync(conversationId);
         await EnsureMemberAsync(accountId, conversation.ProjectWorkingId);
 
-        var messages = await _unitOfWork.GetRepository<MessageModel>().GetListAsync(
+        var repository = _unitOfWork.GetRepository<MessageModel>();
+
+        // Id là uuid NGẪU NHIÊN (gen_random_uuid()) nên "m.Id > sinceId" KHÔNG còn nghĩa "tin mới hơn"
+        // như thời id bigint tăng dần — phép so sánh vẫn chạy nhưng đúng/sai ~50/50, tức khoảng một
+        // nửa tin mới sẽ không bao giờ được trả về. Phải neo theo SentAt của chính tin sinceId, và
+        // chỉ dùng Id làm tiebreaker cho các tin TRÙNG mốc thời gian (khớp đúng thứ tự của orderBy).
+        DateTime? anchorSentAt = null;
+        if (sinceId != null)
+        {
+            var anchor = await repository.SingleOrDefaultAsync(
+                predicate: m => m.Id == sinceId && m.ConversationId == conversationId)
+                ?? throw new KeyNotFoundException("Không tìm thấy message ứng với sinceId trong thread này.");
+            anchorSentAt = anchor.SentAt;
+        }
+
+        var messages = await repository.GetListAsync(
             predicate: m => m.ConversationId == conversationId
-                            && (sinceId == null || m.Id > sinceId),
+                            && (sinceId == null
+                                || m.SentAt > anchorSentAt
+                                || (m.SentAt == anchorSentAt && m.Id > sinceId)),
             orderBy: q => q.OrderBy(m => m.SentAt).ThenBy(m => m.Id),
             include: q => q.Include(m => m.Sender).Include(m => m.Attachments));
 
@@ -60,7 +77,7 @@ public class ChatMessageService : IChatMessageService
     }
 
     public async Task<List<MessageResponse>> GetSinceSentAtAsync(
-        long accountId, long conversationId, DateTime? sinceSentAt, int limit = 100)
+        Guid accountId, Guid conversationId, DateTime? sinceSentAt, int limit = 100)
     {
         limit = Math.Clamp(limit, 1, 500);
 
@@ -89,7 +106,7 @@ public class ChatMessageService : IChatMessageService
     /// KHÔNG Dispose stream (controller giữ lifecycle).
     /// </summary>
     public async Task<MessageResponse> SendAsync(
-        long accountId, long conversationId,
+        Guid accountId, Guid conversationId,
         string? body,
         IReadOnlyList<FilePayload>? files)
     {
@@ -156,7 +173,7 @@ public class ChatMessageService : IChatMessageService
     }
 
     /// <summary>Trả folder "{role}/{accountId}" để upload đúng quy ước của api/files.</summary>
-    private async Task<string> GetSenderFolderPath(long accountId)
+    private async Task<string> GetSenderFolderPath(Guid accountId)
     {
         var sender = await _unitOfWork.GetRepository<AccountModel>()
             .SingleOrDefaultAsync(predicate: a => a.Id == accountId)
@@ -164,7 +181,7 @@ public class ChatMessageService : IChatMessageService
         return $"{sender.Role}/{sender.Id}";
     }
 
-    public async Task DeleteAsync(long accountId, long messageId)
+    public async Task DeleteAsync(Guid accountId, Guid messageId)
     {
         var message = await _unitOfWork.GetRepository<MessageModel>().SingleOrDefaultAsync(
             predicate: m => m.Id == messageId)
@@ -194,14 +211,14 @@ public class ChatMessageService : IChatMessageService
 
     // ───────── Helpers ─────────
 
-    private async Task<ConversationModel> LoadConversationAsync(long conversationId)
+    private async Task<ConversationModel> LoadConversationAsync(Guid conversationId)
     {
         return await _unitOfWork.GetRepository<ConversationModel>().SingleOrDefaultAsync(
             predicate: c => c.Id == conversationId)
             ?? throw new KeyNotFoundException($"Không tìm thấy conversation với id {conversationId}.");
     }
 
-    private async Task<MessageModel> LoadMessageAsync(long messageId)
+    private async Task<MessageModel> LoadMessageAsync(Guid messageId)
     {
         return await _unitOfWork.GetRepository<MessageModel>().SingleOrDefaultAsync(
             predicate: m => m.Id == messageId,
@@ -209,7 +226,7 @@ public class ChatMessageService : IChatMessageService
             ?? throw new KeyNotFoundException($"Không tìm thấy message với id {messageId}.");
     }
 
-    private async Task EnsureMemberAsync(long accountId, long projectWorkingId)
+    private async Task EnsureMemberAsync(Guid accountId, Guid projectWorkingId)
     {
         var pw = await _unitOfWork.GetRepository<ProjectWorkingModel>().SingleOrDefaultAsync(
             predicate: p => p.Id == projectWorkingId,
@@ -235,7 +252,7 @@ public class ChatMessageService : IChatMessageService
             _unitOfWork.GetRepository<ProviderModel>());
 
     /// <summary>Cập nhật <c>Conversation.UpdatedAt = now</c> để sort list theo hoạt động.</summary>
-    private async Task TouchConversationAsync(long conversationId)
+    private async Task TouchConversationAsync(Guid conversationId)
     {
         // Best-effort: nếu conversation đã bị xoá thì bỏ qua.
         var conv = await _unitOfWork.GetRepository<ConversationModel>().GetByIdAsync(conversationId);

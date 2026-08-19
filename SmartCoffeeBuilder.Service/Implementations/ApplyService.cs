@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Query;
 using SmartCoffeeBuilder.Repository.DBContext;
 using SmartCoffeeBuilder.Repository.Interfaces;
 using SmartCoffeeBuilder.Repository.Models;
@@ -29,7 +30,7 @@ public class ApplyService : IApplyService
 
     public async Task<PaginationResponse<ApplyResponse>> GetAllAsync(
         int pageNumber = 1, int pageSize = 10,
-        long? postId = null, long? serviceProviderProfileId = null, string? status = null)
+        Guid? postId = null, Guid? serviceProviderProfileId = null, string? status = null)
     {
         ApplicationStatus? st = null;
         if (!string.IsNullOrWhiteSpace(status))
@@ -46,7 +47,7 @@ public class ApplyService : IApplyService
                      && (postId == null || a.PostId == postId)
                      && (serviceProviderProfileId == null || a.ServiceProviderProfileId == serviceProviderProfileId)
                      && (st == null || a.Status == st),
-                include: q => q.Include(a => a.Post).Include(a => a.ServiceProviderProfile))
+                include: BuildApplyInclude())
             .OrderByDescending(a => a.CreatedAt);
 
         var paged = await query.ToPaginationResponseAsync(pageNumber, pageSize);
@@ -56,19 +57,35 @@ public class ApplyService : IApplyService
             paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
-    public async Task<ApplyResponse> GetByIdAsync(long id)
+    public async Task<ApplyResponse> GetByIdAsync(Guid id)
     {
         var application = await _repository.SingleOrDefaultAsync(
             predicate: a => a.Id == id
                             && a.ServiceProviderProfile.DeletedAt == null
                             && a.Post.ProjectShopOwner.DeletedAt == null,
-            include: q => q.Include(a => a.Post).Include(a => a.ServiceProviderProfile))
+            include: BuildApplyInclude())
             ?? throw new KeyNotFoundException($"Không tìm thấy application với id {id}.");
 
         return ApplyResponse.From(application);
     }
 
-    public async Task<ApplyResponse> ApplyAsync(long accountId, CreateApplyRequest request)
+    /// <summary>
+    /// Include dùng chung cho hai đường đọc hồ sơ ứng tuyển. Nạp kèm hồ sơ năng lực, lịch sử
+    /// engagement + review (để tính điểm theo hạng mục) và các bản báo giá — đây là bộ dữ liệu
+    /// owner cần để CHỌN provider, đúng yêu cầu review 3.
+    ///
+    /// Chấp nhận join rộng vì đây là màn hình cân nhắc, mỗi bài đăng chỉ vài hồ sơ; đổi lại FE
+    /// không phải gọi thêm 3 API cho mỗi dòng danh sách.
+    /// </summary>
+    private static Func<IQueryable<Apply>, IIncludableQueryable<Apply, object>> BuildApplyInclude() =>
+        q => q.Include(a => a.Post)
+              .Include(a => a.Quotations)
+              .Include(a => a.ServiceProviderProfile)
+                  .ThenInclude(p => p.ProjectWorkings)
+                  .ThenInclude(e => e.Reviews)
+                  .ThenInclude(r => r.ReviewScores);
+
+    public async Task<ApplyResponse> ApplyAsync(Guid accountId, CreateApplyRequest request)
     {
         var post = await _unitOfWork.GetRepository<Post>()
             .SingleOrDefaultAsync(predicate: p => p.Id == request.PostId)
@@ -127,7 +144,7 @@ public class ApplyService : IApplyService
         return ApplyResponse.From(application);
     }
 
-    public async Task<ApplyResponse> UpdateProposalAsync(long id, UpdateApplyRequest request)
+    public async Task<ApplyResponse> UpdateProposalAsync(Guid id, UpdateApplyRequest request)
     {
         var application = await _repository.SingleOrDefaultAsync(
             predicate: a => a.Id == id,
@@ -147,7 +164,7 @@ public class ApplyService : IApplyService
         return ApplyResponse.From(application);
     }
 
-    public async Task<ProjectWorkingResponse> AcceptAsync(long id)
+    public async Task<ProjectWorkingResponse> AcceptAsync(Guid id)
     {
         var application = await _repository.SingleOrDefaultAsync(
             predicate: a => a.Id == id,
@@ -225,7 +242,7 @@ public class ApplyService : IApplyService
         return ProjectWorkingResponse.From(engagement);
     }
 
-    public async Task<ApplyResponse> RejectAsync(long id)
+    public async Task<ApplyResponse> RejectAsync(Guid id)
     {
         var application = await _repository.SingleOrDefaultAsync(
             predicate: a => a.Id == id,
@@ -251,7 +268,7 @@ public class ApplyService : IApplyService
     /// Dùng chung cho lúc nộp hồ sơ và lúc owner chấp nhận hồ sơ.
     /// </summary>
     private async Task EnsureProjectSlotFreeAsync(
-        long projectShopOwnerId, ServiceKind wanted, string action)
+        Guid projectShopOwnerId, ServiceKind wanted, string action)
     {
         var activeKinds = await _unitOfWork.GetRepository<ProjectWorking>().GetListAsync(
             selector: e => e.ContractType,
@@ -261,7 +278,7 @@ public class ApplyService : IApplyService
         ProjectSlotRules.EnsureSlotFree(activeKinds, wanted, action);
     }
 
-    public async Task WithdrawAsync(long id)
+    public async Task WithdrawAsync(Guid id)
     {
         var application = await _repository.GetByIdAsync(id)
             ?? throw new KeyNotFoundException($"Không tìm thấy application với id {id}.");

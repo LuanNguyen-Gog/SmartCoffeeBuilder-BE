@@ -17,18 +17,18 @@ public interface IConversationService
     /// Mỗi item kèm <c>LastMessage</c> (truy vấn batch) để FE hiển thị preview.
     /// </summary>
     Task<PaginationResponse<ConversationSummary>> GetByEngagementAsync(
-        long accountId, long projectWorkingId, int pageNumber = 1, int pageSize = 20);
+        Guid accountId, Guid projectWorkingId, int pageNumber = 1, int pageSize = 20);
 
     /// <summary>Chi tiết một thread + danh sách message phân trang (SentAt ASC).</summary>
     Task<ConversationDetailResponse> GetByIdAsync(
-        long accountId, long conversationId, int pageNumber = 1, int pageSize = 50);
+        Guid accountId, Guid conversationId, int pageNumber = 1, int pageSize = 50);
 
     /// <summary>Tạo thread. Topic rỗng/khoảng trắng → service sinh "Thread #N" trong engagement.</summary>
-    Task<ConversationSummary> CreateAsync(long accountId, CreateConversationRequest request);
+    Task<ConversationSummary> CreateAsync(Guid accountId, CreateConversationRequest request);
 
     /// <summary>Đổi tên thread — cả owner và provider đều được sửa (đặt tên chung cho cả 2).</summary>
-    Task<ConversationSummary> UpdateAsync(long accountId, long conversationId, UpdateConversationRequest request);
+    Task<ConversationSummary> UpdateAsync(Guid accountId, Guid conversationId, UpdateConversationRequest request);
 
     /// <summary>Xoá thread — chỉ creator. Cascade xoá luôn message và attachment.</summary>
-    Task DeleteAsync(long accountId, long conversationId);
+    Task DeleteAsync(Guid accountId, Guid conversationId);
 }

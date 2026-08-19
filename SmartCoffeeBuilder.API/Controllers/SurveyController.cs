@@ -28,14 +28,14 @@ public class SurveyController : ControllerBase
     public async Task<IActionResult> GetAll(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
-        [FromQuery] long? projectWorkingId = null)
+        [FromQuery] Guid? projectWorkingId = null)
     {
         var result = await _surveyService.GetAllAsync(pageNumber, pageSize, projectWorkingId);
         return Ok(result);
     }
 
-    [HttpGet("{id:long}")]
-    public async Task<IActionResult> GetById(long id)
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id)
     {
         var result = await _surveyService.GetByIdAsync(id);
         return Ok(result);
@@ -54,9 +54,9 @@ public class SurveyController : ControllerBase
     }
 
     /// <summary>Cập nhật ghi chú hiện trạng / URL báo cáo.</summary>
-    [HttpPut("{id:long}")]
+    [HttpPut("{id:guid}")]
     [Authorize(Roles = "provider,admin")]
-    public async Task<IActionResult> Update(long id, [FromBody] UpdateSurveyRequest request)
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateSurveyRequest request)
     {
         var result = await _surveyService.UpdateAsync(User.GetAccountId(), id, request);
         return Ok(result);

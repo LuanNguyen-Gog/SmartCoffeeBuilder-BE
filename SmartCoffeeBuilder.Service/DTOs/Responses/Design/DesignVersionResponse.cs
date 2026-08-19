@@ -4,8 +4,8 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.Design;
 
 public class DesignVersionResponse
 {
-    public long Id { get; set; }
-    public long DesignId { get; set; }
+    public Guid Id { get; set; }
+    public Guid DesignId { get; set; }
 
     /// <summary>submitted | approved.</summary>
     public string SnapshotKind { get; set; } = null!;
@@ -17,8 +17,10 @@ public class DesignVersionResponse
     public string Type { get; set; } = null!;
     public string Status { get; set; } = null!;
     public string? Reason { get; set; }
-    public long? CreatedBy { get; set; }
-    public long? SnapshottedBy { get; set; }
+    /// <summary>Mô tả thay đổi so với bản trước, đóng băng tại thời điểm snapshot.</summary>
+    public string? ChangeSummary { get; set; }
+    public Guid? CreatedBy { get; set; }
+    public Guid? SnapshottedBy { get; set; }
 
     /// <summary>CreatedAt của design gốc — giữ lại cho lịch sử.</summary>
     public DateTime CreatedAt { get; set; }
@@ -37,6 +39,7 @@ public class DesignVersionResponse
         Type = v.Type.ToString(),
         Status = v.Status.ToString(),
         Reason = v.Reason,
+        ChangeSummary = v.ChangeSummary,
         CreatedBy = v.CreatedBy,
         SnapshottedBy = v.SnapshottedBy,
         CreatedAt = v.CreatedAt,

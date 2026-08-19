@@ -4,9 +4,9 @@ namespace SmartCoffeeBuilder.Repository.Models;
 
 public class ConstructionItem
 {
-    public long Id { get; set; }
-    public long ProjectWorkingId { get; set; }
-    public long? ParentId { get; set; } // phân cấp
+    public Guid Id { get; set; }
+    public Guid ProjectWorkingId { get; set; }
+    public Guid? ParentId { get; set; } // phân cấp
     public string Name { get; set; } = null!;
     public string? Description { get; set; }
     public string? Category { get; set; }
@@ -14,7 +14,15 @@ public class ConstructionItem
     public DateOnly? ActualAt { get; set; }
     // v5: bỏ IsDone — trạng thái hoàn thành chỉ đọc từ Status = completed (một nguồn sự thật).
     public ItemStatus Status { get; set; } = ItemStatus.pending;
-    public long? CreatedBy { get; set; }
+
+    /// <summary>
+    /// Hạng mục này đã được thanh toán chưa (review 3: "xác nhận cho từng hạng mục đã thanh toán").
+    /// KHÔNG phải nguồn sự thật độc lập: PaymentBatchService bật cờ này khi đợt thanh toán gắn với
+    /// hạng mục được provider xác nhận, và tắt khi đợt đó bị bác. Đọc chi tiết tiền bạc thì đi qua
+    /// payment_batches — cột này chỉ để FE khỏi phải join mỗi lần vẽ danh sách hạng mục.
+    /// </summary>
+    public bool IsPaid { get; set; }
+    public Guid? CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
@@ -24,4 +32,10 @@ public class ConstructionItem
     public Account? CreatedByAccount { get; set; }
     public ICollection<ConstructionTask> Tasks { get; set; } = new List<ConstructionTask>();
     public ICollection<Issue> Issues { get; set; } = new List<Issue>();
+
+    /// <summary>Các đợt thanh toán của hợp đồng được gắn vào chính hạng mục này.</summary>
+    public ICollection<PaymentBatch> PaymentBatches { get; set; } = new List<PaymentBatch>();
+
+    /// <summary>Checklist nghiệm thu của hạng mục thi công này (review 3).</summary>
+    public ICollection<ChecklistItem> ChecklistItems { get; set; } = new List<ChecklistItem>();
 }

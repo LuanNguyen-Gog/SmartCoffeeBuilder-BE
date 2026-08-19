@@ -11,9 +11,9 @@ namespace SmartCoffeeBuilder.Service.Interfaces;
 public interface IDesignBriefService
 {
     /// <summary>Chỉ trả brief của dự án người gọi tham gia (hoặc dự án đang mở thầu). Lọc trong query.</summary>
-    Task<PaginationResponse<DesignBriefResponse>> GetAllAsync(long accountId, int pageNumber = 1, int pageSize = 10, long? projectShopOwnerId = null);
-    Task<DesignBriefResponse> GetByIdAsync(long accountId, long id);
-    Task<DesignBriefResponse> CreateAsync(long accountId, CreateDesignBriefRequest request);
-    Task<DesignBriefResponse> UpdateAsync(long accountId, long id, UpdateDesignBriefRequest request);
-    Task DeleteAsync(long accountId, long id);
+    Task<PaginationResponse<DesignBriefResponse>> GetAllAsync(Guid accountId, int pageNumber = 1, int pageSize = 10, Guid? projectShopOwnerId = null);
+    Task<DesignBriefResponse> GetByIdAsync(Guid accountId, Guid id);
+    Task<DesignBriefResponse> CreateAsync(Guid accountId, CreateDesignBriefRequest request);
+    Task<DesignBriefResponse> UpdateAsync(Guid accountId, Guid id, UpdateDesignBriefRequest request);
+    Task DeleteAsync(Guid accountId, Guid id);
 }

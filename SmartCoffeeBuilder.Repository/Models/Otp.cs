@@ -8,8 +8,8 @@ namespace SmartCoffeeBuilder.Repository.Models;
 /// </summary>
 public class Otp
 {
-    public long Id { get; set; }
-    public long AccountId { get; set; }
+    public Guid Id { get; set; }
+    public Guid AccountId { get; set; }
 
     /// <summary>Mã TOTP của chu kỳ hiện tại.</summary>
     public string CurrentCode { get; set; } = null!;

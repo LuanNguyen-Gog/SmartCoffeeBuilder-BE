@@ -5,8 +5,8 @@ namespace SmartCoffeeBuilder.Service.Messaging;
 /// </summary>
 public class AiDesignRequestMessage
 {
-    public long RecommendationId { get; set; }
-    public long BriefId { get; set; }
+    public Guid RecommendationId { get; set; }
+    public Guid BriefId { get; set; }
     public string UserId { get; set; } = null!;
     public string ProjectId { get; set; } = null!;
     public AiDesignRequestPayload Payload { get; set; } = null!;
@@ -37,7 +37,7 @@ public class AiDesignRequestPayload
 
 public class AiDesignResultMessage
 {
-    public long RecommendationId { get; set; }
+    public Guid RecommendationId { get; set; }
     public string JobId { get; set; } = null!;
     public string State { get; set; } = null!;
     public string? Error { get; set; }

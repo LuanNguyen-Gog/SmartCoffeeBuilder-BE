@@ -32,7 +32,7 @@ public class AccountService : IAccountService
             paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
-    public async Task<AccountResponse> GetByIdAsync(long id)
+    public async Task<AccountResponse> GetByIdAsync(Guid id)
     {
         var account = await _repository.SingleOrDefaultAsync(predicate: a => a.Id == id && a.DeletedAt == null)
             ?? throw new KeyNotFoundException($"Không tìm thấy account với id {id}.");
@@ -71,7 +71,7 @@ public class AccountService : IAccountService
         return AccountResponse.From(account);
     }
 
-    public async Task<AccountResponse> UpdateAsync(long id, UpdateAccountRequest request)
+    public async Task<AccountResponse> UpdateAsync(Guid id, UpdateAccountRequest request)
     {
         var account = await _repository.GetByIdAsync(id);
         if (account == null || account.DeletedAt != null)
@@ -100,7 +100,7 @@ public class AccountService : IAccountService
         return AccountResponse.From(account);
     }
 
-    public async Task DeleteAsync(long id)
+    public async Task DeleteAsync(Guid id)
     {
         var account = await _repository.GetByIdAsync(id);
         if (account == null || account.DeletedAt != null)
@@ -170,7 +170,7 @@ public class AccountService : IAccountService
             paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
-    public async Task<AccountResponse> SetStatusAsync(long id, string status)
+    public async Task<AccountResponse> SetStatusAsync(Guid id, string status)
     {
         if (!Enum.TryParse<AccountStatus>(status, ignoreCase: true, out var parsedStatus))
             throw new ArgumentException($"Status '{status}' không hợp lệ. Cho phép: active, inactive, banned, pending.");

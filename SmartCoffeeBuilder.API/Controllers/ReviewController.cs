@@ -27,23 +27,23 @@ public class ReviewController : ControllerBase
     public async Task<IActionResult> GetAll(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
-        [FromQuery] long? projectWorkingId = null,
-        [FromQuery] long? serviceProviderProfileId = null)
+        [FromQuery] Guid? projectWorkingId = null,
+        [FromQuery] Guid? serviceProviderProfileId = null)
     {
         var result = await _reviewService.GetAllAsync(pageNumber, pageSize, projectWorkingId, serviceProviderProfileId);
         return Ok(result);
     }
 
-    [HttpGet("{id:long}")]
-    public async Task<IActionResult> GetById(long id)
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id)
     {
         var result = await _reviewService.GetByIdAsync(id);
         return Ok(result);
     }
 
     /// <summary>Tổng hợp rating của provider (điểm trung bình + theo tiêu chí) — cho trang profile.</summary>
-    [HttpGet("providers/{serviceProviderProfileId:long}/summary")]
-    public async Task<IActionResult> GetProviderSummary(long serviceProviderProfileId)
+    [HttpGet("providers/{serviceProviderProfileId:guid}/summary")]
+    public async Task<IActionResult> GetProviderSummary(Guid serviceProviderProfileId)
     {
         var result = await _reviewService.GetProviderSummaryAsync(serviceProviderProfileId);
         return Ok(result);
@@ -59,17 +59,17 @@ public class ReviewController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
-    [HttpPut("{id:long}")]
+    [HttpPut("{id:guid}")]
     [Authorize(Roles = "owner,admin")]
-    public async Task<IActionResult> Update(long id, [FromBody] UpdateReviewRequest request)
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateReviewRequest request)
     {
         var result = await _reviewService.UpdateAsync(User.GetAccountId(), id, request);
         return Ok(result);
     }
 
-    [HttpDelete("{id:long}")]
+    [HttpDelete("{id:guid}")]
     [Authorize(Roles = "owner,admin")]
-    public async Task<IActionResult> Delete(long id)
+    public async Task<IActionResult> Delete(Guid id)
     {
         await _reviewService.DeleteAsync(User.GetAccountId(), id);
         return NoContent();

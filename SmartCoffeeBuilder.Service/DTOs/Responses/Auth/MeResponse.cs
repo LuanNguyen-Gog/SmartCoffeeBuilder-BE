@@ -2,7 +2,7 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.Auth;
 
 public class MeResponse
 {
-    public long Id { get; set; }
+    public Guid Id { get; set; }
     public string Email { get; set; } = null!;
     public string? Phone { get; set; }
     public string Role { get; set; } = null!;
@@ -20,7 +20,7 @@ public class MeResponse
 
 public class ShopOwnerInfo
 {
-    public long Id { get; set; }
+    public Guid Id { get; set; }
     public string FullName { get; set; } = null!;
     public string ShopName { get; set; } = null!;
     public string Phone { get; set; } = null!;
@@ -29,7 +29,7 @@ public class ShopOwnerInfo
 
 public class ServiceProviderInfo
 {
-    public long Id { get; set; }
+    public Guid Id { get; set; }
     public string DisplayName { get; set; } = null!;
     public string ProviderType { get; set; } = null!; // Designer | Constructor
     public string Capability { get; set; } = null!;   // Design | Construction | DesignAndConstruction

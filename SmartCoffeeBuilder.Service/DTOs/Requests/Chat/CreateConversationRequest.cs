@@ -7,7 +7,7 @@ public class CreateConversationRequest
 {
     /// <summary>Engagement (ProjectWorking) id — phải do account đăng nhập làm owner hoặc provider.</summary>
     [Required]
-    public long ProjectWorkingId { get; set; }
+    public Guid ProjectWorkingId { get; set; }
 
     /// <summary>Tên thread. Tối đa 200 ký tự; bỏ trống/khoảng trắng thì service tự đặt.</summary>
     [MaxLength(200)]

@@ -86,4 +86,28 @@ public enum CommentTargetType { construction_item, design }
 /// và bị ghi đè ở vòng kế tiếp, nên muốn xem lại lý do cũ phải đọc snapshot.
 /// </summary>
 public enum DesignVersionSnapshotKind { submitted, approved, revision }
+
+/// <summary>
+/// Vòng đời báo giá (review 3): draft → sent → accepted | rejected | revision_requested.
+/// - <c>revision_requested</c>: owner yêu cầu bản khác kèm lý do; provider phát hành bản mới
+///   (version +1) chứ KHÔNG sửa đè bản đã gửi.
+/// - <c>accepted</c>: khoá bản báo giá (locked_at), là bản duy nhất được dựng hợp đồng.
+/// - <c>superseded</c>: bản cũ bị thay khi một bản khác cùng chỗ neo được duyệt.
+/// </summary>
+public enum QuotationStatus { draft, sent, revision_requested, accepted, rejected, superseded }
+
+/// <summary>
+/// Vòng đời một đợt thanh toán owner → provider. Hệ thống KHÔNG giữ tiền, nên trạng thái phản ánh
+/// tiến trình ĐỐI CHIẾU chứ không phải trạng thái giao dịch ngân hàng:
+/// pending → proof_submitted (owner upload minh chứng) → confirmed (provider xác nhận đã nhận)
+/// | rejected (provider bác minh chứng → owner upload lại, quay về proof_submitted).
+/// </summary>
+public enum PaymentBatchStatus { pending, proof_submitted, confirmed, rejected }
+
+/// <summary>
+/// Kết quả chấm một mục nghiệm thu (review 3): pending (chưa chấm) → passed | failed.
+/// Owner chấm lại được bao nhiêu lần cũng được — nghiệm thu là đối thoại, không phải state machine
+/// một chiều: 'failed' kèm ghi chú "cần sửa gì", provider sửa xong thì owner chấm lại thành 'passed'.
+/// </summary>
+public enum ChecklistStatus { pending, passed, failed }
 #pragma warning restore CS8981

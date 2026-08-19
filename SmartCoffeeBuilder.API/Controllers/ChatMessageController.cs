@@ -21,14 +21,15 @@ public class ChatMessageController : ControllerBase
     }
 
     /// <summary>
-    /// Polling message mới trong 1 thread. Nếu <c>sinceId</c> có giá trị thì dùng
-    /// (ưu tiên — index trên Id, nhanh); nếu không thì fallback <c>sinceSentAt</c>;
-    /// nếu cả hai rỗng thì trả về message đầu tiên theo SentAt ASC (giới hạn <paramref name="limit"/>).
+    /// Polling message mới trong 1 thread. Nếu <c>sinceId</c> có giá trị thì dùng (service tra
+    /// <c>SentAt</c> của message đó rồi lấy các message gửi sau); nếu không thì fallback
+    /// <c>sinceSentAt</c>; nếu cả hai rỗng thì trả về message đầu tiên theo SentAt ASC
+    /// (giới hạn <paramref name="limit"/>).
     /// </summary>
     [HttpGet]
     public async Task<IActionResult> Poll(
-        [FromQuery] long conversationId,
-        [FromQuery] long? sinceId = null,
+        [FromQuery] Guid conversationId,
+        [FromQuery] Guid? sinceId = null,
         [FromQuery] DateTime? sinceSentAt = null,
         [FromQuery] int limit = 100)
     {
@@ -51,10 +52,10 @@ public class ChatMessageController : ControllerBase
     /// <item>files (IFormFileCollection, optional, multi)</item>
     /// </list>
     /// </remarks>
-    [HttpPost("{conversationId:long}")]
+    [HttpPost("{conversationId:guid}")]
     [Consumes("multipart/form-data")]
     public async Task<IActionResult> Send(
-        long conversationId,
+        Guid conversationId,
         [FromForm] string? body = null,
         IFormFileCollection? files = null)
     {
@@ -70,8 +71,8 @@ public class ChatMessageController : ControllerBase
     }
 
     /// <summary>Xoá message — chỉ sender. Cascade xoá file đính kèm (cả DB lẫn bucket).</summary>
-    [HttpDelete("{id:long}")]
-    public async Task<IActionResult> Delete(long id)
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id)
     {
         await _service.DeleteAsync(User.GetAccountId(), id);
         return NoContent();

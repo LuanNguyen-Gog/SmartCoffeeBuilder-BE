@@ -4,8 +4,15 @@ namespace SmartCoffeeBuilder.Repository.Models;
 
 public class Contract
 {
-    public long Id { get; set; }
-    public long ProjectWorkingId { get; set; }
+    public Guid Id { get; set; }
+    public Guid ProjectWorkingId { get; set; }
+
+    /// <summary>
+    /// Báo giá đã được owner duyệt và dựng nên hợp đồng này (review 3). Khi có giá trị: hạng mục,
+    /// giá trị hợp đồng và điều kiện thanh toán LẤY TỪ báo giá, provider không sửa được
+    /// (xem ContractService.UpdateAsync). null = hợp đồng lập tay theo luồng cũ.
+    /// </summary>
+    public Guid? QuotationId { get; set; }
     public string Title { get; set; } = null!;
     public string? PartyInfo { get; set; }
     public string? Terms { get; set; }
@@ -14,11 +21,15 @@ public class Contract
     public string? OtpCode { get; set; }
     public DateTime? OtpExpiresAt { get; set; }
     public DateTime? ConfirmedAt { get; set; }
-    public long? ConfirmedBy { get; set; }
+    public Guid? ConfirmedBy { get; set; }
     public ContractStatus Status { get; set; } = ContractStatus.drafted;
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
     public ProjectWorking ProjectWorking { get; set; } = null!;
     public Account? ConfirmedByAccount { get; set; }
+    public Quotation? Quotation { get; set; }
+
+    /// <summary>Các đợt thanh toán sinh từ điều kiện thanh toán của báo giá khi hợp đồng được ký.</summary>
+    public ICollection<PaymentBatch> PaymentBatches { get; set; } = new List<PaymentBatch>();
 }

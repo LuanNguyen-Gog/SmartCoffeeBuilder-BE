@@ -24,12 +24,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Account", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -92,19 +91,18 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.AiRecommendation", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<int>("Attempts")
                         .HasColumnType("integer")
                         .HasColumnName("attempts");
 
-                    b.Property<long>("BriefId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("BriefId")
+                        .HasColumnType("uuid")
                         .HasColumnName("brief_id");
 
                     b.Property<DateTime?>("CompletedAt")
@@ -269,12 +267,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Apply", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -286,8 +283,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("estimated_duration_days");
 
-                    b.Property<long>("PostId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("PostId")
+                        .HasColumnType("uuid")
                         .HasColumnName("post_id");
 
                     b.Property<string>("Proposal")
@@ -295,8 +292,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("text")
                         .HasColumnName("proposal");
 
-                    b.Property<long>("ServiceProviderProfileId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ServiceProviderProfileId")
+                        .HasColumnType("uuid")
                         .HasColumnName("provider_id");
 
                     b.Property<string>("Status")
@@ -329,12 +326,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.BudgetItem", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<decimal?>("ActualAmount")
                         .HasPrecision(15, 2)
@@ -357,8 +353,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("numeric(15,2)")
                         .HasColumnName("planned_amount");
 
-                    b.Property<long>("ProjectShopOwnerId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ProjectShopOwnerId")
+                        .HasColumnType("uuid")
                         .HasColumnName("project_id");
 
                     b.Property<DateTime>("UpdatedAt")
@@ -376,14 +372,107 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     b.ToTable("budget_items", (string)null);
                 });
 
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ChecklistItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTime?>("CheckedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("checked_at");
+
+                    b.Property<Guid?>("CheckedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("checked_by");
+
+                    b.Property<Guid?>("ConstructionItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("construction_item_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<Guid?>("DesignId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("design_id");
+
+                    b.Property<string>("EvidenceUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("evidence_url");
+
+                    b.Property<bool>("IsRequired")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_required");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("text")
+                        .HasColumnName("note");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.HasKey("Id")
+                        .HasName("pk_checklist_items");
+
+                    b.HasIndex("CheckedBy")
+                        .HasDatabaseName("ix_checklist_items_checked_by");
+
+                    b.HasIndex("ConstructionItemId")
+                        .HasDatabaseName("ix_checklist_items_construction_item_id");
+
+                    b.HasIndex("CreatedBy")
+                        .HasDatabaseName("ix_checklist_items_created_by");
+
+                    b.HasIndex("DesignId")
+                        .HasDatabaseName("ix_checklist_items_design_id");
+
+                    b.ToTable("checklist_items", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_checklist_items_target", "(design_id IS NOT NULL AND construction_item_id IS NULL) OR (design_id IS NULL AND construction_item_id IS NOT NULL)");
+                        });
+                });
+
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Comment", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("Body")
                         .HasColumnType("text")
@@ -395,12 +484,12 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
-                    b.Property<long?>("CreatedBy")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
                         .HasColumnName("created_by");
 
-                    b.Property<long>("TargetId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uuid")
                         .HasColumnName("target_id");
 
                     b.Property<string>("TargetType")
@@ -429,12 +518,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ConstructionItem", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<DateOnly?>("ActualAt")
                         .HasColumnType("date")
@@ -450,8 +538,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
-                    b.Property<long?>("CreatedBy")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
                         .HasColumnName("created_by");
 
                     b.Property<string>("Description")
@@ -462,17 +550,21 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("date")
                         .HasColumnName("estimate_at");
 
+                    b.Property<bool>("IsPaid")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_paid");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("name");
 
-                    b.Property<long?>("ParentId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("ParentId")
+                        .HasColumnType("uuid")
                         .HasColumnName("parent_id");
 
-                    b.Property<long>("ProjectWorkingId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ProjectWorkingId")
+                        .HasColumnType("uuid")
                         .HasColumnName("project_provider_id");
 
                     b.Property<string>("Status")
@@ -504,19 +596,18 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ConstructionTask", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<DateOnly?>("ActualAt")
                         .HasColumnType("date")
                         .HasColumnName("actual_at");
 
-                    b.Property<long>("ConstructionItemId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ConstructionItemId")
+                        .HasColumnType("uuid")
                         .HasColumnName("construction_item_id");
 
                     b.Property<DateTime>("CreatedAt")
@@ -525,8 +616,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
-                    b.Property<long?>("CreatedBy")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
                         .HasColumnName("created_by");
 
                     b.Property<string>("Description")
@@ -574,14 +665,149 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     b.ToTable("construction_tasks", (string)null);
                 });
 
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ConstructionTemplate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("IsPublic")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_public");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("ServiceKind")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("service_kind");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.HasKey("Id")
+                        .HasName("pk_construction_templates");
+
+                    b.HasIndex("CreatedBy")
+                        .HasDatabaseName("ix_construction_templates_created_by");
+
+                    b.ToTable("construction_templates", (string)null);
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ConstructionTemplateItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("category");
+
+                    b.Property<Guid>("ConstructionTemplateId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("construction_template_id");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<int?>("EstimateDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("estimate_days");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("name");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id")
+                        .HasName("pk_construction_template_items");
+
+                    b.HasIndex("ConstructionTemplateId")
+                        .HasDatabaseName("ix_construction_template_items_construction_template_id");
+
+                    b.ToTable("construction_template_items", (string)null);
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ConstructionTemplateTask", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid>("ConstructionTemplateItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("construction_template_item_id");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<int?>("EstimateDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("estimate_days");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("name");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id")
+                        .HasName("pk_construction_template_tasks");
+
+                    b.HasIndex("ConstructionTemplateItemId")
+                        .HasDatabaseName("ix_construction_template_tasks_construction_template_item_id");
+
+                    b.ToTable("construction_template_tasks", (string)null);
+                });
+
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ConstructorProfile", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -604,8 +830,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("numeric(15,2)")
                         .HasColumnName("max_project_value");
 
-                    b.Property<long>("ServiceProviderProfileId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ServiceProviderProfileId")
+                        .HasColumnType("uuid")
                         .HasColumnName("provider_id");
 
                     b.Property<int>("TeamSize")
@@ -634,12 +860,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Contract", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<decimal?>("AgreedValue")
                         .HasPrecision(15, 2)
@@ -650,8 +875,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("confirmed_at");
 
-                    b.Property<long?>("ConfirmedBy")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("ConfirmedBy")
+                        .HasColumnType("uuid")
                         .HasColumnName("confirmed_by");
 
                     b.Property<DateTime>("CreatedAt")
@@ -677,9 +902,13 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("text")
                         .HasColumnName("party_info");
 
-                    b.Property<long>("ProjectWorkingId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ProjectWorkingId")
+                        .HasColumnType("uuid")
                         .HasColumnName("project_provider_id");
+
+                    b.Property<Guid?>("QuotationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("quotation_id");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -711,17 +940,19 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     b.HasIndex("ProjectWorkingId")
                         .HasDatabaseName("ix_contracts_project_provider_id");
 
+                    b.HasIndex("QuotationId")
+                        .HasDatabaseName("ix_contracts_quotation_id");
+
                     b.ToTable("contracts", (string)null);
                 });
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Conversation", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -729,12 +960,12 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
-                    b.Property<long>("CreatedBy")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid")
                         .HasColumnName("created_by");
 
-                    b.Property<long>("ProjectWorkingId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ProjectWorkingId")
+                        .HasColumnType("uuid")
                         .HasColumnName("project_working_id");
 
                     b.Property<string>("Topic")
@@ -762,12 +993,15 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Design", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    b.Property<string>("ChangeSummary")
+                        .HasColumnType("text")
+                        .HasColumnName("change_summary");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -775,12 +1009,12 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
-                    b.Property<long?>("CreatedBy")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
                         .HasColumnName("created_by");
 
-                    b.Property<long>("ProjectWorkingId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ProjectWorkingId")
+                        .HasColumnType("uuid")
                         .HasColumnName("project_provider_id");
 
                     b.Property<string>("Reason")
@@ -828,12 +1062,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.DesignBrief", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("BrandNote")
                         .HasColumnType("text")
@@ -862,8 +1095,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("text")
                         .HasColumnName("operation_note");
 
-                    b.Property<long>("ProjectShopOwnerId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ProjectShopOwnerId")
+                        .HasColumnType("uuid")
                         .HasColumnName("project_id");
 
                     b.Property<int?>("SeatCount")
@@ -902,12 +1135,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.DesignImage", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("Caption")
                         .HasColumnType("text")
@@ -919,8 +1151,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
-                    b.Property<long>("DesignId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("DesignId")
+                        .HasColumnType("uuid")
                         .HasColumnName("design_id");
 
                     b.Property<string>("ImageUrl")
@@ -928,8 +1160,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("text")
                         .HasColumnName("image_url");
 
-                    b.Property<long?>("UploadedBy")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("UploadedBy")
+                        .HasColumnType("uuid")
                         .HasColumnName("uploaded_by");
 
                     b.HasKey("Id")
@@ -946,12 +1178,15 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.DesignVersion", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    b.Property<string>("ChangeSummary")
+                        .HasColumnType("text")
+                        .HasColumnName("change_summary");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -959,12 +1194,12 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
-                    b.Property<long?>("CreatedBy")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
                         .HasColumnName("created_by");
 
-                    b.Property<long>("DesignId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("DesignId")
+                        .HasColumnType("uuid")
                         .HasColumnName("design_id");
 
                     b.Property<string>("Reason")
@@ -981,8 +1216,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("snapshotted_at");
 
-                    b.Property<long?>("SnapshottedBy")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("SnapshottedBy")
+                        .HasColumnType("uuid")
                         .HasColumnName("snapshotted_by");
 
                     b.Property<string>("Status")
@@ -1026,19 +1261,18 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.DesignVersionImage", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("Caption")
                         .HasColumnType("text")
                         .HasColumnName("caption");
 
-                    b.Property<long>("DesignVersionId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("DesignVersionId")
+                        .HasColumnType("uuid")
                         .HasColumnName("design_version_id");
 
                     b.Property<string>("ImageUrl")
@@ -1046,16 +1280,16 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("text")
                         .HasColumnName("image_url");
 
-                    b.Property<long?>("OriginalImageId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("OriginalImageId")
+                        .HasColumnType("uuid")
                         .HasColumnName("original_image_id");
 
                     b.Property<DateTime>("UploadedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("uploaded_at");
 
-                    b.Property<long?>("UploadedBy")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("UploadedBy")
+                        .HasColumnType("uuid")
                         .HasColumnName("uploaded_by");
 
                     b.HasKey("Id")
@@ -1075,12 +1309,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.DesignerProfile", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -1098,8 +1331,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("numeric(15,2)")
                         .HasColumnName("min_project_budget");
 
-                    b.Property<long>("ServiceProviderProfileId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ServiceProviderProfileId")
+                        .HasColumnType("uuid")
                         .HasColumnName("provider_id");
 
                     b.Property<string>("SoftwareSkills")
@@ -1130,12 +1363,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Doc", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("Caption")
                         .HasColumnType("text")
@@ -1147,8 +1379,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
-                    b.Property<long>("DocTypeId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("DocTypeId")
+                        .HasColumnType("uuid")
                         .HasColumnName("doc_type_id");
 
                     b.Property<string>("FileName")
@@ -1160,12 +1392,12 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("text")
                         .HasColumnName("file_url");
 
-                    b.Property<long>("ProjectWorkingId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ProjectWorkingId")
+                        .HasColumnType("uuid")
                         .HasColumnName("project_provider_id");
 
-                    b.Property<long?>("UploadedBy")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("UploadedBy")
+                        .HasColumnType("uuid")
                         .HasColumnName("uploaded_by");
 
                     b.HasKey("Id")
@@ -1185,12 +1417,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.DocType", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("Code")
                         .IsRequired()
@@ -1216,12 +1447,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Issue", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<DateOnly?>("ActualAt")
                         .HasColumnType("date")
@@ -1235,8 +1465,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("text")
                         .HasColumnName("confirm_image");
 
-                    b.Property<long?>("ConstructionItemId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("ConstructionItemId")
+                        .HasColumnType("uuid")
                         .HasColumnName("construction_item_id");
 
                     b.Property<DateTime>("CreatedAt")
@@ -1245,8 +1475,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
-                    b.Property<long?>("CreatedBy")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
                         .HasColumnName("created_by");
 
                     b.Property<DateOnly?>("EstimateAt")
@@ -1257,12 +1487,12 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("text")
                         .HasColumnName("issue_image");
 
-                    b.Property<long>("IssueTypeId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("IssueTypeId")
+                        .HasColumnType("uuid")
                         .HasColumnName("issue_type_id");
 
-                    b.Property<long>("ProjectWorkingId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ProjectWorkingId")
+                        .HasColumnType("uuid")
                         .HasColumnName("project_provider_id");
 
                     b.Property<string>("Reason")
@@ -1305,12 +1535,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.IssueType", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("Code")
                         .IsRequired()
@@ -1336,23 +1565,22 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Message", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("Body")
                         .HasColumnType("text")
                         .HasColumnName("body");
 
-                    b.Property<long>("ConversationId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uuid")
                         .HasColumnName("conversation_id");
 
-                    b.Property<long>("SenderId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("SenderId")
+                        .HasColumnType("uuid")
                         .HasColumnName("sender_id");
 
                     b.Property<DateTime>("SentAt")
@@ -1375,12 +1603,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.MessageAttachment", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("ContentType")
                         .HasMaxLength(100)
@@ -1398,8 +1625,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("character varying(255)")
                         .HasColumnName("file_name");
 
-                    b.Property<long>("MessageId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("MessageId")
+                        .HasColumnType("uuid")
                         .HasColumnName("message_id");
 
                     b.Property<long?>("SizeBytes")
@@ -1423,15 +1650,14 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Notification", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<string>("Content")
@@ -1454,8 +1680,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_read");
 
-                    b.Property<long?>("ReferenceId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("ReferenceId")
+                        .HasColumnType("uuid")
                         .HasColumnName("reference_id");
 
                     b.Property<string>("ReferenceType")
@@ -1488,15 +1714,14 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Otp", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<DateTime>("CodeRefreshedAt")
@@ -1541,17 +1766,168 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     b.ToTable("otps", (string)null);
                 });
 
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.PaymentBatch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("numeric(15,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<DateTime?>("ConfirmedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("confirmed_at");
+
+                    b.Property<Guid?>("ConfirmedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("confirmed_by");
+
+                    b.Property<Guid?>("ConstructionItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("construction_item_id");
+
+                    b.Property<Guid>("ContractId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("contract_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<DateOnly?>("DueAt")
+                        .HasColumnType("date")
+                        .HasColumnName("due_at");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("text")
+                        .HasColumnName("note");
+
+                    b.Property<decimal?>("Percentage")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("percentage");
+
+                    b.Property<DateTime?>("ProofSubmittedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("proof_submitted_at");
+
+                    b.Property<Guid?>("QuotationPaymentTermId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("quotation_payment_term_id");
+
+                    b.Property<string>("RejectReason")
+                        .HasColumnType("text")
+                        .HasColumnName("reject_reason");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.HasKey("Id")
+                        .HasName("pk_payment_batches");
+
+                    b.HasIndex("ConfirmedBy")
+                        .HasDatabaseName("ix_payment_batches_confirmed_by");
+
+                    b.HasIndex("ConstructionItemId")
+                        .HasDatabaseName("ix_payment_batches_construction_item_id");
+
+                    b.HasIndex("ContractId")
+                        .HasDatabaseName("ix_payment_batches_contract_id");
+
+                    b.HasIndex("QuotationPaymentTermId")
+                        .HasDatabaseName("ix_payment_batches_quotation_payment_term_id");
+
+                    b.ToTable("payment_batches", (string)null);
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.PaymentProof", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<decimal?>("Amount")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("numeric(15,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("image_url");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("text")
+                        .HasColumnName("note");
+
+                    b.Property<Guid>("PaymentBatchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("payment_batch_id");
+
+                    b.Property<DateTime?>("TransferredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("transferred_at");
+
+                    b.Property<Guid?>("UploadedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("uploaded_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_payment_proofs");
+
+                    b.HasIndex("PaymentBatchId")
+                        .HasDatabaseName("ix_payment_proofs_payment_batch_id");
+
+                    b.HasIndex("UploadedBy")
+                        .HasDatabaseName("ix_payment_proofs_uploaded_by");
+
+                    b.ToTable("payment_proofs", (string)null);
+                });
+
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.PaymentTransaction", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<decimal>("Amount")
@@ -1596,8 +1972,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("platform");
 
-                    b.Property<long?>("PostId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("PostId")
+                        .HasColumnType("uuid")
                         .HasColumnName("post_id");
 
                     b.Property<string>("Purpose")
@@ -1618,8 +1994,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("status");
 
-                    b.Property<long?>("SubscriptionId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("SubscriptionId")
+                        .HasColumnType("uuid")
                         .HasColumnName("subscription_id");
 
                     b.Property<DateTime>("UpdatedAt")
@@ -1649,12 +2025,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Post", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<DateTime?>("BoostedUntil")
                         .HasColumnType("timestamp with time zone")
@@ -1671,8 +2046,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("text")
                         .HasColumnName("description");
 
-                    b.Property<long>("ProjectShopOwnerId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ProjectShopOwnerId")
+                        .HasColumnType("uuid")
                         .HasColumnName("project_id");
 
                     b.Property<string>("ServiceKind")
@@ -1713,12 +2088,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ProjectShopOwner", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("Address")
                         .IsRequired()
@@ -1750,8 +2124,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("text")
                         .HasColumnName("name");
 
-                    b.Property<long>("OwnerId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid")
                         .HasColumnName("owner_id");
 
                     b.Property<string>("Status")
@@ -1777,15 +2151,14 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ProjectWorking", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long?>("ApplyId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("ApplyId")
+                        .HasColumnType("uuid")
                         .HasColumnName("application_id");
 
                     b.Property<string>("CompletionRequestNote")
@@ -1809,16 +2182,16 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
-                    b.Property<long>("ProjectShopOwnerId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ProjectShopOwnerId")
+                        .HasColumnType("uuid")
                         .HasColumnName("project_id");
 
                     b.Property<string>("RequestMessage")
                         .HasColumnType("text")
                         .HasColumnName("request_message");
 
-                    b.Property<long>("ServiceProviderProfileId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ServiceProviderProfileId")
+                        .HasColumnType("uuid")
                         .HasColumnName("provider_id");
 
                     b.Property<DateTime?>("StartedAt")
@@ -1870,17 +2243,285 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     b.ToTable("project_providers", (string)null);
                 });
 
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Quotation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid?>("ApplyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("application_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<int?>("EstimatedDurationDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("estimated_duration_days");
+
+                    b.Property<int?>("FreeRevisionCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("free_revision_count");
+
+                    b.Property<DateTime?>("LockedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("locked_at");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("text")
+                        .HasColumnName("note");
+
+                    b.Property<Guid?>("ProjectWorkingId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("project_provider_id");
+
+                    b.Property<string>("RejectReason")
+                        .HasColumnType("text")
+                        .HasColumnName("reject_reason");
+
+                    b.Property<DateTime?>("RespondedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("responded_at");
+
+                    b.Property<Guid?>("RespondedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("responded_by");
+
+                    b.Property<string>("RevisionReason")
+                        .HasColumnType("text")
+                        .HasColumnName("revision_reason");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sent_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("title");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("numeric(15,2)")
+                        .HasColumnName("total_amount");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_quotations");
+
+                    b.HasIndex("ApplyId")
+                        .HasDatabaseName("ix_quotations_application_id");
+
+                    b.HasIndex("CreatedBy")
+                        .HasDatabaseName("ix_quotations_created_by");
+
+                    b.HasIndex("ProjectWorkingId")
+                        .HasDatabaseName("ix_quotations_project_provider_id");
+
+                    b.HasIndex("RespondedBy")
+                        .HasDatabaseName("ix_quotations_responded_by");
+
+                    b.HasIndex("ApplyId", "Version")
+                        .IsUnique()
+                        .HasDatabaseName("ux_quotations_application_id_version")
+                        .HasFilter("application_id IS NOT NULL");
+
+                    b.HasIndex("ProjectWorkingId", "Version")
+                        .IsUnique()
+                        .HasDatabaseName("ux_quotations_project_provider_id_version")
+                        .HasFilter("project_provider_id IS NOT NULL");
+
+                    b.ToTable("quotations", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_quotations_anchor", "(application_id IS NOT NULL AND project_provider_id IS NULL) OR (application_id IS NULL AND project_provider_id IS NOT NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.QuotationAttachment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("FileName")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("file_name");
+
+                    b.Property<string>("FileUrl")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("file_url");
+
+                    b.Property<Guid>("QuotationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("quotation_id");
+
+                    b.Property<Guid?>("UploadedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("uploaded_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_quotation_attachments");
+
+                    b.HasIndex("QuotationId")
+                        .HasDatabaseName("ix_quotation_attachments_quotation_id");
+
+                    b.HasIndex("UploadedBy")
+                        .HasDatabaseName("ix_quotation_attachments_uploaded_by");
+
+                    b.ToTable("quotation_attachments", (string)null);
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.QuotationItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("numeric(15,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("text")
+                        .HasColumnName("note");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("numeric(15,2)")
+                        .HasColumnName("quantity");
+
+                    b.Property<Guid>("QuotationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("quotation_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<string>("Unit")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("unit");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("numeric(15,2)")
+                        .HasColumnName("unit_price");
+
+                    b.HasKey("Id")
+                        .HasName("pk_quotation_items");
+
+                    b.HasIndex("QuotationId")
+                        .HasDatabaseName("ix_quotation_items_quotation_id");
+
+                    b.ToTable("quotation_items", (string)null);
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.QuotationPaymentTerm", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("numeric(15,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<string>("Condition")
+                        .HasColumnType("text")
+                        .HasColumnName("condition");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("name");
+
+                    b.Property<decimal?>("Percentage")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("percentage");
+
+                    b.Property<Guid>("QuotationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("quotation_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id")
+                        .HasName("pk_quotation_payment_terms");
+
+                    b.HasIndex("QuotationId")
+                        .HasDatabaseName("ix_quotation_payment_terms_quotation_id");
+
+                    b.ToTable("quotation_payment_terms", (string)null);
+                });
+
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.RefreshToken", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<DateTime>("CreatedAt")
@@ -1918,12 +2559,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Review", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("Comment")
                         .HasColumnType("text")
@@ -1940,8 +2580,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("numeric(3,2)")
                         .HasColumnName("overall_rating");
 
-                    b.Property<long>("ProjectWorkingId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ProjectWorkingId")
+                        .HasColumnType("uuid")
                         .HasColumnName("project_provider_id");
 
                     b.Property<DateTime>("UpdatedAt")
@@ -1961,12 +2601,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ReviewScore", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("Dimension")
                         .IsRequired()
@@ -1974,8 +2613,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("dimension");
 
-                    b.Property<long>("ReviewId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ReviewId")
+                        .HasColumnType("uuid")
                         .HasColumnName("review_id");
 
                     b.Property<int>("Score")
@@ -1993,15 +2632,14 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ServiceProviderProfile", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<decimal>("AvgRating")
@@ -2074,15 +2712,14 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ShopOwner", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<string>("Address")
@@ -2129,15 +2766,14 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Subscription", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<DateTime>("CreatedAt")
@@ -2155,8 +2791,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("numeric(15,2)")
                         .HasColumnName("paid_amount");
 
-                    b.Property<long>("PlanId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("PlanId")
+                        .HasColumnType("uuid")
                         .HasColumnName("plan_id");
 
                     b.Property<DateTime>("StartDate")
@@ -2189,12 +2825,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.SubscriptionPlan", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -2246,12 +2881,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Survey", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("ConditionNote")
                         .IsRequired()
@@ -2264,12 +2898,12 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
-                    b.Property<long?>("CreatedBy")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
                         .HasColumnName("created_by");
 
-                    b.Property<long>("ProjectWorkingId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ProjectWorkingId")
+                        .HasColumnType("uuid")
                         .HasColumnName("project_provider_id");
 
                     b.Property<string>("ReportUrl")
@@ -2339,6 +2973,41 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     b.Navigation("ProjectShopOwner");
                 });
 
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ChecklistItem", b =>
+                {
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Account", "CheckedByAccount")
+                        .WithMany()
+                        .HasForeignKey("CheckedBy")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_checklist_items_accounts_checked_by");
+
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.ConstructionItem", "ConstructionItem")
+                        .WithMany("ChecklistItems")
+                        .HasForeignKey("ConstructionItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_checklist_items_construction_items_construction_item_id");
+
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Account", "CreatedByAccount")
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_checklist_items_accounts_created_by");
+
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Design", "Design")
+                        .WithMany("ChecklistItems")
+                        .HasForeignKey("DesignId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_checklist_items_designs_design_id");
+
+                    b.Navigation("CheckedByAccount");
+
+                    b.Navigation("ConstructionItem");
+
+                    b.Navigation("CreatedByAccount");
+
+                    b.Navigation("Design");
+                });
+
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Comment", b =>
                 {
                     b.HasOne("SmartCoffeeBuilder.Repository.Models.Account", "CreatedByAccount")
@@ -2398,6 +3067,41 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     b.Navigation("CreatedByAccount");
                 });
 
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ConstructionTemplate", b =>
+                {
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Account", "CreatedByAccount")
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_construction_templates_accounts_created_by");
+
+                    b.Navigation("CreatedByAccount");
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ConstructionTemplateItem", b =>
+                {
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.ConstructionTemplate", "ConstructionTemplate")
+                        .WithMany("Items")
+                        .HasForeignKey("ConstructionTemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_construction_template_items_construction_templates_construc");
+
+                    b.Navigation("ConstructionTemplate");
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ConstructionTemplateTask", b =>
+                {
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.ConstructionTemplateItem", "ConstructionTemplateItem")
+                        .WithMany("Tasks")
+                        .HasForeignKey("ConstructionTemplateItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_construction_template_tasks_construction_template_items_con");
+
+                    b.Navigation("ConstructionTemplateItem");
+                });
+
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ConstructorProfile", b =>
                 {
                     b.HasOne("SmartCoffeeBuilder.Repository.Models.ServiceProviderProfile", "ServiceProviderProfile")
@@ -2425,9 +3129,17 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_contracts_project_providers_project_provider_id");
 
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Quotation", "Quotation")
+                        .WithMany("Contracts")
+                        .HasForeignKey("QuotationId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_contracts_quotations_quotation_id");
+
                     b.Navigation("ConfirmedByAccount");
 
                     b.Navigation("ProjectWorking");
+
+                    b.Navigation("Quotation");
                 });
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Conversation", b =>
@@ -2694,6 +3406,62 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     b.Navigation("Account");
                 });
 
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.PaymentBatch", b =>
+                {
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Account", "ConfirmedByAccount")
+                        .WithMany()
+                        .HasForeignKey("ConfirmedBy")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_payment_batches_accounts_confirmed_by");
+
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.ConstructionItem", "ConstructionItem")
+                        .WithMany("PaymentBatches")
+                        .HasForeignKey("ConstructionItemId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_payment_batches_construction_items_construction_item_id");
+
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Contract", "Contract")
+                        .WithMany("PaymentBatches")
+                        .HasForeignKey("ContractId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_payment_batches_contracts_contract_id");
+
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.QuotationPaymentTerm", "QuotationPaymentTerm")
+                        .WithMany()
+                        .HasForeignKey("QuotationPaymentTermId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_payment_batches_quotation_payment_terms_quotation_payment_t");
+
+                    b.Navigation("ConfirmedByAccount");
+
+                    b.Navigation("ConstructionItem");
+
+                    b.Navigation("Contract");
+
+                    b.Navigation("QuotationPaymentTerm");
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.PaymentProof", b =>
+                {
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.PaymentBatch", "PaymentBatch")
+                        .WithMany("Proofs")
+                        .HasForeignKey("PaymentBatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_payment_proofs_payment_batches_payment_batch_id");
+
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Account", "UploadedByAccount")
+                        .WithMany()
+                        .HasForeignKey("UploadedBy")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_payment_proofs_accounts_uploaded_by");
+
+                    b.Navigation("PaymentBatch");
+
+                    b.Navigation("UploadedByAccount");
+                });
+
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.PaymentTransaction", b =>
                 {
                     b.HasOne("SmartCoffeeBuilder.Repository.Models.Account", "Account")
@@ -2773,6 +3541,85 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     b.Navigation("ProjectShopOwner");
 
                     b.Navigation("ServiceProviderProfile");
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Quotation", b =>
+                {
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Apply", "Apply")
+                        .WithMany("Quotations")
+                        .HasForeignKey("ApplyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_quotations_project_applications_application_id");
+
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Account", "CreatedByAccount")
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_quotations_accounts_created_by");
+
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.ProjectWorking", "ProjectWorking")
+                        .WithMany("Quotations")
+                        .HasForeignKey("ProjectWorkingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_quotations_project_providers_project_provider_id");
+
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Account", "RespondedByAccount")
+                        .WithMany()
+                        .HasForeignKey("RespondedBy")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_quotations_accounts_responded_by");
+
+                    b.Navigation("Apply");
+
+                    b.Navigation("CreatedByAccount");
+
+                    b.Navigation("ProjectWorking");
+
+                    b.Navigation("RespondedByAccount");
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.QuotationAttachment", b =>
+                {
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Quotation", "Quotation")
+                        .WithMany("Attachments")
+                        .HasForeignKey("QuotationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_quotation_attachments_quotations_quotation_id");
+
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Account", "UploadedByAccount")
+                        .WithMany()
+                        .HasForeignKey("UploadedBy")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_quotation_attachments_accounts_uploaded_by");
+
+                    b.Navigation("Quotation");
+
+                    b.Navigation("UploadedByAccount");
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.QuotationItem", b =>
+                {
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Quotation", "Quotation")
+                        .WithMany("Items")
+                        .HasForeignKey("QuotationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_quotation_items_quotations_quotation_id");
+
+                    b.Navigation("Quotation");
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.QuotationPaymentTerm", b =>
+                {
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Quotation", "Quotation")
+                        .WithMany("PaymentTerms")
+                        .HasForeignKey("QuotationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_quotation_payment_terms_quotations_quotation_id");
+
+                    b.Navigation("Quotation");
                 });
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.RefreshToken", b =>
@@ -2896,15 +3743,36 @@ namespace SmartCoffeeBuilder.Repository.Migrations
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Apply", b =>
                 {
                     b.Navigation("ProjectWorkings");
+
+                    b.Navigation("Quotations");
                 });
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ConstructionItem", b =>
                 {
+                    b.Navigation("ChecklistItems");
+
                     b.Navigation("Children");
 
                     b.Navigation("Issues");
 
+                    b.Navigation("PaymentBatches");
+
                     b.Navigation("Tasks");
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ConstructionTemplate", b =>
+                {
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ConstructionTemplateItem", b =>
+                {
+                    b.Navigation("Tasks");
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Contract", b =>
+                {
+                    b.Navigation("PaymentBatches");
                 });
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Conversation", b =>
@@ -2914,6 +3782,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Design", b =>
                 {
+                    b.Navigation("ChecklistItems");
+
                     b.Navigation("DesignImages");
                 });
 
@@ -2940,6 +3810,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Message", b =>
                 {
                     b.Navigation("Attachments");
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.PaymentBatch", b =>
+                {
+                    b.Navigation("Proofs");
                 });
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Post", b =>
@@ -2972,9 +3847,22 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
                     b.Navigation("Issues");
 
+                    b.Navigation("Quotations");
+
                     b.Navigation("Reviews");
 
                     b.Navigation("Surveys");
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Quotation", b =>
+                {
+                    b.Navigation("Attachments");
+
+                    b.Navigation("Contracts");
+
+                    b.Navigation("Items");
+
+                    b.Navigation("PaymentTerms");
                 });
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Review", b =>

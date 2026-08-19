@@ -42,7 +42,7 @@ public class ContractService : IContractService
     }
 
     public async Task<PaginationResponse<ContractResponse>> GetAllAsync(
-        long accountId, int pageNumber = 1, int pageSize = 10, long? projectWorkingId = null)
+        Guid accountId, int pageNumber = 1, int pageSize = 10, Guid? projectWorkingId = null)
     {
         // Hợp đồng là tài liệu RIÊNG của một engagement: chỉ owner của dự án và provider của chính
         // engagement đó được thấy. Lọc ngay trong query — không trả về rồi mới ẩn, để phân trang
@@ -63,7 +63,7 @@ public class ContractService : IContractService
             paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
-    public async Task<ContractResponse> GetByIdAsync(long accountId, long id)
+    public async Task<ContractResponse> GetByIdAsync(Guid accountId, Guid id)
     {
         var contract = await _repository.SingleOrDefaultAsync(predicate: c => c.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy contract với id {id}.");
@@ -74,7 +74,7 @@ public class ContractService : IContractService
         return ContractResponse.From(contract);
     }
 
-    public async Task<ContractResponse> CreateAsync(long accountId, CreateContractRequest request)
+    public async Task<ContractResponse> CreateAsync(Guid accountId, CreateContractRequest request)
     {
         var engagement = await _unitOfWork.GetRepository<ProjectWorking>()
             .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectWorkingId)
@@ -92,13 +92,19 @@ public class ContractService : IContractService
 
         await EnsureNoActiveContractAsync(engagement);
 
+        // Hợp đồng dựng từ báo giá đã duyệt: giá trị lấy thẳng từ tổng báo giá, KHÔNG nhận số
+        // provider gửi lên (review 3: "các field sau lấy từ báo giá và không cho phép provider
+        // thay đổi"). Không gửi quotationId thì vẫn đi luồng lập tay cũ.
+        var quotation = await LoadAcceptedQuotationAsync(request.QuotationId, engagement);
+
         var contract = new Contract
         {
             ProjectWorkingId = engagement.Id,
+            QuotationId = quotation?.Id,
             Title = request.Title,
             PartyInfo = request.PartyInfo,
             Terms = request.Terms,
-            AgreedValue = request.AgreedValue,
+            AgreedValue = quotation?.TotalAmount ?? request.AgreedValue,
             // File hợp đồng phải upload qua api/files trước; giá trị gửi lên rút về ObjectName.
             DocumentUrl = await _fileStorage.NormalizeForStorageAsync(request.DocumentUrl, "documentUrl"),
             Status = ContractStatus.drafted,
@@ -150,7 +156,7 @@ public class ContractService : IContractService
         });
     }
 
-    public async Task<ContractResponse> UpdateAsync(long accountId, long id, UpdateContractRequest request)
+    public async Task<ContractResponse> UpdateAsync(Guid accountId, Guid id, UpdateContractRequest request)
     {
         var contract = await _repository.SingleOrDefaultAsync(predicate: c => c.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy contract với id {id}.");
@@ -166,7 +172,18 @@ public class ContractService : IContractService
         if (request.Title != null) contract.Title = request.Title;
         if (request.PartyInfo != null) contract.PartyInfo = request.PartyInfo;
         if (request.Terms != null) contract.Terms = request.Terms;
-        if (request.AgreedValue != null) contract.AgreedValue = request.AgreedValue;
+
+        if (request.AgreedValue != null)
+        {
+            // Hợp đồng dựng từ báo giá thì giá trị là con số owner đã duyệt — provider sửa được ở
+            // đây thì bảng báo giá đã ký mất luôn ý nghĩa. Muốn đổi giá phải phát hành báo giá mới.
+            if (contract.QuotationId != null)
+                throw new InvalidOperationException(
+                    "Hợp đồng này lấy giá trị từ báo giá đã được chủ quán duyệt — không sửa trực tiếp. " +
+                    "Muốn đổi giá thì huỷ hợp đồng và phát hành bản báo giá mới.");
+
+            contract.AgreedValue = request.AgreedValue;
+        }
 
         // File cũ bị thay thì dọn luôn object trên bucket (sau khi DB commit) để khỏi rác.
         string? replacedDocument = null;
@@ -187,7 +204,7 @@ public class ContractService : IContractService
         return ContractResponse.From(contract);
     }
 
-    public async Task<ContractResponse> SendOtpAsync(long accountId, long id)
+    public async Task<ContractResponse> SendOtpAsync(Guid accountId, Guid id)
     {
         var contract = await _repository.SingleOrDefaultAsync(predicate: c => c.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy contract với id {id}.");
@@ -248,7 +265,7 @@ public class ContractService : IContractService
     }
 
     public async Task<ContractResponse> ConfirmOtpAsync(
-        long accountId, long id, ConfirmContractOtpRequest request)
+        Guid accountId, Guid id, ConfirmContractOtpRequest request)
     {
         var contract = await _repository.SingleOrDefaultAsync(predicate: c => c.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy contract với id {id}.");
@@ -278,14 +295,16 @@ public class ContractService : IContractService
 
         _repository.Update(contract);
         MarkEngagementStarted(engagement);
+        await GeneratePaymentBatchesAsync(contract);
 
-        // Một SaveChanges → ký hợp đồng và mốc bắt đầu của engagement/dự án là atomic.
+        // Một SaveChanges → ký hợp đồng, mốc bắt đầu của engagement/dự án và các đợt thanh toán
+        // sinh từ báo giá là atomic.
         await _unitOfWork.CommitAsync();
 
         return ContractResponse.From(contract);
     }
 
-    public async Task<ContractResponse> CancelAsync(long accountId, long id)
+    public async Task<ContractResponse> CancelAsync(Guid accountId, Guid id)
     {
         var contract = await _repository.SingleOrDefaultAsync(predicate: c => c.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy contract với id {id}.");
@@ -352,11 +371,82 @@ public class ContractService : IContractService
         }
     }
 
+    /// <summary>
+    /// Nạp báo giá nguồn của hợp đồng và kiểm tra nó thật sự thuộc engagement này, đã được owner
+    /// duyệt. Trả null khi provider không gửi quotationId (luồng lập hợp đồng tay như trước).
+    ///
+    /// Hai đường neo báo giá đều phải chấp nhận: qua hồ sơ ứng tuyển (engagement sinh ra từ apply
+    /// nào thì nhận báo giá của apply đó) và qua lời mời trực tiếp (báo giá treo thẳng vào engagement).
+    /// </summary>
+    /// <exception cref="KeyNotFoundException">Không có báo giá với id đó (HTTP 404).</exception>
+    /// <exception cref="InvalidOperationException">Báo giá của hợp tác khác hoặc chưa được duyệt (HTTP 409).</exception>
+    private async Task<Quotation?> LoadAcceptedQuotationAsync(Guid? quotationId, ProjectWorking engagement)
+    {
+        if (quotationId == null) return null;
+
+        var quotation = await _unitOfWork.GetRepository<Quotation>()
+            .SingleOrDefaultAsync(predicate: q => q.Id == quotationId)
+            ?? throw new KeyNotFoundException($"Không tìm thấy báo giá với id {quotationId}.");
+
+        var belongsToEngagement =
+            (quotation.ProjectWorkingId != null && quotation.ProjectWorkingId == engagement.Id)
+            || (quotation.ApplyId != null && engagement.ApplyId != null && quotation.ApplyId == engagement.ApplyId);
+
+        if (!belongsToEngagement)
+            throw new InvalidOperationException("Báo giá này không thuộc hợp tác đang lập hợp đồng.");
+
+        if (quotation.Status != QuotationStatus.accepted)
+            throw new InvalidOperationException(
+                $"Báo giá đang ở trạng thái '{quotation.Status}' — chỉ dựng hợp đồng từ báo giá đã được chủ quán duyệt.");
+
+        return quotation;
+    }
+
+    /// <summary>
+    /// Ký xong thì cam kết "30% khi ký, 40% khi duyệt concept…" trong báo giá trở thành các đợt
+    /// thanh toán thật để hai bên theo dõi (review 3). Chỉ ghi vào change tracker — caller commit
+    /// chung transaction với việc ký.
+    ///
+    /// Không có báo giá nguồn thì không sinh gì: hợp đồng lập tay không có cơ sở nào để chia đợt.
+    /// </summary>
+    private async Task GeneratePaymentBatchesAsync(Contract contract)
+    {
+        if (contract.QuotationId == null) return;
+
+        // Ký lại (hoặc chạy lại luồng) không được đẻ thêm đợt trùng.
+        var alreadyGenerated = await _unitOfWork.GetRepository<PaymentBatch>()
+            .CountAsync(b => b.ContractId == contract.Id) > 0;
+        if (alreadyGenerated) return;
+
+        var terms = await _unitOfWork.GetRepository<QuotationPaymentTerm>().GetListAsync(
+            predicate: t => t.QuotationId == contract.QuotationId,
+            orderBy: q => q.OrderBy(t => t.SortOrder));
+
+        if (terms.Count == 0) return;
+
+        var now = DateTime.UtcNow;
+        var batches = terms.Select(term => new PaymentBatch
+        {
+            ContractId = contract.Id,
+            QuotationPaymentTermId = term.Id,
+            SortOrder = term.SortOrder,
+            Name = term.Name,
+            Percentage = term.Percentage,
+            Amount = term.Amount,
+            Note = term.Condition,
+            Status = PaymentBatchStatus.pending,
+            CreatedAt = now,
+            UpdatedAt = now
+        }).ToList();
+
+        await _unitOfWork.GetRepository<PaymentBatch>().InsertRangeAsync(batches);
+    }
+
     /// <summary>Nạp engagement kèm project + owner cho luồng ký hợp đồng (một lần cho cả request).</summary>
     // Include tới Account vì send-otp cần email owner ngay trên instance vừa check quyền
     // (confirm-otp không dùng email, nhưng ký hợp đồng là luồng thưa — thêm một join rẻ hơn
     // là nuôi hai loader gần giống nhau).
-    private async Task<ProjectWorking> LoadEngagementForSigningAsync(long projectWorkingId) =>
+    private async Task<ProjectWorking> LoadEngagementForSigningAsync(Guid projectWorkingId) =>
         await _unitOfWork.GetRepository<ProjectWorking>()
             .SingleOrDefaultAsync(
                 predicate: e => e.Id == projectWorkingId,
@@ -369,7 +459,7 @@ public class ContractService : IContractService
     private enum ContractActor { Owner, Provider, Admin }
 
     /// <summary>Hai đầu account của một engagement, lấy bằng projection để khỏi nạp cả graph.</summary>
-    private sealed record EngagementParties(long OwnerAccountId, long ProviderAccountId);
+    private sealed record EngagementParties(Guid OwnerAccountId, Guid ProviderAccountId);
 
     /// <summary>
     /// Người gọi phải là MỘT BÊN của chính engagement mang hợp đồng này (owner của dự án, hoặc
@@ -380,7 +470,7 @@ public class ContractService : IContractService
     /// được hợp đồng của nhau, dù cả hai đều mang role 'provider'.
     /// </summary>
     /// <exception cref="UnauthorizedAccessException">Không phải bên nào của engagement (HTTP 401).</exception>
-    private async Task<ContractActor> ResolveActorAsync(long accountId, long projectWorkingId)
+    private async Task<ContractActor> ResolveActorAsync(Guid accountId, Guid projectWorkingId)
     {
         var parties = (await _unitOfWork.GetRepository<ProjectWorking>().GetListAsync(
                 selector: e => new EngagementParties(
@@ -410,7 +500,7 @@ public class ContractService : IContractService
     }
 
     /// <summary>Admin xem được mọi hợp đồng (phục vụ giám sát/hỗ trợ).</summary>
-    private async Task<bool> IsAdminAsync(long accountId)
+    private async Task<bool> IsAdminAsync(Guid accountId)
     {
         var account = await _unitOfWork.GetRepository<Account>()
             .SingleOrDefaultAsync(predicate: a => a.Id == accountId && a.DeletedAt == null);
@@ -424,7 +514,7 @@ public class ContractService : IContractService
     /// Sai người → UnauthorizedAccessException (401).
     /// </summary>
     private static void EnsureOwnerOfEngagement(
-        long accountId, ProjectWorking engagement, string action = "xác nhận hợp đồng")
+        Guid accountId, ProjectWorking engagement, string action = "xác nhận hợp đồng")
     {
         if (engagement.ProjectShopOwner?.Owner?.AccountId != accountId)
             throw new UnauthorizedAccessException($"Chỉ chủ quán của dự án này mới được {action}.");

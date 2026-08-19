@@ -4,10 +4,10 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.Issue;
 
 public class IssueResponse
 {
-    public long Id { get; set; }
-    public long ProjectWorkingId { get; set; }
-    public long? ConstructionItemId { get; set; }
-    public long IssueTypeId { get; set; }
+    public Guid Id { get; set; }
+    public Guid ProjectWorkingId { get; set; }
+    public Guid? ConstructionItemId { get; set; }
+    public Guid IssueTypeId { get; set; }
     public string? IssueTypeName { get; set; }
     public string? Cause { get; set; }
     public string? Reason { get; set; }
@@ -23,7 +23,7 @@ public class IssueResponse
     public DateOnly? EstimateAt { get; set; }
     public DateOnly? ActualAt { get; set; }
     public string Status { get; set; } = null!;
-    public long? CreatedBy { get; set; }
+    public Guid? CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

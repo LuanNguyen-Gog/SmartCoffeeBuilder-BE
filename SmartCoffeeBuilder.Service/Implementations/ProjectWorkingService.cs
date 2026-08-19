@@ -37,7 +37,7 @@ public class ProjectWorkingService : IProjectWorkingService
 
     public async Task<PaginationResponse<ProjectWorkingResponse>> GetAllAsync(
         int pageNumber = 1, int pageSize = 10,
-        long? projectShopOwnerId = null, long? serviceProviderProfileId = null, string? status = null)
+        Guid? projectShopOwnerId = null, Guid? serviceProviderProfileId = null, string? status = null)
     {
         ProviderStatus? st = null;
         if (!string.IsNullOrWhiteSpace(status))
@@ -68,7 +68,7 @@ public class ProjectWorkingService : IProjectWorkingService
 
     public async Task<PaginationResponse<ProjectWorkingResponse>> FilterAsync(
         int pageNumber = 1, int pageSize = 10, string? statuses = null,
-        long? projectShopOwnerId = null, long? serviceProviderProfileId = null, string? contractType = null)
+        Guid? projectShopOwnerId = null, Guid? serviceProviderProfileId = null, string? contractType = null)
     {
         // Danh sách rỗng = không lọc theo trạng thái (Contains dịch được sang SQL IN).
         var statusFilter = ParseStatuses(statuses);
@@ -117,7 +117,7 @@ public class ProjectWorkingService : IProjectWorkingService
         return result;
     }
 
-    public async Task<ProjectWorkingResponse> GetByIdAsync(long id)
+    public async Task<ProjectWorkingResponse> GetByIdAsync(Guid id)
     {
         var engagement = await _repository.SingleOrDefaultAsync(
             predicate: e => e.Id == id
@@ -132,7 +132,7 @@ public class ProjectWorkingService : IProjectWorkingService
     }
 
     public async Task<ProjectWorkingResponse> CreateDirectRequestAsync(
-        long accountId, CreateProjectWorkingRequest request)
+        Guid accountId, CreateProjectWorkingRequest request)
     {
         var project = await _unitOfWork.GetRepository<ProjectShopOwner>()
             .SingleOrDefaultAsync(
@@ -212,17 +212,17 @@ public class ProjectWorkingService : IProjectWorkingService
         return ProjectWorkingResponse.From(engagement);
     }
 
-    public Task<ProjectWorkingResponse> AcceptAsync(long accountId, long id) =>
+    public Task<ProjectWorkingResponse> AcceptAsync(Guid accountId, Guid id) =>
         TransitionAsync(accountId, id, ProviderStatus.accepted);
 
-    public Task<ProjectWorkingResponse> RejectAsync(long accountId, long id) =>
+    public Task<ProjectWorkingResponse> RejectAsync(Guid accountId, Guid id) =>
         TransitionAsync(accountId, id, ProviderStatus.rejected);
 
-    public Task<ProjectWorkingResponse> CompleteAsync(long accountId, long id) =>
+    public Task<ProjectWorkingResponse> CompleteAsync(Guid accountId, Guid id) =>
         TransitionAsync(accountId, id, ProviderStatus.completed);
 
     public async Task<ProjectWorkingResponse> UpdateStatusAsync(
-        long accountId, long id, UpdateProjectWorkingStatusRequest request)
+        Guid accountId, Guid id, UpdateProjectWorkingStatusRequest request)
     {
         if (!Enum.TryParse<ProviderStatus>(request.Status, ignoreCase: true, out var target))
             throw new ArgumentException($"Status '{request.Status}' không hợp lệ.");
@@ -238,7 +238,7 @@ public class ProjectWorkingService : IProjectWorkingService
     // ───────── Huỷ ngang cần ĐỒNG THUẬN HAI BÊN ─────────
 
     public async Task<ProjectWorkingResponse> RequestTerminationAsync(
-        long accountId, long id, RequestEngagementTerminationRequest request)
+        Guid accountId, Guid id, RequestEngagementTerminationRequest request)
     {
         var engagement = await LoadForActionAsync(id);
         var actor = await ResolveActorAsync(accountId, engagement);
@@ -271,7 +271,7 @@ public class ProjectWorkingService : IProjectWorkingService
     }
 
     public async Task<ProjectWorkingResponse> RespondTerminationAsync(
-        long accountId, long id, RespondEngagementTerminationRequest request)
+        Guid accountId, Guid id, RespondEngagementTerminationRequest request)
     {
         var engagement = await LoadForActionAsync(id);
         var actor = await ResolveActorAsync(accountId, engagement);
@@ -312,7 +312,7 @@ public class ProjectWorkingService : IProjectWorkingService
         return ProjectWorkingResponse.From(engagement);
     }
 
-    public async Task<ProjectWorkingResponse> CancelTerminationRequestAsync(long accountId, long id)
+    public async Task<ProjectWorkingResponse> CancelTerminationRequestAsync(Guid accountId, Guid id)
     {
         var engagement = await LoadForActionAsync(id);
         var actor = await ResolveActorAsync(accountId, engagement);
@@ -338,7 +338,7 @@ public class ProjectWorkingService : IProjectWorkingService
         return ProjectWorkingResponse.From(engagement);
     }
 
-    public async Task<ProjectWorkingResponse> TerminateAsync(long accountId, long id)
+    public async Task<ProjectWorkingResponse> TerminateAsync(Guid accountId, Guid id)
     {
         var engagement = await LoadForActionAsync(id);
         var actor = await ResolveActorAsync(accountId, engagement);
@@ -417,7 +417,7 @@ public class ProjectWorkingService : IProjectWorkingService
     }
 
     public async Task<ProjectWorkingResponse> RequestCompletionAsync(
-        long accountId, long id, RequestEngagementCompletionRequest request)
+        Guid accountId, Guid id, RequestEngagementCompletionRequest request)
     {
         var engagement = await LoadForActionAsync(id);
 
@@ -446,7 +446,7 @@ public class ProjectWorkingService : IProjectWorkingService
     }
 
     // Một cửa duy nhất cho mọi đổi trạng thái quan hệ: quyền → transition → guard nghiệp vụ.
-    private async Task<ProjectWorkingResponse> TransitionAsync(long accountId, long id, ProviderStatus target)
+    private async Task<ProjectWorkingResponse> TransitionAsync(Guid accountId, Guid id, ProviderStatus target)
     {
         var engagement = await LoadForActionAsync(id);
 
@@ -519,7 +519,7 @@ public class ProjectWorkingService : IProjectWorkingService
         return ProjectWorkingResponse.From(engagement);
     }
 
-    private async Task<ProjectWorking> LoadForActionAsync(long id) =>
+    private async Task<ProjectWorking> LoadForActionAsync(Guid id) =>
         await _repository.SingleOrDefaultAsync(
             predicate: e => e.Id == id,
             include: q => q.Include(e => e.ProjectShopOwner).ThenInclude(p => p.Owner)
@@ -571,7 +571,7 @@ public class ProjectWorkingService : IProjectWorkingService
         }
     }
 
-    public async Task<DesignBriefResponse> GetBriefAsync(long accountId, long id)
+    public async Task<DesignBriefResponse> GetBriefAsync(Guid accountId, Guid id)
     {
         var engagement = await _repository.SingleOrDefaultAsync(
                 predicate: e => e.Id == id,
@@ -592,7 +592,7 @@ public class ProjectWorkingService : IProjectWorkingService
         return DesignBriefResponse.From(brief);
     }
 
-    public async Task<EngagementOverviewResponse> GetOverviewAsync(long accountId, long id)
+    public async Task<EngagementOverviewResponse> GetOverviewAsync(Guid accountId, Guid id)
     {
         var engagement = await _repository.SingleOrDefaultAsync(
             predicate: e => e.Id == id,
@@ -678,7 +678,7 @@ public class ProjectWorkingService : IProjectWorkingService
     /// Engagement phải được load kèm ProjectShopOwner.Owner và ServiceProviderProfile.
     /// </summary>
     /// <exception cref="UnauthorizedAccessException">Không liên quan tới engagement (HTTP 401).</exception>
-    private async Task<EngagementActor> ResolveActorAsync(long accountId, ProjectWorking engagement)
+    private async Task<EngagementActor> ResolveActorAsync(Guid accountId, ProjectWorking engagement)
     {
         if (engagement.ProjectShopOwner?.Owner?.AccountId == accountId) return EngagementActor.Owner;
         if (engagement.ServiceProviderProfile?.AccountId == accountId) return EngagementActor.Provider;

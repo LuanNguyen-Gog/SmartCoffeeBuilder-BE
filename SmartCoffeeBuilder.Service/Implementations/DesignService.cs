@@ -30,8 +30,8 @@ public class DesignService : IDesignService
     }
 
     public async Task<PaginationResponse<DesignResponse>> GetAllAsync(
-        long accountId, int pageNumber = 1, int pageSize = 10,
-        long? projectWorkingId = null, string? status = null, string? type = null)
+        Guid accountId, int pageNumber = 1, int pageSize = 10,
+        Guid? projectWorkingId = null, string? status = null, string? type = null)
     {
         DesignStatus? st = null;
         if (!string.IsNullOrWhiteSpace(status))
@@ -70,14 +70,14 @@ public class DesignService : IDesignService
             paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
-    public async Task<DesignResponse> GetByIdAsync(long accountId, long id)
+    public async Task<DesignResponse> GetByIdAsync(Guid accountId, Guid id)
     {
         var design = await LoadForActionAsync(accountId, id, "xem bản thiết kế",
             EngagementActor.Owner, EngagementActor.Provider);
         return DesignResponse.From(design);
     }
 
-    public async Task<DesignResponse> CreateAsync(long accountId, CreateDesignRequest request)
+    public async Task<DesignResponse> CreateAsync(Guid accountId, CreateDesignRequest request)
     {
         var engagement = await _unitOfWork.GetRepository<ProjectWorking>()
             .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectWorkingId)
@@ -125,7 +125,7 @@ public class DesignService : IDesignService
         return DesignResponse.From(design);
     }
 
-    public async Task<DesignResponse> UpdateAsync(long accountId, long id, UpdateDesignRequest request)
+    public async Task<DesignResponse> UpdateAsync(Guid accountId, Guid id, UpdateDesignRequest request)
     {
         var design = await LoadForActionAsync(accountId, id, "sửa bản thiết kế", EngagementActor.Provider);
 
@@ -141,6 +141,9 @@ public class DesignService : IDesignService
                     $"Type '{request.Type}' không hợp lệ. Cho phép: concept, layout_2d, render_3d, technical_drawing.");
             design.Type = type;
         }
+        // Mô tả thay đổi so với bản trước — provider điền trước khi submit (review 3). Cột này bị
+        // ghi đè ở vòng sau, bản lưu vĩnh viễn nằm trong snapshot design_version.
+        if (request.ChangeSummary != null) design.ChangeSummary = request.ChangeSummary;
         design.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(design);
@@ -153,7 +156,7 @@ public class DesignService : IDesignService
     /// Provider nộp bản design cho owner duyệt: in_progress → submitted.
     /// <paramref name="accountId"/> lấy từ JWT ở controller — ghi vào snapshot làm vết ai đã nộp.
     /// </summary>
-    public async Task<DesignResponse> SubmitAsync(long id, long accountId)
+    public async Task<DesignResponse> SubmitAsync(Guid id, Guid accountId)
     {
         var design = await LoadForActionAsync(accountId, id, "nộp bản thiết kế", EngagementActor.Provider);
 
@@ -181,7 +184,7 @@ public class DesignService : IDesignService
     /// Pha design "xong" là derived từ design approved — không đổi provider_status.
     /// <paramref name="accountId"/> lấy từ JWT ở controller — ghi vào snapshot làm vết ai đã duyệt.
     /// </summary>
-    public async Task<DesignResponse> ApproveAsync(long id, long accountId)
+    public async Task<DesignResponse> ApproveAsync(Guid id, Guid accountId)
     {
         var design = await LoadForActionAsync(accountId, id, "duyệt bản thiết kế", EngagementActor.Owner);
 
@@ -204,7 +207,7 @@ public class DesignService : IDesignService
 
     /// <summary>Owner yêu cầu chỉnh sửa: submitted → revision (kèm lý do).</summary>
     public async Task<DesignResponse> RequestRevisionAsync(
-        long accountId, long id, RequestDesignRevisionRequest request)
+        Guid accountId, Guid id, RequestDesignRevisionRequest request)
     {
         var design = await LoadForActionAsync(
             accountId, id, "yêu cầu chỉnh sửa bản thiết kế", EngagementActor.Owner);
@@ -230,7 +233,7 @@ public class DesignService : IDesignService
     }
 
     /// <summary>Provider bắt đầu sửa theo yêu cầu: revision → in_progress, version +0.1.</summary>
-    public async Task<DesignResponse> StartRevisionAsync(long accountId, long id)
+    public async Task<DesignResponse> StartRevisionAsync(Guid accountId, Guid id)
     {
         var design = await LoadForActionAsync(
             accountId, id, "bắt đầu sửa bản thiết kế", EngagementActor.Provider);
@@ -250,8 +253,8 @@ public class DesignService : IDesignService
     }
 
     public async Task<DesignImageResponse> UploadFileAsync(
-        long accountId, long designId, Stream content, string fileName, string? contentType, long sizeBytes,
-        string? caption = null, long? uploadedBy = null)
+        Guid accountId, Guid designId, Stream content, string fileName, string? contentType, long sizeBytes,
+        string? caption = null, Guid? uploadedBy = null)
     {
         var design = await LoadForActionAsync(
             accountId, designId, "thêm file vào bản thiết kế", EngagementActor.Provider);
@@ -291,7 +294,7 @@ public class DesignService : IDesignService
         return DesignImageResponse.From(image);
     }
 
-    public async Task RemoveFileAsync(long accountId, long designId, long imageId)
+    public async Task RemoveFileAsync(Guid accountId, Guid designId, Guid imageId)
     {
         var design = await LoadForActionAsync(
             accountId, designId, "xoá file của bản thiết kế", EngagementActor.Provider);
@@ -322,7 +325,7 @@ public class DesignService : IDesignService
 
     /// <summary>Nạp design và chốt quyền theo engagement trong một bước.</summary>
     private async Task<Design> LoadForActionAsync(
-        long accountId, long id, string action, params EngagementActor[] allowed)
+        Guid accountId, Guid id, string action, params EngagementActor[] allowed)
     {
         var design = await GetDesignAsync(id);
 
@@ -333,7 +336,7 @@ public class DesignService : IDesignService
         return design;
     }
 
-    private async Task<Design> GetDesignAsync(long id)
+    private async Task<Design> GetDesignAsync(Guid id)
     {
         return await _repository.SingleOrDefaultAsync(
             predicate: d => d.Id == id,
@@ -344,7 +347,7 @@ public class DesignService : IDesignService
     // ───────── Design versioning (snapshot khi submit / approve / request-revision) ─────────
 
     public async Task<PaginationResponse<DesignVersionResponse>> GetVersionsAsync(
-        long accountId, long designId, int pageNumber = 1, int pageSize = 20)
+        Guid accountId, Guid designId, int pageNumber = 1, int pageSize = 20)
     {
         // Xác nhận design tồn tại + người gọi là một bên của engagement — sai id trả 404.
         _ = await LoadForActionAsync(accountId, designId, "xem lịch sử bản thiết kế",
@@ -366,7 +369,7 @@ public class DesignService : IDesignService
     }
 
     public async Task<DesignVersionResponse> GetVersionByIdAsync(
-        long accountId, long designId, long versionId)
+        Guid accountId, Guid designId, Guid versionId)
     {
         _ = await LoadForActionAsync(accountId, designId, "xem lịch sử bản thiết kế",
             EngagementActor.Owner, EngagementActor.Provider);
@@ -389,7 +392,7 @@ public class DesignService : IDesignService
     /// Copy ObjectName (image_url) chứ không reference ảnh gốc — khi ảnh gốc bị xoá sau này,
     /// ảnh trong version vẫn còn truy cập được, chỉ cột original_image_id trở thành null.
     /// </summary>
-    private async Task TrySnapshotAsync(Design design, DesignVersionSnapshotKind kind, long? snapshottedBy)
+    private async Task TrySnapshotAsync(Design design, DesignVersionSnapshotKind kind, Guid? snapshottedBy)
     {
         try
         {
@@ -409,6 +412,7 @@ public class DesignService : IDesignService
                     Type = design.Type,
                     Status = design.Status,
                     Reason = design.Reason,
+                    ChangeSummary = design.ChangeSummary,
                     CreatedBy = design.CreatedBy,
                     SnapshottedBy = snapshottedBy,
                     CreatedAt = design.CreatedAt,

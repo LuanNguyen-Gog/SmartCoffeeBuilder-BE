@@ -25,7 +25,7 @@ public class SurveyService : ISurveyService
     }
 
     public async Task<PaginationResponse<SurveyResponse>> GetAllAsync(
-        int pageNumber = 1, int pageSize = 10, long? projectWorkingId = null)
+        int pageNumber = 1, int pageSize = 10, Guid? projectWorkingId = null)
     {
         var query = _repository
             .GetQueryable(s => projectWorkingId == null || s.ProjectWorkingId == projectWorkingId)
@@ -38,7 +38,7 @@ public class SurveyService : ISurveyService
             paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
-    public async Task<SurveyResponse> GetByIdAsync(long id)
+    public async Task<SurveyResponse> GetByIdAsync(Guid id)
     {
         var survey = await _repository.SingleOrDefaultAsync(predicate: s => s.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy survey với id {id}.");
@@ -46,7 +46,7 @@ public class SurveyService : ISurveyService
         return SurveyResponse.From(survey);
     }
 
-    public async Task<SurveyResponse> CreateAsync(long accountId, CreateSurveyRequest request)
+    public async Task<SurveyResponse> CreateAsync(Guid accountId, CreateSurveyRequest request)
     {
         var engagement = await _unitOfWork.GetRepository<ProjectWorking>()
             .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectWorkingId)
@@ -89,7 +89,7 @@ public class SurveyService : ISurveyService
         return SurveyResponse.From(survey);
     }
 
-    public async Task<SurveyResponse> UpdateAsync(long accountId, long id, UpdateSurveyRequest request)
+    public async Task<SurveyResponse> UpdateAsync(Guid accountId, Guid id, UpdateSurveyRequest request)
     {
         var survey = await _repository.SingleOrDefaultAsync(predicate: s => s.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy survey với id {id}.");

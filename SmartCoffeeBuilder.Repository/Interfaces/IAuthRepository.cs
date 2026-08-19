@@ -7,9 +7,9 @@ public interface IAuthRepository
     Task<Account?> GetByEmailAsync(string email);
     Task<Account> CreateAccountAsync(Account account);
     Task UpdateAccountAsync(Account account);
-    Task<Account?> GetByIdAsync(long accountId);
+    Task<Account?> GetByIdAsync(Guid accountId);
     Task<RefreshToken?> GetRefreshTokenAsync(string token);
     Task AddRefreshTokenAsync(RefreshToken refreshToken);
     Task RevokeRefreshTokenAsync(RefreshToken refreshToken);
-    Task RevokeAllAccountRefreshTokensAsync(long accountId);
+    Task RevokeAllAccountRefreshTokensAsync(Guid accountId);
 }

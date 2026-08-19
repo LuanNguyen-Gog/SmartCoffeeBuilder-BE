@@ -30,8 +30,8 @@ public class ConstructionTaskService : IConstructionTaskService
     }
 
     public async Task<PaginationResponse<ConstructionTaskResponse>> GetAllAsync(
-        long accountId, int pageNumber = 1, int pageSize = 10,
-        long? constructionItemId = null, string? status = null, long? projectWorkingId = null)
+        Guid accountId, int pageNumber = 1, int pageSize = 10,
+        Guid? constructionItemId = null, string? status = null, Guid? projectWorkingId = null)
     {
         ItemStatus? st = null;
         if (!string.IsNullOrWhiteSpace(status))
@@ -62,7 +62,7 @@ public class ConstructionTaskService : IConstructionTaskService
             paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
-    public async Task<ConstructionTaskResponse> GetByIdAsync(long accountId, long id)
+    public async Task<ConstructionTaskResponse> GetByIdAsync(Guid accountId, Guid id)
     {
         var task = await LoadForActionAsync(accountId, id, "xem task thi công",
             EngagementActor.Owner, EngagementActor.Provider);
@@ -71,7 +71,7 @@ public class ConstructionTaskService : IConstructionTaskService
     }
 
     public async Task<ConstructionTaskResponse> CreateAsync(
-        long accountId, CreateConstructionTaskRequest request)
+        Guid accountId, CreateConstructionTaskRequest request)
     {
         var item = await _unitOfWork.GetRepository<ConstructionItem>()
             .SingleOrDefaultAsync(predicate: e => e.Id == request.ConstructionItemId)
@@ -109,7 +109,7 @@ public class ConstructionTaskService : IConstructionTaskService
     }
 
     public async Task<ConstructionTaskResponse> UpdateAsync(
-        long accountId, long id, UpdateConstructionTaskRequest request)
+        Guid accountId, Guid id, UpdateConstructionTaskRequest request)
     {
         var task = await LoadForActionAsync(accountId, id, "sửa task thi công", EngagementActor.Provider);
 
@@ -145,7 +145,7 @@ public class ConstructionTaskService : IConstructionTaskService
     }
 
     public async Task<ConstructionTaskResponse> UpdateStatusAsync(
-        long accountId, long id, UpdateConstructionTaskStatusRequest request)
+        Guid accountId, Guid id, UpdateConstructionTaskStatusRequest request)
     {
         if (!Enum.TryParse<ItemStatus>(request.Status, ignoreCase: true, out var target))
             throw new ArgumentException($"Status '{request.Status}' không hợp lệ. Cho phép: pending, in_progress, completed.");
@@ -174,7 +174,7 @@ public class ConstructionTaskService : IConstructionTaskService
         return ConstructionTaskResponse.From(task);
     }
 
-    public async Task DeleteAsync(long accountId, long id)
+    public async Task DeleteAsync(Guid accountId, Guid id)
     {
         var task = await LoadForActionAsync(accountId, id, "xoá task thi công", EngagementActor.Provider);
 
@@ -190,7 +190,7 @@ public class ConstructionTaskService : IConstructionTaskService
     /// cha, nên include ConstructionItem thay vì query rời.
     /// </summary>
     private async Task<ConstructionTask> LoadForActionAsync(
-        long accountId, long id, string action, params EngagementActor[] allowed)
+        Guid accountId, Guid id, string action, params EngagementActor[] allowed)
     {
         var task = await _repository.SingleOrDefaultAsync(
             predicate: e => e.Id == id,

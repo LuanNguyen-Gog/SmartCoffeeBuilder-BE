@@ -8,15 +8,15 @@ public interface IReviewService
 {
     Task<PaginationResponse<ReviewResponse>> GetAllAsync(
         int pageNumber = 1, int pageSize = 10,
-        long? projectWorkingId = null, long? serviceProviderProfileId = null);
+        Guid? projectWorkingId = null, Guid? serviceProviderProfileId = null);
 
-    Task<ReviewResponse> GetByIdAsync(long id);
+    Task<ReviewResponse> GetByIdAsync(Guid id);
 
-    Task<ProviderRatingSummaryResponse> GetProviderSummaryAsync(long serviceProviderProfileId);
+    Task<ProviderRatingSummaryResponse> GetProviderSummaryAsync(Guid serviceProviderProfileId);
 
-    Task<ReviewResponse> CreateAsync(long accountId, CreateReviewRequest request);
+    Task<ReviewResponse> CreateAsync(Guid accountId, CreateReviewRequest request);
 
-    Task<ReviewResponse> UpdateAsync(long accountId, long id, UpdateReviewRequest request);
+    Task<ReviewResponse> UpdateAsync(Guid accountId, Guid id, UpdateReviewRequest request);
 
-    Task DeleteAsync(long accountId, long id);
+    Task DeleteAsync(Guid accountId, Guid id);
 }

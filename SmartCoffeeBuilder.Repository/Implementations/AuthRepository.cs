@@ -31,7 +31,7 @@ public class AuthRepository : IAuthRepository
         await _context.SaveChangesAsync();
     }
 
-    public async Task<Account?> GetByIdAsync(long accountId)
+    public async Task<Account?> GetByIdAsync(Guid accountId)
         => await _context.Accounts
             .Include(a => a.ShopOwner)
             .Include(a => a.ServiceProviderProfile)
@@ -57,7 +57,7 @@ public class AuthRepository : IAuthRepository
         await _context.SaveChangesAsync();
     }
 
-    public async Task RevokeAllAccountRefreshTokensAsync(long accountId)
+    public async Task RevokeAllAccountRefreshTokensAsync(Guid accountId)
     {
         var tokens = await _context.RefreshTokens
             .Where(rt => rt.AccountId == accountId && rt.RevokedAt == null)

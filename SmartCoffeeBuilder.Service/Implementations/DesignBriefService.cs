@@ -22,7 +22,7 @@ public class DesignBriefService : IDesignBriefService
     }
 
     public async Task<PaginationResponse<DesignBriefResponse>> GetAllAsync(
-        long accountId, int pageNumber = 1, int pageSize = 10, long? projectShopOwnerId = null)
+        Guid accountId, int pageNumber = 1, int pageSize = 10, Guid? projectShopOwnerId = null)
     {
         // projectShopOwnerId là bộ lọc TIỆN LỢI, không phải hàng rào: bỏ trống thì trước đây
         // predicate đúng với mọi dòng và endpoint trả về brief của toàn hệ thống. Quyền xem phải
@@ -49,7 +49,7 @@ public class DesignBriefService : IDesignBriefService
             paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
-    public async Task<DesignBriefResponse> GetByIdAsync(long accountId, long id)
+    public async Task<DesignBriefResponse> GetByIdAsync(Guid accountId, Guid id)
     {
         var brief = await _repository.SingleOrDefaultAsync(predicate: b => b.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy design brief với id {id}.");
@@ -59,7 +59,7 @@ public class DesignBriefService : IDesignBriefService
         return DesignBriefResponse.From(brief);
     }
 
-    public async Task<DesignBriefResponse> CreateAsync(long accountId, CreateDesignBriefRequest request)
+    public async Task<DesignBriefResponse> CreateAsync(Guid accountId, CreateDesignBriefRequest request)
     {
         var project = await _unitOfWork.GetRepository<ProjectShopOwner>()
             .SingleOrDefaultAsync(
@@ -99,7 +99,7 @@ public class DesignBriefService : IDesignBriefService
         return DesignBriefResponse.From(brief);
     }
 
-    public async Task<DesignBriefResponse> UpdateAsync(long accountId, long id, UpdateDesignBriefRequest request)
+    public async Task<DesignBriefResponse> UpdateAsync(Guid accountId, Guid id, UpdateDesignBriefRequest request)
     {
         var brief = await LoadWithOwnerAsync(id);
         await EnsureOwnerAsync(accountId, brief.ProjectShopOwner, "sửa brief này");
@@ -121,7 +121,7 @@ public class DesignBriefService : IDesignBriefService
         return DesignBriefResponse.From(brief);
     }
 
-    public async Task DeleteAsync(long accountId, long id)
+    public async Task DeleteAsync(Guid accountId, Guid id)
     {
         var brief = await LoadWithOwnerAsync(id);
         await EnsureOwnerAsync(accountId, brief.ProjectShopOwner, "xoá brief này");
@@ -132,7 +132,7 @@ public class DesignBriefService : IDesignBriefService
 
     // ───────── Phân quyền theo dự án mang brief ─────────
 
-    private async Task<DesignBrief> LoadWithOwnerAsync(long id) =>
+    private async Task<DesignBrief> LoadWithOwnerAsync(Guid id) =>
         await _repository.SingleOrDefaultAsync(
             predicate: b => b.Id == id,
             include: q => q.Include(b => b.ProjectShopOwner).ThenInclude(p => p.Owner))
@@ -151,7 +151,7 @@ public class DesignBriefService : IDesignBriefService
     /// </list>
     /// </summary>
     /// <exception cref="UnauthorizedAccessException">Không liên quan tới dự án (HTTP 401).</exception>
-    private async Task EnsureProjectVisibleAsync(long accountId, long projectShopOwnerId)
+    private async Task EnsureProjectVisibleAsync(Guid accountId, Guid projectShopOwnerId)
     {
         var visible = await _unitOfWork.GetRepository<ProjectShopOwner>().CountAsync(
             p => p.Id == projectShopOwnerId
@@ -173,7 +173,7 @@ public class DesignBriefService : IDesignBriefService
     /// không thay được check này: mọi owner đều mang role 'owner' nên role gate cho qua tất.
     /// </summary>
     /// <exception cref="UnauthorizedAccessException">Không phải chủ dự án (HTTP 401).</exception>
-    private async Task EnsureOwnerAsync(long accountId, ProjectShopOwner project, string action)
+    private async Task EnsureOwnerAsync(Guid accountId, ProjectShopOwner project, string action)
     {
         if (project.Owner?.AccountId == accountId) return;
         if (await IsAdminAsync(accountId)) return;
@@ -181,7 +181,7 @@ public class DesignBriefService : IDesignBriefService
         throw new UnauthorizedAccessException($"Chỉ chủ dự án mới được {action}.");
     }
 
-    private async Task<bool> IsAdminAsync(long accountId)
+    private async Task<bool> IsAdminAsync(Guid accountId)
     {
         var account = await _unitOfWork.GetRepository<Account>()
             .SingleOrDefaultAsync(predicate: a => a.Id == accountId && a.DeletedAt == null);

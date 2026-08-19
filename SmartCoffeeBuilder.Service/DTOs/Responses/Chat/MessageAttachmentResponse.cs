@@ -6,8 +6,8 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.Chat;
 /// <summary>File/ảnh đính kèm trên message — phải resolve URL public ở mọi response (không chỉ lúc upload).</summary>
 public class MessageAttachmentResponse
 {
-    public long Id { get; set; }
-    public long MessageId { get; set; }
+    public Guid Id { get; set; }
+    public Guid MessageId { get; set; }
 
     /// <summary>ObjectName trên bucket — giá trị thật lưu trong DB.</summary>
     public string Url { get; set; } = null!;

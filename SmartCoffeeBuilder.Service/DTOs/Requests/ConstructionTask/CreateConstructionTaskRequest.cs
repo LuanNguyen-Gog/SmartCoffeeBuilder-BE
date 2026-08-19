@@ -6,7 +6,7 @@ namespace SmartCoffeeBuilder.Service.DTOs.Requests.ConstructionTask;
 public class CreateConstructionTaskRequest
 {
     [Required]
-    public long ConstructionItemId { get; set; }
+    public Guid ConstructionItemId { get; set; }
 
     [Required]
     public string Name { get; set; } = null!;

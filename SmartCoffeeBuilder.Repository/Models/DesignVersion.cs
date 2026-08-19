@@ -11,10 +11,10 @@ namespace SmartCoffeeBuilder.Repository.Models;
 /// </summary>
 public class DesignVersion
 {
-    public long Id { get; set; }
+    public Guid Id { get; set; }
 
     /// <summary>FK -> <c>designs.id</c>, cascade theo design.</summary>
-    public long DesignId { get; set; }
+    public Guid DesignId { get; set; }
 
     /// <summary>Loại snapshot (submitted | approved).</summary>
     public DesignVersionSnapshotKind SnapshotKind { get; set; }
@@ -32,11 +32,15 @@ public class DesignVersion
     /// <summary>Lý do revision tại thời điểm snapshot (nếu có).</summary>
     public string? Reason { get; set; }
 
+    /// <summary>Mô tả thay đổi so với bản trước tại thời điểm snapshot — nguồn duy nhất giữ lại
+    /// diễn giải của TỪNG vòng (designs.change_summary bị ghi đè ở vòng kế tiếp).</summary>
+    public string? ChangeSummary { get; set; }
+
     /// <summary>Account id người tạo design gốc (copy nguyên trạng).</summary>
-    public long? CreatedBy { get; set; }
+    public Guid? CreatedBy { get; set; }
 
     /// <summary>Account id người trigger snapshot (provider nộp / owner duyệt).</summary>
-    public long? SnapshottedBy { get; set; }
+    public Guid? SnapshottedBy { get; set; }
 
     /// <summary>CreatedAt của design gốc — giữ lại cho lịch sử.</summary>
     public DateTime CreatedAt { get; set; }

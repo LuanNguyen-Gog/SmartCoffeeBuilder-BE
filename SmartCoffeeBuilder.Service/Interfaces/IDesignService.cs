@@ -12,28 +12,28 @@ public interface IDesignService
 {
     /// <summary>Danh sách design — đã lọc theo engagement mà tài khoản tham gia (admin xem tất cả).</summary>
     Task<PaginationResponse<DesignResponse>> GetAllAsync(
-        long accountId, int pageNumber = 1, int pageSize = 10,
-        long? projectWorkingId = null, string? status = null, string? type = null);
-    Task<DesignResponse> GetByIdAsync(long accountId, long id);
-    Task<DesignResponse> CreateAsync(long accountId, CreateDesignRequest request);
-    Task<DesignResponse> UpdateAsync(long accountId, long id, UpdateDesignRequest request);
+        Guid accountId, int pageNumber = 1, int pageSize = 10,
+        Guid? projectWorkingId = null, string? status = null, string? type = null);
+    Task<DesignResponse> GetByIdAsync(Guid accountId, Guid id);
+    Task<DesignResponse> CreateAsync(Guid accountId, CreateDesignRequest request);
+    Task<DesignResponse> UpdateAsync(Guid accountId, Guid id, UpdateDesignRequest request);
 
     // Vòng duyệt/revision: in_progress → submitted → approved | revision → in_progress → submitted…
     // accountId lấy từ JWT ở controller — vừa để check quyền, vừa ghi vào design_versions.snapshotted_by.
-    Task<DesignResponse> SubmitAsync(long id, long accountId);
-    Task<DesignResponse> ApproveAsync(long id, long accountId);
-    Task<DesignResponse> RequestRevisionAsync(long accountId, long id, RequestDesignRevisionRequest request);
-    Task<DesignResponse> StartRevisionAsync(long accountId, long id);
+    Task<DesignResponse> SubmitAsync(Guid id, Guid accountId);
+    Task<DesignResponse> ApproveAsync(Guid id, Guid accountId);
+    Task<DesignResponse> RequestRevisionAsync(Guid accountId, Guid id, RequestDesignRevisionRequest request);
+    Task<DesignResponse> StartRevisionAsync(Guid accountId, Guid id);
 
     // File/ảnh của design — upload thẳng lên GCS (folder "designs"), DB lưu objectName.
     Task<DesignImageResponse> UploadFileAsync(
-        long accountId, long designId, Stream content, string fileName, string? contentType, long sizeBytes,
-        string? caption = null, long? uploadedBy = null);
-    Task RemoveFileAsync(long accountId, long designId, long imageId);
+        Guid accountId, Guid designId, Stream content, string fileName, string? contentType, long sizeBytes,
+        string? caption = null, Guid? uploadedBy = null);
+    Task RemoveFileAsync(Guid accountId, Guid designId, Guid imageId);
 
     // Lịch sử version (snapshot khi submit / approve) — dùng để truy nguyên sau revision.
     // Mỗi submit / approve đều sinh 1 bản mới (full history), không upsert — có thể trả về nhiều bản.
     Task<PaginationResponse<DesignVersionResponse>> GetVersionsAsync(
-        long accountId, long designId, int pageNumber = 1, int pageSize = 20);
-    Task<DesignVersionResponse> GetVersionByIdAsync(long accountId, long designId, long versionId);
+        Guid accountId, Guid designId, int pageNumber = 1, int pageSize = 20);
+    Task<DesignVersionResponse> GetVersionByIdAsync(Guid accountId, Guid designId, Guid versionId);
 }

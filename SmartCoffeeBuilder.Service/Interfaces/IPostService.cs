@@ -12,15 +12,15 @@ public interface IPostService
     Task<PaginationResponse<PostResponse>> GetAllAsync(
         int pageNumber = 1,
         int pageSize = 10,
-        long? projectShopOwnerId = null,
+        Guid? projectShopOwnerId = null,
         string? serviceKind = null,
         string? status = null,
         string? search = null);
 
-    Task<PostResponse> GetByIdAsync(long id);
+    Task<PostResponse> GetByIdAsync(Guid id);
     Task<PostResponse> CreateAsync(CreatePostRequest request);
-    Task<PostResponse> UpdateAsync(long id, UpdatePostRequest request);
-    Task DeleteAsync(long id);
+    Task<PostResponse> UpdateAsync(Guid id, UpdatePostRequest request);
+    Task DeleteAsync(Guid id);
 
     /// <summary>
     /// [HANGFIRE JOB] Bài 'open' đã qua submission_deadline → 'closed', và mọi hồ sơ còn 'pending'

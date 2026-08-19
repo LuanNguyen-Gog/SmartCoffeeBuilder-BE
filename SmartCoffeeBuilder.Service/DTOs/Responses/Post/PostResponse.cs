@@ -2,8 +2,8 @@ namespace SmartCoffeeBuilder.Service.DTOs.Responses.Post;
 
 public class PostResponse
 {
-    public long Id { get; set; }
-    public long ProjectShopOwnerId { get; set; }
+    public Guid Id { get; set; }
+    public Guid ProjectShopOwnerId { get; set; }
     public string? ProjectName { get; set; }
     public string? ProjectAddress { get; set; }
     public decimal? ProjectBudget { get; set; }
