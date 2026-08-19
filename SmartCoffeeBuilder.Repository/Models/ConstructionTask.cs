@@ -20,4 +20,7 @@ public class ConstructionTask
 
     public ConstructionItem ConstructionItem { get; set; } = null!;
     public Account? CreatedByAccount { get; set; }
+
+    /// <summary>Vật tư dự tính / thực dùng của task này (review 3).</summary>
+    public ICollection<ConstructionMaterial> Materials { get; set; } = new List<ConstructionMaterial>();
 }

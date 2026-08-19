@@ -192,6 +192,10 @@ public class DesignService : IDesignService
             throw new InvalidOperationException(
                 $"Chỉ approve được design đang 'submitted' (hiện tại: '{design.Status}').");
 
+        // 'approved' là dữ liệu mà guard nghiệm thu engagement tin vào, nên checklist nghiệm thu
+        // của bản vẽ phải đạt trước khi duyệt (review 3).
+        await ChecklistGate.EnsureDesignPassedAsync(_unitOfWork, design.Id, "chưa duyệt được bản thiết kế");
+
         design.Status = DesignStatus.approved;
         design.UpdatedAt = DateTime.UtcNow;
 

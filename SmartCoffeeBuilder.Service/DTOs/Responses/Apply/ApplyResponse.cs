@@ -125,7 +125,7 @@ public class ApplyResponse
         return scores
             .GroupBy(s => s.Dimension)
             .ToDictionary(
-                g => g.Key,
+                g => g.Key.ToString(),
                 g => decimal.Round(g.Average(s => (decimal)s.Score), 1));
     }
 }

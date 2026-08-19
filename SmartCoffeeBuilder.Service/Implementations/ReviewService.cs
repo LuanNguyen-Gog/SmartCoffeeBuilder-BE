@@ -72,7 +72,7 @@ public class ReviewService : IReviewService
             summary.DimensionAverages = reviews
                 .SelectMany(r => r.ReviewScores)
                 .GroupBy(s => s.Dimension)
-                .ToDictionary(g => g.Key, g => Math.Round((decimal)g.Average(s => s.Score), 2));
+                .ToDictionary(g => g.Key.ToString(), g => Math.Round((decimal)g.Average(s => s.Score), 2));
         }
 
         return summary;
@@ -100,15 +100,15 @@ public class ReviewService : IReviewService
         if (alreadyReviewed)
             throw new InvalidOperationException("Engagement này đã có review — mỗi engagement chỉ review 1 lần, dùng PUT để sửa.");
 
-        ValidateScores(request.Scores);
+        var scores = ParseScores(request.Scores);
 
         var review = new Review
         {
             ProjectWorkingId = engagement.Id,
             OverallRating = request.OverallRating,
             Comment = request.Comment,
-            ReviewScores = request.Scores
-                .Select(s => new ReviewScore { Dimension = s.Dimension.Trim(), Score = s.Score })
+            ReviewScores = scores
+                .Select(s => new ReviewScore { Dimension = s.Dimension, Score = s.Score })
                 .ToList(),
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -137,12 +137,12 @@ public class ReviewService : IReviewService
 
         if (request.Scores != null)
         {
-            ValidateScores(request.Scores);
+            var scores = ParseScores(request.Scores);
 
             // Thay thế toàn bộ điểm cũ bằng danh sách mới.
             _unitOfWork.GetRepository<ReviewScore>().DeleteRange(review.ReviewScores);
-            review.ReviewScores = request.Scores
-                .Select(s => new ReviewScore { ReviewId = review.Id, Dimension = s.Dimension.Trim(), Score = s.Score })
+            review.ReviewScores = scores
+                .Select(s => new ReviewScore { ReviewId = review.Id, Dimension = s.Dimension, Score = s.Score })
                 .ToList();
         }
 
@@ -168,12 +168,29 @@ public class ReviewService : IReviewService
         await _unitOfWork.CommitAsync();
     }
 
-    private static void ValidateScores(List<ReviewScoreRequest> scores)
+    /// <summary>
+    /// Đổi chuỗi client gửi lên thành <see cref="ReviewDimension"/> và chặn tiêu chí lặp.
+    /// Tiêu chí là danh sách CỐ ĐỊNH: text tự do làm phần trung bình theo tiêu chí vỡ thành nhiều
+    /// dòng gần giống nhau ("Tiến độ" / "Tien do") và không so sánh được giữa các provider.
+    /// </summary>
+    private static List<(ReviewDimension Dimension, int Score)> ParseScores(List<ReviewScoreRequest> scores)
     {
-        var duplicated = scores
-            .GroupBy(s => s.Dimension.Trim(), StringComparer.OrdinalIgnoreCase)
-            .FirstOrDefault(g => g.Count() > 1);
-        if (duplicated != null)
-            throw new ArgumentException($"Dimension '{duplicated.Key}' bị lặp — mỗi tiêu chí chỉ chấm 1 điểm.");
+        var parsed = new List<(ReviewDimension, int)>();
+        var seen = new HashSet<ReviewDimension>();
+
+        foreach (var s in scores)
+        {
+            if (!Enum.TryParse<ReviewDimension>(s.Dimension?.Trim(), ignoreCase: true, out var dimension))
+                throw new ArgumentException(
+                    $"Dimension '{s.Dimension}' không hợp lệ. Cho phép: " +
+                    $"{string.Join(", ", Enum.GetNames<ReviewDimension>())}.");
+
+            if (!seen.Add(dimension))
+                throw new ArgumentException($"Dimension '{dimension}' bị lặp — mỗi tiêu chí chỉ chấm 1 điểm.");
+
+            parsed.Add((dimension, s.Score));
+        }
+
+        return parsed;
     }
 }

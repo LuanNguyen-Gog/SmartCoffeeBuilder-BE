@@ -198,6 +198,11 @@ public class ConstructionItemService : IConstructionItemService
                 throw new InvalidOperationException(
                     $"Còn {unfinishedChildren} milestone con chưa 'completed' — " +
                     "đóng hết milestone con trước khi đóng milestone cha.");
+
+            // Đóng milestone = tuyên bố phần việc này đã xong, nên checklist nghiệm thu của nó
+            // phải được owner chấm đạt trước (review 3).
+            await ChecklistGate.EnsureConstructionItemPassedAsync(
+                _unitOfWork, item.Id, "chưa đóng được hạng mục này");
         }
 
         item.Status = target;

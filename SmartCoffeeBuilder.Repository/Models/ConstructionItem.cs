@@ -38,4 +38,10 @@ public class ConstructionItem
 
     /// <summary>Checklist nghiệm thu của hạng mục thi công này (review 3).</summary>
     public ICollection<ChecklistItem> ChecklistItems { get; set; } = new List<ChecklistItem>();
+
+    /// <summary>
+    /// Vật tư khai THẲNG ở mức milestone (khi milestone không chia task). Tổng vật tư của milestone
+    /// còn phải cộng thêm phần khai trong từng task con — xem <see cref="ConstructionMaterial"/>.
+    /// </summary>
+    public ICollection<ConstructionMaterial> Materials { get; set; } = new List<ConstructionMaterial>();
 }

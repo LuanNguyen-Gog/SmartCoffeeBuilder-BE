@@ -81,6 +81,10 @@ public class SmartCafeBuilderContext : DbContext
     // Nhóm 12 — Checklist nghiệm thu (design hoặc construction_item)
     public DbSet<ChecklistItem> ChecklistItems => Set<ChecklistItem>();
 
+    // Nhóm 14 — Vật tư: bảng giá công bố trước + lượng dùng theo hạng mục/task
+    public DbSet<Material> Materials => Set<Material>();
+    public DbSet<ConstructionMaterial> ConstructionMaterials => Set<ConstructionMaterial>();
+
     // Nhóm 13 — Mẫu quy trình thi công tái dùng
     public DbSet<ConstructionTemplate> ConstructionTemplates => Set<ConstructionTemplate>();
     public DbSet<ConstructionTemplateItem> ConstructionTemplateItems => Set<ConstructionTemplateItem>();
@@ -117,6 +121,8 @@ public class SmartCafeBuilderContext : DbContext
         configurationBuilder.Properties<QuotationStatus>().HaveConversion<string>().HaveMaxLength(30);
         configurationBuilder.Properties<PaymentBatchStatus>().HaveConversion<string>().HaveMaxLength(30);
         configurationBuilder.Properties<ChecklistStatus>().HaveConversion<string>().HaveMaxLength(30);
+        configurationBuilder.Properties<ReviewDimension>().HaveConversion<string>().HaveMaxLength(30);
+        configurationBuilder.Properties<MaterialUnit>().HaveConversion<string>().HaveMaxLength(20);
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -277,9 +283,20 @@ public class SmartCafeBuilderContext : DbContext
         {
             e.Property(x => x.ProjectWorkingId).HasColumnName("project_provider_id");
             e.HasIndex(x => x.ProjectWorkingId).HasDatabaseName("ix_surveys_project_provider_id");
+            e.HasIndex(x => x.ApplyId);
+
+            // Review 3: khảo sát làm được TỪ LÚC ỨNG TUYỂN, nên hai chỗ neo và phải đúng một.
+            // Mồ côi cả hai thì không suy ra được quyền xem (quyền đi theo apply hoặc engagement).
+            e.ToTable(t => t.HasCheckConstraint(
+                "ck_surveys_target",
+                "(project_provider_id IS NOT NULL AND apply_id IS NULL) OR " +
+                "(project_provider_id IS NULL AND apply_id IS NOT NULL)"));
+
             e.HasOne(x => x.ProjectWorking).WithMany(p => p.Surveys)
                 .HasForeignKey(x => x.ProjectWorkingId).OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("fk_surveys_project_providers_project_provider_id");
+            e.HasOne(x => x.Apply).WithMany(a => a.Surveys)
+                .HasForeignKey(x => x.ApplyId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.CreatedByAccount).WithMany()
                 .HasForeignKey(x => x.CreatedBy).OnDelete(DeleteBehavior.SetNull);
         });
@@ -504,7 +521,9 @@ public class SmartCafeBuilderContext : DbContext
         modelBuilder.Entity<ReviewScore>(e =>
         {
             e.HasIndex(x => x.ReviewId);
-            e.Property(x => x.Dimension).HasMaxLength(50);
+            // Mỗi tiêu chí chỉ được chấm một điểm trong cùng một review — chặn ở DB thay vì chỉ
+            // dựa vào validate ở service.
+            e.HasIndex(x => new { x.ReviewId, x.Dimension }).IsUnique();
             e.HasOne(x => x.Review).WithMany(r => r.ReviewScores)
                 .HasForeignKey(x => x.ReviewId).OnDelete(DeleteBehavior.Cascade);
         });
@@ -720,6 +739,53 @@ public class SmartCafeBuilderContext : DbContext
             e.HasIndex(x => x.ConstructionTemplateItemId);
             e.HasOne(x => x.ConstructionTemplateItem).WithMany(i => i.Tasks)
                 .HasForeignKey(x => x.ConstructionTemplateItemId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ───────── Nhóm 14 — Vật tư (review 3) ─────────
+        modelBuilder.Entity<Material>(e =>
+        {
+            e.Property(x => x.ProjectWorkingId).HasColumnName("project_provider_id");
+            e.Property(x => x.Name).HasMaxLength(255);
+            e.Property(x => x.UnitPrice).HasPrecision(18, 2);
+            e.HasIndex(x => x.ProjectWorkingId).HasDatabaseName("ix_materials_project_provider_id");
+
+            // Cùng một engagement không khai hai dòng trùng tên — bảng giá phải tra được theo tên.
+            e.HasIndex(x => new { x.ProjectWorkingId, x.Name }).IsUnique();
+
+            e.HasOne(x => x.ProjectWorking).WithMany(p => p.Materials)
+                .HasForeignKey(x => x.ProjectWorkingId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_materials_project_providers_project_provider_id");
+            e.HasOne(x => x.CreatedByAccount).WithMany()
+                .HasForeignKey(x => x.CreatedBy).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<ConstructionMaterial>(e =>
+        {
+            e.Property(x => x.EstimatedQuantity).HasPrecision(18, 3);
+            e.Property(x => x.ActualQuantity).HasPrecision(18, 3);
+            e.Property(x => x.UnitPrice).HasPrecision(18, 2);
+            e.HasIndex(x => x.ConstructionItemId);
+            e.HasIndex(x => x.ConstructionTaskId);
+            e.HasIndex(x => x.MaterialId);
+
+            // Dòng vật tư treo vào ĐÚNG MỘT chỗ: milestone (khi không chia task) hoặc task.
+            // Treo cả hai thì tổng của milestone cộng trùng chính nó.
+            e.ToTable(t => t.HasCheckConstraint(
+                "ck_construction_materials_target",
+                "(construction_item_id IS NOT NULL AND construction_task_id IS NULL) OR " +
+                "(construction_item_id IS NULL AND construction_task_id IS NOT NULL)"));
+
+            e.HasOne(x => x.ConstructionItem).WithMany(ci => ci.Materials)
+                .HasForeignKey(x => x.ConstructionItemId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.ConstructionTask).WithMany(t => t.Materials)
+                .HasForeignKey(x => x.ConstructionTaskId).OnDelete(DeleteBehavior.Cascade);
+
+            // Restrict: vật tư đã có hạng mục dùng thì không xoá khỏi bảng giá được, nếu không
+            // các dòng đã chốt mất mất tên/đơn vị và báo cáo chi phí không đọc lại được.
+            e.HasOne(x => x.Material).WithMany(m => m.Usages)
+                .HasForeignKey(x => x.MaterialId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.CreatedByAccount).WithMany()
+                .HasForeignKey(x => x.CreatedBy).OnDelete(DeleteBehavior.SetNull);
         });
 
         // Default now() cho mọi cột created_at / updated_at / sent_at.

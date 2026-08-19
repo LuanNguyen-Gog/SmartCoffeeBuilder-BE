@@ -110,4 +110,50 @@ public enum PaymentBatchStatus { pending, proof_submitted, confirmed, rejected }
 /// một chiều: 'failed' kèm ghi chú "cần sửa gì", provider sửa xong thì owner chấm lại thành 'passed'.
 /// </summary>
 public enum ChecklistStatus { pending, passed, failed }
+
+/// <summary>
+/// Tiêu chí chấm điểm provider — DANH SÁCH CỐ ĐỊNH, không phải chuỗi tự do.
+///
+/// Trước đây <c>review_scores.dimension</c> là text: mỗi người gõ một kiểu ("Tiến độ",
+/// "Tien do", "Tiến độ thi công") nên phần tổng hợp điểm trung bình theo tiêu chí tách
+/// thành nhiều dòng rời rạc và không so sánh được giữa các provider. Đóng khung thành enum
+/// để mọi provider được chấm trên cùng một bộ thước đo.
+/// </summary>
+public enum ReviewDimension
+{
+    /// <summary>Tiến độ — bám sát mốc thời gian đã cam kết.</summary>
+    progress,
+    /// <summary>Chất lượng — thành phẩm thiết kế / thi công.</summary>
+    quality,
+    /// <summary>Giao tiếp — phản hồi, cập nhật tình hình.</summary>
+    communication,
+    /// <summary>Chi phí — bám sát báo giá, không phát sinh tuỳ tiện.</summary>
+    cost,
+    /// <summary>Thái độ làm việc — chuyên nghiệp, giữ cam kết.</summary>
+    professionalism
+}
+
+/// <summary>
+/// Đơn vị tính của vật tư (review 3: "định nghĩa bằng tiền/đơn vị"). Cố định thành enum để
+/// đơn giá còn cộng trừ được — đơn vị tự do thì "m2" và "M²" thành hai thứ khác nhau.
+/// </summary>
+public enum MaterialUnit
+{
+    /// <summary>Mét dài (md).</summary>
+    md,
+    /// <summary>Mét vuông (m²).</summary>
+    m2,
+    /// <summary>Mét khối (m³).</summary>
+    m3,
+    /// <summary>Kilôgam.</summary>
+    kg,
+    /// <summary>Lít.</summary>
+    litre,
+    /// <summary>Cái / chiếc — đếm từng đơn vị (bóng đèn, ổ cắm…).</summary>
+    item,
+    /// <summary>Bộ — cụm nhiều món bán kèm nhau.</summary>
+    set,
+    /// <summary>Công (ngày công nhân).</summary>
+    manday
+}
 #pragma warning restore CS8981

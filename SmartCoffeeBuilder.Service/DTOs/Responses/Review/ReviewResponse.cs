@@ -9,7 +9,7 @@ public class ReviewScoreResponse
     public static ReviewScoreResponse From(SmartCoffeeBuilder.Repository.Models.ReviewScore s) => new()
     {
         Id = s.Id,
-        Dimension = s.Dimension,
+        Dimension = s.Dimension.ToString(),
         Score = s.Score
     };
 }

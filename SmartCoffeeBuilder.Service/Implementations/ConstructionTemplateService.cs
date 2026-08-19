@@ -138,6 +138,11 @@ public class ConstructionTemplateService : IConstructionTemplateService
         var now = DateTime.UtcNow;
         var cursor = request.StartDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
 
+        // Mọi estimate_at sinh ra đều đếm tiến từ mốc này, nên mốc lùi về quá khứ là cả cây kế
+        // hoạch nằm trong quá khứ — đúng thứ mà luồng tạo hạng mục thủ công đã chặn. Không guard
+        // ở đây thì áp mẫu trở thành đường vòng qua ConstructionSchedule.
+        ConstructionSchedule.EnsureEstimateNotInPast(cursor, "ngày bắt đầu áp mẫu quy trình");
+
         var items = new List<ConstructionItem>();
         var tasks = new List<ConstructionTask>();
 

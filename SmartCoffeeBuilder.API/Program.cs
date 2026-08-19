@@ -70,6 +70,7 @@ builder.Services.AddScoped<IQuotationService, QuotationService>();
 builder.Services.AddScoped<IPaymentBatchService, PaymentBatchService>();
 builder.Services.AddScoped<IChecklistItemService, ChecklistItemService>();
 builder.Services.AddScoped<IConstructionTemplateService, ConstructionTemplateService>();
+builder.Services.AddScoped<IMaterialService, MaterialService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 
