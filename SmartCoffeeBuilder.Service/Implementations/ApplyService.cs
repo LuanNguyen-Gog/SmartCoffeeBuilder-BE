@@ -77,9 +77,41 @@ public class ApplyService : IApplyService
     /// Chấp nhận join rộng vì đây là màn hình cân nhắc, mỗi bài đăng chỉ vài hồ sơ; đổi lại FE
     /// không phải gọi thêm 3 API cho mỗi dòng danh sách.
     /// </summary>
+    /// <summary>
+    /// Owner chỉ chốt được provider đã ĐI KHẢO SÁT THỰC TẾ — đó là dữ liệu để so giữa nhiều hồ sơ.
+    ///
+    /// Chặn ở accept chứ không chặn ở lúc nộp hồ sơ: survey neo vào <c>apply_id</c> nên bản ghi
+    /// apply phải có trước đã; và khảo sát là buổi đi hiện trường, provider cần ứng tuyển trước
+    /// để hẹn được lịch với owner. Accept mới là chỗ luật này có nghĩa.
+    ///
+    /// Chỉ áp cho bài đăng CÓ pha thiết kế (design / both). Bài construction thuần không có bước
+    /// khảo sát — khớp với <c>SurveyService.EnsureCanSurveyEngagementAsync</c>, vốn đã chặn
+    /// engagement contract type 'construction' tạo survey.
+    ///
+    /// Hẹn lịch suông không tính: <c>surveyed_at == null</c> nghĩa là chưa đi, owner chưa có gì để đọc.
+    /// </summary>
+    private async Task EnsureSurveySubmittedAsync(Guid applyId, ServiceKind serviceKind)
+    {
+        if (serviceKind == ServiceKind.construction) return;
+
+        var surveys = await _unitOfWork.GetRepository<Survey>()
+            .GetListAsync(predicate: s => s.ApplyId == applyId);
+
+        if (surveys.Count == 0)
+            throw new InvalidOperationException(
+                $"Hồ sơ #{applyId} chưa có bản khảo sát nào — bài đăng phạm vi '{serviceKind}' " +
+                "yêu cầu provider khảo sát hiện trường trước khi được chấp nhận.");
+
+        if (!surveys.Any(s => s.SurveyedAt != null))
+            throw new InvalidOperationException(
+                $"Hồ sơ #{applyId} mới hẹn lịch khảo sát, chưa đi thực tế (surveyed_at còn trống) — " +
+                "chưa chấp nhận được.");
+    }
+
     private static Func<IQueryable<Apply>, IIncludableQueryable<Apply, object>> BuildApplyInclude() =>
         q => q.Include(a => a.Post)
               .Include(a => a.Quotations)
+              .Include(a => a.Surveys)
               .Include(a => a.ServiceProviderProfile)
                   .ThenInclude(p => p.ProjectWorkings)
                   .ThenInclude(e => e.Reviews)
@@ -177,6 +209,9 @@ public class ApplyService : IApplyService
         var post = application.Post;
         if (post.Status != PostStatus.open)
             throw new InvalidOperationException($"Bài đăng đang ở trạng thái '{post.Status}', không thể chấp nhận hồ sơ.");
+
+        // Bài có pha thiết kế thì phải khảo sát thực tế rồi mới chốt được provider.
+        await EnsureSurveySubmittedAsync(application.Id, post.ServiceKind);
 
         // Kiểm lại chỗ NGAY TRƯỚC khi tạo engagement, không tin vào lần check lúc nộp hồ sơ:
         // giữa hai thời điểm đó owner có thể đã mời trực tiếp một provider khác, hoặc đã accept
