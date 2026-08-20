@@ -41,6 +41,12 @@ public class ApplyResponse
     public bool? ProviderIsVerified { get; set; }
     public decimal? ProviderAvgRating { get; set; }
 
+    /// <summary>Số đánh giá của provider — "4.8" một mình không nói lên gì nếu chỉ có 1 lượt.</summary>
+    public int? ProviderReviewCount { get; set; }
+
+    /// <summary>URL public logo provider — để owner nhận diện khi so sánh nhiều hồ sơ.</summary>
+    public string? ProviderLogoViewUrl { get; set; }
+
     /// <summary>Số dự án provider đã hoàn thành trên hệ thống (engagement 'completed').</summary>
     public int? ProviderCompletedProjects { get; set; }
 
@@ -123,6 +129,8 @@ public class ApplyResponse
             ProviderYearsExperience = provider?.YearsExperience,
             ProviderIsVerified = provider?.IsVerified,
             ProviderAvgRating = provider?.AvgRating,
+            ProviderReviewCount = provider?.ReviewCount,
+            ProviderLogoViewUrl = SmartCoffeeBuilder.Service.Utils.MediaUrl.Resolve(provider?.LogoUrl),
 
             // Các trường dưới đây chỉ có khi caller nạp kèm engagement + review (xem ApplyService).
             ProviderCompletedProjects = provider?.ProjectWorkings

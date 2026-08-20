@@ -95,6 +95,8 @@ public class ConstructionItemService : IConstructionItemService
                 "Engagement chưa có contract 'confirmed' — ký hợp đồng trước khi tạo hạng mục thi công.");
 
         ConstructionSchedule.EnsureEstimateNotInPast(request.EstimateAt, "hạng mục");
+        ConstructionSchedule.EnsureRangeOrdered(request.StartAt, request.EstimateAt, "hạng mục");
+        EnsureCostNotNegative(request.EstimatedLaborCost, nameof(request.EstimatedLaborCost));
 
         if (request.ParentId != null)
         {
@@ -119,7 +121,9 @@ public class ConstructionItemService : IConstructionItemService
             Name = request.Name,
             Description = request.Description,
             Category = request.Category,
+            StartAt = request.StartAt,
             EstimateAt = request.EstimateAt,
+            EstimatedLaborCost = request.EstimatedLaborCost,
             Status = ItemStatus.pending,
             // Người tạo lấy từ JWT, KHÔNG nhận từ body: client tự khai thì cột này mất giá trị đối chứng.
             CreatedBy = accountId,
@@ -145,10 +149,26 @@ public class ConstructionItemService : IConstructionItemService
         if (request.EstimateAt.HasValue)
             ConstructionSchedule.EnsureEstimateNotInPast(request.EstimateAt, "hạng mục");
 
+        // Kiểm tra thứ tự trên giá trị SAU KHI GHÉP: gửi mỗi StartAt mà so với request.EstimateAt
+        // (đang null) thì mọi ngày bắt đầu đều lọt, kể cả ngày nằm sau hạn đã lưu trong DB.
+        ConstructionSchedule.EnsureRangeOrdered(
+            request.StartAt ?? item.StartAt, request.EstimateAt ?? item.EstimateAt, "hạng mục");
+        ConstructionSchedule.EnsureRangeOrdered(
+            request.ActualStartAt ?? item.ActualStartAt, request.ActualAt ?? item.ActualAt,
+            "hạng mục (thực tế)");
+
+        EnsureCostNotNegative(request.EstimatedLaborCost, nameof(request.EstimatedLaborCost));
+        EnsureCostNotNegative(request.ActualLaborCost, nameof(request.ActualLaborCost));
+
         if (request.Name != null) item.Name = request.Name;
         if (request.Description != null) item.Description = request.Description;
         if (request.Category != null) item.Category = request.Category;
+        if (request.StartAt.HasValue) item.StartAt = request.StartAt.Value;
         if (request.EstimateAt.HasValue) item.EstimateAt = request.EstimateAt.Value;
+        if (request.ActualStartAt.HasValue) item.ActualStartAt = request.ActualStartAt.Value;
+        if (request.ActualAt.HasValue) item.ActualAt = request.ActualAt.Value;
+        if (request.EstimatedLaborCost.HasValue) item.EstimatedLaborCost = request.EstimatedLaborCost;
+        if (request.ActualLaborCost.HasValue) item.ActualLaborCost = request.ActualLaborCost;
         item.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(item);
@@ -206,8 +226,19 @@ public class ConstructionItemService : IConstructionItemService
         }
 
         item.Status = target;
+
+        // Mốc thực tế tự đóng theo trạng thái, cùng cách ActualAt vẫn làm: bắt provider nhớ điền
+        // tay ngày bắt đầu thì cột đó rỗng ở phần lớn hạng mục và không tính được thời lượng THẬT.
+        if (target == ItemStatus.in_progress && item.ActualStartAt == null)
+            item.ActualStartAt = DateOnly.FromDateTime(DateTime.UtcNow);
         if (target == ItemStatus.completed && item.ActualAt == null)
             item.ActualAt = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        // Nhảy thẳng pending → completed (hạng mục làm gọn trong ngày) vẫn phải có mốc bắt đầu,
+        // nếu không thời lượng thực tế thành null trong khi việc rõ ràng đã làm xong.
+        if (target == ItemStatus.completed && item.ActualStartAt == null)
+            item.ActualStartAt = item.ActualAt;
+
         item.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(item);
@@ -215,6 +246,183 @@ public class ConstructionItemService : IConstructionItemService
 
         return ConstructionItemResponse.From(item);
     }
+
+    /// <summary>Chi phí âm là dữ liệu sai — bỏ trống nếu chưa biết.</summary>
+    /// <exception cref="ArgumentException">Giá trị âm (HTTP 400).</exception>
+    private static void EnsureCostNotNegative(decimal? value, string fieldName)
+    {
+        if (value is decimal v && v < 0)
+            throw new ArgumentException($"{fieldName} không được âm — bỏ trống nếu chưa có số liệu.");
+    }
+
+    // ───────────────────────── Tổng hợp chi phí (review 1.1) ─────────────────────────
+
+    public async Task<ConstructionCostSummaryResponse> GetCostSummaryAsync(Guid accountId, Guid id)
+    {
+        var item = await _repository.SingleOrDefaultAsync(predicate: e => e.Id == id)
+            ?? throw new KeyNotFoundException($"Không tìm thấy hạng mục thi công với id {id}.");
+
+        await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, item.ProjectWorkingId);
+
+        var ctx = await LoadCostContextAsync(item.ProjectWorkingId);
+        return BuildSummary(item, ctx);
+    }
+
+    public async Task<EngagementCostSummaryResponse> GetEngagementCostSummaryAsync(
+        Guid accountId, Guid projectWorkingId)
+    {
+        await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, projectWorkingId);
+
+        var ctx = await LoadCostContextAsync(projectWorkingId);
+
+        // Chỉ cộng milestone GỐC: milestone con đã nằm trong tổng của cha nó, cộng cả hai là
+        // tính trùng toàn bộ phần con.
+        var roots = ctx.Items.Where(i => i.ParentId == null).OrderBy(i => i.CreatedAt).ToList();
+        var summaries = roots.Select(r => BuildSummary(r, ctx)).ToList();
+
+        // Tách nhân công / vật tư ở mức engagement phải đi HẾT cây: EstimatedLaborCost trên mỗi
+        // summary chỉ là phần của riêng milestone đó, phần của milestone con nằm trong
+        // ChildrenEstimatedCost (đã trộn cả nhân công lẫn vật tư nên không tách ngược ra được).
+        static decimal SumEstimatedLabor(ConstructionCostSummaryResponse s) =>
+            s.EstimatedLaborCost + s.Children.Sum(SumEstimatedLabor);
+        static decimal SumEstimatedMaterial(ConstructionCostSummaryResponse s) =>
+            s.EstimatedMaterialCost + s.Children.Sum(SumEstimatedMaterial);
+
+        var missingLabor = summaries.Sum(s => s.MissingActualLaborLines);
+        var missingMaterial = summaries.Sum(s => s.MissingActualMaterialLines);
+
+        static decimal SumActualLabor(ConstructionCostSummaryResponse s) =>
+            (s.ActualLaborCost ?? 0m) + s.Children.Sum(SumActualLabor);
+        static decimal SumActualMaterial(ConstructionCostSummaryResponse s) =>
+            (s.ActualMaterialCost ?? 0m) + s.Children.Sum(SumActualMaterial);
+
+        var estimated = summaries.Sum(s => s.TotalEstimatedCost);
+        var actual = summaries.All(s => s.TotalActualCost.HasValue)
+            ? summaries.Sum(s => s.TotalActualCost!.Value)
+            : (decimal?)null;
+
+        return new EngagementCostSummaryResponse
+        {
+            ProjectWorkingId = projectWorkingId,
+            EstimatedLaborCost = summaries.Sum(SumEstimatedLabor),
+            ActualLaborCost = missingLabor > 0 ? null : summaries.Sum(SumActualLabor),
+            EstimatedMaterialCost = summaries.Sum(SumEstimatedMaterial),
+            ActualMaterialCost = missingMaterial > 0 ? null : summaries.Sum(SumActualMaterial),
+            TotalEstimatedCost = estimated,
+            TotalActualCost = actual,
+            Variance = actual.HasValue ? actual.Value - estimated : null,
+            MissingActualMaterialLines = missingMaterial,
+            MissingActualLaborLines = missingLabor,
+            RootItemCount = roots.Count,
+            Items = summaries
+        };
+    }
+
+    /// <summary>
+    /// Toàn bộ hạng mục, task và dòng vật tư của một engagement, nạp MỘT lần.
+    /// Cây thi công nhỏ (vài chục dòng) nên nạp cả rồi gộp trong bộ nhớ rẻ hơn nhiều so với
+    /// đệ quy xuống DB cho từng milestone.
+    /// </summary>
+    private async Task<CostContext> LoadCostContextAsync(Guid projectWorkingId)
+    {
+        var items = await _repository.GetListAsync(predicate: i => i.ProjectWorkingId == projectWorkingId);
+        var itemIds = items.Select(i => i.Id).ToHashSet();
+
+        var tasks = await _unitOfWork.GetRepository<ConstructionTask>()
+            .GetListAsync(predicate: t => itemIds.Contains(t.ConstructionItemId));
+        var taskIds = tasks.Select(t => t.Id).ToHashSet();
+
+        var materials = await _unitOfWork.GetRepository<ConstructionMaterial>()
+            .GetListAsync(predicate: m =>
+                (m.ConstructionItemId != null && itemIds.Contains(m.ConstructionItemId.Value))
+                || (m.ConstructionTaskId != null && taskIds.Contains(m.ConstructionTaskId.Value)));
+
+        return new CostContext([.. items], [.. tasks], [.. materials]);
+    }
+
+    private static ConstructionCostSummaryResponse BuildSummary(ConstructionItem item, CostContext ctx)
+    {
+        var tasks = ctx.Tasks.Where(t => t.ConstructionItemId == item.Id).ToList();
+        var taskIds = tasks.Select(t => t.Id).ToHashSet();
+
+        var materialLines = ctx.Materials
+            .Where(m => m.ConstructionItemId == item.Id
+                        || (m.ConstructionTaskId != null && taskIds.Contains(m.ConstructionTaskId.Value)))
+            .ToList();
+
+        // Nhân công: cột trên chính hạng mục + cột trên từng task con.
+        var laborSources = new List<(decimal? Estimated, decimal? Actual)>
+        {
+            (item.EstimatedLaborCost, item.ActualLaborCost)
+        };
+        laborSources.AddRange(tasks.Select(t => (t.EstimatedLaborCost, t.ActualLaborCost)));
+
+        // Dòng nào ĐÃ khai dự toán mà chưa có thực chi thì tổng thực tế không đọc được — đếm lại
+        // để FE giải thích được vì sao Actual* null. Dòng chưa khai gì cả không tính là thiếu.
+        var missingLabor = laborSources.Count(s => s.Estimated.HasValue && !s.Actual.HasValue);
+        var estimatedLabor = laborSources.Sum(s => s.Estimated ?? 0m);
+        var actualLabor = missingLabor > 0 ? (decimal?)null : laborSources.Sum(s => s.Actual ?? 0m);
+
+        var missingMaterial = materialLines.Count(m => m.ActualQuantity == null);
+        var estimatedMaterial = materialLines.Sum(m => m.EstimatedQuantity * m.UnitPrice);
+        var actualMaterial = missingMaterial > 0
+            ? (decimal?)null
+            : materialLines.Sum(m => (m.ActualQuantity ?? 0m) * m.UnitPrice);
+
+        var ownEstimated = estimatedLabor + estimatedMaterial;
+        var ownActual = actualLabor.HasValue && actualMaterial.HasValue
+            ? actualLabor.Value + actualMaterial.Value
+            : (decimal?)null;
+
+        // Cây thi công bị chặn ở 2 cấp, nên đệ quy này sâu tối đa một tầng — không có vòng lặp vô tận.
+        var children = ctx.Items
+            .Where(c => c.ParentId == item.Id)
+            .OrderBy(c => c.CreatedAt)
+            .Select(c => BuildSummary(c, ctx))
+            .ToList();
+
+        var childrenEstimated = children.Sum(c => c.TotalEstimatedCost);
+        var childrenActual = children.Count > 0 && children.All(c => c.TotalActualCost.HasValue)
+            ? children.Sum(c => c.TotalActualCost!.Value)
+            : children.Count == 0 ? 0m : (decimal?)null;
+
+        var totalEstimated = ownEstimated + childrenEstimated;
+        var totalActual = ownActual.HasValue && childrenActual.HasValue
+            ? ownActual.Value + childrenActual.Value
+            : (decimal?)null;
+
+        return new ConstructionCostSummaryResponse
+        {
+            ConstructionItemId = item.Id,
+            Name = item.Name,
+            Category = item.Category,
+            Status = item.Status.ToString(),
+            EstimatedLaborCost = estimatedLabor,
+            ActualLaborCost = actualLabor,
+            EstimatedMaterialCost = estimatedMaterial,
+            ActualMaterialCost = actualMaterial,
+            EstimatedCost = ownEstimated,
+            ActualCost = ownActual,
+            ChildrenEstimatedCost = childrenEstimated,
+            ChildrenActualCost = childrenActual,
+            TotalEstimatedCost = totalEstimated,
+            TotalActualCost = totalActual,
+            Variance = totalActual.HasValue ? totalActual.Value - totalEstimated : null,
+            MissingActualMaterialLines = missingMaterial + children.Sum(c => c.MissingActualMaterialLines),
+            MissingActualLaborLines = missingLabor + children.Sum(c => c.MissingActualLaborLines),
+            StartAt = item.StartAt,
+            EstimateAt = item.EstimateAt,
+            PlannedDurationDays = ConstructionSchedule.DurationDays(item.StartAt, item.EstimateAt),
+            ActualDurationDays = ConstructionSchedule.DurationDays(item.ActualStartAt, item.ActualAt),
+            Children = children
+        };
+    }
+
+    /// <summary>Ảnh chụp toàn bộ dữ liệu chi phí của một engagement, dùng chung cho mọi mức gộp.</summary>
+    private sealed record CostContext(
+        List<ConstructionItem> Items,
+        List<ConstructionTask> Tasks,
+        List<ConstructionMaterial> Materials);
 
     public async Task DeleteAsync(Guid accountId, Guid id)
     {

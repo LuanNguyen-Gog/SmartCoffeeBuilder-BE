@@ -11,6 +11,9 @@ public class UpdateQuotationRequest
     public string? Note { get; set; }
     public int? EstimatedDurationDays { get; set; }
     public int? FreeRevisionCount { get; set; }
+
+    /// <summary>Phí cho MỖI vòng sửa vượt quá FreeRevisionCount (review 1.1). null = chưa công bố.</summary>
+    public decimal? ExtraRevisionFee { get; set; }
     public List<QuotationItemRequest>? Items { get; set; }
     public List<QuotationPaymentTermRequest>? PaymentTerms { get; set; }
 }

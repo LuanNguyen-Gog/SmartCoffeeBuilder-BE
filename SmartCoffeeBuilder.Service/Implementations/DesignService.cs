@@ -209,7 +209,14 @@ public class DesignService : IDesignService
         return DesignResponse.From(design);
     }
 
-    /// <summary>Owner yêu cầu chỉnh sửa: submitted → revision (kèm lý do).</summary>
+    /// <summary>
+    /// Owner yêu cầu chỉnh sửa: submitted → revision (kèm lý do).
+    ///
+    /// Đây cũng là chỗ ĐẾM số lần sửa và chặn khi vượt hạn mức miễn phí trong báo giá đã chốt
+    /// (review 1.1: "quy định số lần sửa và phí sửa"). Đếm ở ĐÂY chứ không ở
+    /// <see cref="StartRevisionAsync"/> vì hạn mức là số lần OWNER ĐÒI sửa — provider có bắt tay
+    /// vào sửa hay không là chuyện khác.
+    /// </summary>
     public async Task<DesignResponse> RequestRevisionAsync(
         Guid accountId, Guid id, RequestDesignRevisionRequest request)
     {
@@ -220,11 +227,55 @@ public class DesignService : IDesignService
             throw new InvalidOperationException(
                 $"Chỉ yêu cầu revision được design đang 'submitted' (hiện tại: '{design.Status}').");
 
+        var terms = await RevisionPolicy.ResolveAsync(_unitOfWork, design.ProjectWorkingId);
+        var revisionNo = design.RevisionCount + 1;
+        var exceedsQuota = terms.Exceeds(revisionNo);
+
+        // Vượt hạn mức mà owner chưa xác nhận chịu phí → 409 kèm con số, KHÔNG âm thầm tính tiền.
+        // Không có báo giá chốt free_revision_count thì không gate gì cả (terms.IsUnlimited).
+        if (exceedsQuota && !request.AcceptExtraFee)
+            throw new InvalidOperationException(
+                $"Bản thiết kế này đã dùng hết {terms.FreeRevisionCount} lần sửa miễn phí theo báo giá đã chốt. " +
+                $"Vòng sửa thứ {revisionNo} sẽ phát sinh chi phí " +
+                (terms.ExtraRevisionFee is decimal fee
+                    ? $"{fee:N0} VND. "
+                    : "do hai bên thoả thuận (nhà cung cấp chưa công bố đơn giá). ") +
+                "Gửi lại với acceptExtraFee = true nếu chấp nhận.");
+
         design.Status = DesignStatus.revision;
         design.Reason = request.Reason;
+        design.RevisionCount = revisionNo;
         design.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(design);
+
+        // Khoản phát sinh nằm CÙNG transaction với việc tăng bộ đếm: tách ra thì có đường chạy
+        // owner sửa được vòng vượt hạn mức mà không sinh công nợ tương ứng.
+        if (exceedsQuota)
+            await _unitOfWork.GetRepository<ChangeOrder>().InsertAsync(new ChangeOrder
+            {
+                ProjectWorkingId = design.ProjectWorkingId,
+                DesignId = design.Id,
+                Kind = ChangeOrderKind.extra_revision,
+                Title = $"Phí sửa thiết kế lần {revisionNo}",
+                Reason = request.Reason,
+                Amount = terms.ExtraRevisionFee ?? 0m,
+                RevisionNo = revisionNo,
+
+                // Đơn giá đã công bố trong báo giá owner từng duyệt ⇒ owner bấm đồng ý là chốt luôn.
+                // Chưa công bố giá thì để 'pending' với số tiền 0 — provider phải điền số rồi owner
+                // duyệt qua luồng change-order thường.
+                Status = terms.ExtraRevisionFee.HasValue
+                    ? ChangeOrderStatus.accepted
+                    : ChangeOrderStatus.pending,
+                RequestedByParty = EngagementParty.owner,
+                CreatedBy = accountId,
+                RespondedBy = terms.ExtraRevisionFee.HasValue ? accountId : null,
+                RespondedAt = terms.ExtraRevisionFee.HasValue ? DateTime.UtcNow : null,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            });
+
         await _unitOfWork.CommitAsync();
 
         // Snapshot vòng sửa — chạy NGOÀI transaction đổi status (best-effort, giống submit/approve).

@@ -71,6 +71,10 @@ builder.Services.AddScoped<IPaymentBatchService, PaymentBatchService>();
 builder.Services.AddScoped<IChecklistItemService, ChecklistItemService>();
 builder.Services.AddScoped<IConstructionTemplateService, ConstructionTemplateService>();
 builder.Services.AddScoped<IMaterialService, MaterialService>();
+builder.Services.AddScoped<ISiteProfileService, SiteProfileService>();
+builder.Services.AddScoped<IChangeOrderService, ChangeOrderService>();
+builder.Services.AddScoped<IProviderPortfolioService, ProviderPortfolioService>();
+builder.Services.AddScoped<IProviderBrandService, ProviderBrandService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 

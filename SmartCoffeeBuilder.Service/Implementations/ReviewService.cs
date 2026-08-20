@@ -15,11 +15,13 @@ public class ReviewService : IReviewService
 {
     private readonly IUnitOfWork<SmartCafeBuilderContext> _unitOfWork;
     private readonly IGenericRepository<Review> _repository;
+    private readonly IFileStorageService _fileStorage;
 
-    public ReviewService(IUnitOfWork<SmartCafeBuilderContext> unitOfWork)
+    public ReviewService(IUnitOfWork<SmartCafeBuilderContext> unitOfWork, IFileStorageService fileStorage)
     {
         _unitOfWork = unitOfWork;
         _repository = unitOfWork.GetRepository<Review>();
+        _fileStorage = fileStorage;
     }
 
     public async Task<PaginationResponse<ReviewResponse>> GetAllAsync(
@@ -117,6 +119,8 @@ public class ReviewService : IReviewService
         await _repository.InsertAsync(review);
         await _unitOfWork.CommitAsync();
 
+        await SyncProviderRatingAsync(engagement.ServiceProviderProfileId);
+
         review.ProjectWorking = engagement;
         return ReviewResponse.From(review);
     }
@@ -151,12 +155,16 @@ public class ReviewService : IReviewService
         _repository.Update(review);
         await _unitOfWork.CommitAsync();
 
+        await SyncProviderRatingAsync(review.ProjectWorking.ServiceProviderProfileId);
+
         return ReviewResponse.From(review);
     }
 
     public async Task DeleteAsync(Guid accountId, Guid id)
     {
-        var review = await _repository.SingleOrDefaultAsync(predicate: r => r.Id == id)
+        var review = await _repository.SingleOrDefaultAsync(
+            predicate: r => r.Id == id,
+            include: q => q.Include(r => r.ProjectWorking))
             ?? throw new KeyNotFoundException($"Không tìm thấy review với id {id}.");
 
         // Admin đi xuyên EnsureActor — gỡ đánh giá vi phạm là việc quản trị hợp lệ.
@@ -164,8 +172,12 @@ public class ReviewService : IReviewService
             await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, review.ProjectWorkingId),
             "xoá đánh giá này", EngagementActor.Owner);
 
-        _repository.Delete(review); // review_score con cascade theo FK.
+        var providerId = review.ProjectWorking.ServiceProviderProfileId;
+
+        _repository.Delete(review); // review_score + review_image con cascade theo FK.
         await _unitOfWork.CommitAsync();
+
+        await SyncProviderRatingAsync(providerId);
     }
 
     /// <summary>
@@ -192,5 +204,144 @@ public class ReviewService : IReviewService
         }
 
         return parsed;
+    }
+
+    // ───────────────────────── Phản hồi & ảnh (review 1.1) ─────────────────────────
+
+    /// <summary>
+    /// Provider trả lời công khai một đánh giá. Mỗi review đúng MỘT phản hồi — gọi lại là ghi đè,
+    /// không sinh thread: đây là quyền đáp lời, tranh luận qua lại đã có <c>conversations</c>.
+    /// </summary>
+    public async Task<ReviewResponse> ReplyAsync(Guid accountId, Guid id, ReplyReviewRequest request)
+    {
+        var review = await LoadGraphAsync(id);
+
+        // CHỈ provider của engagement — owner tự "phản hồi" đánh giá của chính mình thì cột này vô nghĩa.
+        EngagementAuthorization.EnsureActor(
+            await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, review.ProjectWorkingId),
+            "phản hồi đánh giá này", EngagementActor.Provider);
+
+        if (string.IsNullOrWhiteSpace(request.Reply))
+            throw new ArgumentException("Phản hồi không được để trống — dùng DELETE để gỡ phản hồi.");
+
+        review.ProviderReply = request.Reply.Trim();
+        review.RepliedBy = accountId;
+        review.RepliedAt = DateTime.UtcNow;
+        review.UpdatedAt = DateTime.UtcNow;
+
+        _repository.Update(review);
+        await _unitOfWork.CommitAsync();
+
+        return ReviewResponse.From(review);
+    }
+
+    /// <summary>Provider gỡ phản hồi của mình.</summary>
+    public async Task<ReviewResponse> RemoveReplyAsync(Guid accountId, Guid id)
+    {
+        var review = await LoadGraphAsync(id);
+
+        EngagementAuthorization.EnsureActor(
+            await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, review.ProjectWorkingId),
+            "gỡ phản hồi của đánh giá này", EngagementActor.Provider);
+
+        review.ProviderReply = null;
+        review.RepliedBy = null;
+        review.RepliedAt = null;
+        review.UpdatedAt = DateTime.UtcNow;
+
+        _repository.Update(review);
+        await _unitOfWork.CommitAsync();
+
+        return ReviewResponse.From(review);
+    }
+
+    /// <summary>Chủ quán đính ảnh thành phẩm vào đánh giá của mình.</summary>
+    public async Task<ReviewImageResponse> AddImageAsync(
+        Guid accountId, Guid id, ReviewImageRequest request)
+    {
+        var review = await _repository.SingleOrDefaultAsync(predicate: r => r.Id == id)
+            ?? throw new KeyNotFoundException($"Không tìm thấy review với id {id}.");
+
+        EngagementAuthorization.EnsureActor(
+            await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, review.ProjectWorkingId),
+            "đính ảnh vào đánh giá này", EngagementActor.Owner);
+
+        var objectName = await _fileStorage.NormalizeForStorageAsync(request.ImageUrl, "imageUrl")
+            ?? throw new ArgumentException("Ảnh đánh giá phải có imageUrl.");
+
+        var repo = _unitOfWork.GetRepository<ReviewImage>();
+        var existing = await repo.GetListAsync(
+            selector: i => i.SortOrder, predicate: i => i.ReviewId == review.Id);
+
+        var image = new ReviewImage
+        {
+            ReviewId = review.Id,
+            ImageUrl = objectName,
+            Caption = request.Caption,
+            SortOrder = request.SortOrder ?? (existing.Count == 0 ? 0 : existing.Max() + 1),
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await repo.InsertAsync(image);
+        await _unitOfWork.CommitAsync();
+
+        return ReviewImageResponse.From(image);
+    }
+
+    public async Task RemoveImageAsync(Guid accountId, Guid imageId)
+    {
+        var repo = _unitOfWork.GetRepository<ReviewImage>();
+        var image = await repo.SingleOrDefaultAsync(
+            predicate: i => i.Id == imageId,
+            include: q => q.Include(i => i.Review))
+            ?? throw new KeyNotFoundException($"Không tìm thấy ảnh đánh giá với id {imageId}.");
+
+        EngagementAuthorization.EnsureActor(
+            await EngagementAuthorization.ResolveActorAsync(
+                _unitOfWork, accountId, image.Review.ProjectWorkingId),
+            "xoá ảnh của đánh giá này", EngagementActor.Owner);
+
+        var objectName = image.ImageUrl;
+
+        repo.Delete(image);
+        await _unitOfWork.CommitAsync();
+
+        try { await _fileStorage.TryDeleteAsync(objectName); }
+        catch { /* rác trên bucket không đáng để làm hỏng một request đã thành công */ }
+    }
+
+    private async Task<Review> LoadGraphAsync(Guid id) =>
+        await _repository.SingleOrDefaultAsync(
+            predicate: r => r.Id == id,
+            include: q => q.Include(r => r.ReviewScores).Include(r => r.Images)
+                           .Include(r => r.ProjectWorking))
+        ?? throw new KeyNotFoundException($"Không tìm thấy review với id {id}.");
+
+    /// <summary>
+    /// Tính lại <c>service_providers.avg_rating</c> và <c>review_count</c> từ bảng <c>reviews</c>.
+    ///
+    /// Trước review 1.1 hai cột này KHÔNG BAO GIỜ được cập nhật (chỉ set 0 lúc tạo hồ sơ), trong khi
+    /// <c>ServiceProviderProfileService.GetAllAsync</c> lại <c>OrderByDescending(p => p.AvgRating)</c>
+    /// — nghĩa là danh sách provider đang sắp theo một cột luôn bằng 0.
+    ///
+    /// Tính lại TOÀN BỘ thay vì cộng dồn: số review mỗi provider nhỏ, mà cộng dồn thì mọi lần sửa
+    /// hoặc xoá review đều là một cơ hội để con số trôi lệch vĩnh viễn.
+    /// </summary>
+    private async Task SyncProviderRatingAsync(Guid serviceProviderProfileId)
+    {
+        var ratings = await _repository.GetListAsync(
+            selector: r => r.OverallRating,
+            predicate: r => r.ProjectWorking.ServiceProviderProfileId == serviceProviderProfileId);
+
+        var provider = await _unitOfWork.GetRepository<ServiceProviderProfile>()
+            .SingleOrDefaultAsync(predicate: p => p.Id == serviceProviderProfileId);
+        if (provider is null) return;
+
+        provider.ReviewCount = ratings.Count;
+        provider.AvgRating = ratings.Count == 0 ? 0m : Math.Round(ratings.Average(), 2);
+        provider.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.GetRepository<ServiceProviderProfile>().Update(provider);
+        await _unitOfWork.CommitAsync();
     }
 }

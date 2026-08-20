@@ -116,6 +116,7 @@ public class QuotationService : IQuotationService
             Note = request.Note,
             EstimatedDurationDays = request.EstimatedDurationDays,
             FreeRevisionCount = request.FreeRevisionCount,
+            ExtraRevisionFee = request.ExtraRevisionFee,
             Status = QuotationStatus.draft,
             CreatedBy = accountId,
             CreatedAt = now,
@@ -148,6 +149,12 @@ public class QuotationService : IQuotationService
         if (request.Note != null) quotation.Note = request.Note;
         if (request.EstimatedDurationDays.HasValue) quotation.EstimatedDurationDays = request.EstimatedDurationDays;
         if (request.FreeRevisionCount.HasValue) quotation.FreeRevisionCount = request.FreeRevisionCount;
+        if (request.ExtraRevisionFee.HasValue)
+        {
+            if (request.ExtraRevisionFee.Value < 0)
+                throw new ArgumentException("Phí sửa vượt hạn mức không được âm.");
+            quotation.ExtraRevisionFee = request.ExtraRevisionFee;
+        }
 
         // Danh sách gửi lên là THAY TOÀN BỘ: xoá sạch rồi dựng lại, để tổng tiền luôn khớp các dòng.
         // Update() chỉ đánh dấu ĐÚNG entity gốc (không duyệt graph — xem GenericRepository), nên

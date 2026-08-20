@@ -30,4 +30,12 @@ public interface IConstructionItemService
         Guid accountId, Guid id, UpdateConstructionItemStatusRequest request);
 
     Task DeleteAsync(Guid accountId, Guid id);
+
+    /// <summary>
+    /// Chi phí của một hạng mục: nhân công (hạng mục + task con) CỘNG vật tư, gộp cả milestone con.
+    /// </summary>
+    Task<ConstructionCostSummaryResponse> GetCostSummaryAsync(Guid accountId, Guid id);
+
+    /// <summary>Chi phí thi công của cả hợp tác — cộng từ mọi milestone gốc.</summary>
+    Task<EngagementCostSummaryResponse> GetEngagementCostSummaryAsync(Guid accountId, Guid projectWorkingId);
 }

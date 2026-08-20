@@ -156,4 +156,81 @@ public enum MaterialUnit
     /// <summary>Công (ngày công nhân).</summary>
     manday
 }
+
+/// <summary>
+/// Hướng của mặt bằng hoặc của một ô cửa (review 1.1: "gắn thông số thực tế như … hướng").
+/// Tám hướng cố định thay vì text tự do: hướng là thứ AI và người thiết kế phải suy luận trên đó
+/// (nắng chiều, gió, chỗ đặt biển hiệu). "Đông Nam" và "dong nam" mà thành hai giá trị khác nhau
+/// thì không lọc, không thống kê và không đưa vào prompt được.
+/// </summary>
+public enum Orientation { north, northeast, east, southeast, south, southwest, west, northwest }
+
+/// <summary>
+/// Loại ô mở trên mặt bằng (review 1.1: "cửa, ban công"). Ô mở quyết định lối vào, ánh sáng tự
+/// nhiên và chỗ đặt mặt tiền — là ràng buộc thiết kế thật, không phải ghi chú.
+/// </summary>
+public enum SiteOpeningType
+{
+    /// <summary>Cửa chính — lối vào khách.</summary>
+    main_door,
+    /// <summary>Cửa phụ / lối thoát hiểm.</summary>
+    secondary_door,
+    /// <summary>Cửa phục vụ: nhập hàng, đổ rác, bếp.</summary>
+    service_door,
+    /// <summary>Cửa sổ.</summary>
+    window,
+    /// <summary>Ban công.</summary>
+    balcony,
+    /// <summary>Sân thượng.</summary>
+    terrace,
+    /// <summary>Giếng trời.</summary>
+    skylight
+}
+
+/// <summary>
+/// Loại phát sinh chi phí NGOÀI báo giá đã chốt (review 1.1: "quy định số lần sửa và phí sửa").
+/// </summary>
+public enum ChangeOrderKind
+{
+    /// <summary>Vòng sửa thiết kế vượt quá số lần miễn phí cam kết trong báo giá.</summary>
+    extra_revision,
+    /// <summary>Owner đổi phạm vi công việc so với báo giá.</summary>
+    scope_change,
+    /// <summary>Đổi vật tư so với bảng giá đã công bố.</summary>
+    material_change,
+    /// <summary>Phát sinh khác.</summary>
+    other
+}
+
+/// <summary>
+/// Vòng đời một phát sinh chi phí: <c>pending</c> (đã lập, chờ bên kia đồng ý) →
+/// <c>accepted</c> | <c>rejected</c>. Bản <c>accepted</c> bị KHOÁ, muốn đổi thì lập bản mới —
+/// cùng nguyên tắc với <see cref="QuotationStatus"/>: số tiền hai bên đã đồng ý không sửa đè.
+/// </summary>
+public enum ChangeOrderStatus { pending, accepted, rejected }
+
+/// <summary>
+/// Kênh mạng xã hội / website của nhà cung cấp (review 1.1: "thương hiệu"). Đóng khung thành enum
+/// thay vì để mỗi dòng một chuỗi tự do: FE cần biết vẽ icon nào, và "Facebook" / "facebook" / "FB"
+/// mà thành ba nền tảng khác nhau thì không nhóm được.
+/// </summary>
+public enum SocialPlatform { facebook, instagram, tiktok, youtube, linkedin, zalo, website, other }
+
+/// <summary>
+/// Loại hồ sơ năng lực đính kèm (review 1.1: "năng lực"): giấy phép hành nghề, chứng chỉ chuyên
+/// môn, giải thưởng, tư cách thành viên hiệp hội.
+/// </summary>
+public enum CertificateKind
+{
+    /// <summary>Giấy phép hành nghề / đăng ký kinh doanh.</summary>
+    license,
+    /// <summary>Chứng chỉ chuyên môn.</summary>
+    certificate,
+    /// <summary>Giải thưởng.</summary>
+    award,
+    /// <summary>Tư cách thành viên hiệp hội nghề.</summary>
+    membership,
+    /// <summary>Loại khác.</summary>
+    other
+}
 #pragma warning restore CS8981

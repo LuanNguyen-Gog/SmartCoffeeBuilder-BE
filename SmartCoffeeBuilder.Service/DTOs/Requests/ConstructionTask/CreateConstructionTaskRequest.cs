@@ -16,7 +16,13 @@ public class CreateConstructionTaskRequest
     /// <summary>Ảnh hiện trường.</summary>
     public string? ImageUrl { get; set; }
 
+    /// <summary>Ngày dự kiến bắt đầu — cùng EstimateAt cho ra thời lượng của task (review 1.1).</summary>
+    public DateOnly? StartAt { get; set; }
+
     public DateOnly? EstimateAt { get; set; }
+
+    /// <summary>Chi phí nhân công / thiết bị dự tính của task.</summary>
+    public decimal? EstimatedLaborCost { get; set; }
 
     // KHÔNG có CreatedBy: người tạo lấy từ JWT (xem CreateConstructionItemRequest).
 }

@@ -372,6 +372,113 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     b.ToTable("budget_items", (string)null);
                 });
 
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ChangeOrder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("numeric(15,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<Guid?>("ConstructionItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("construction_item_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<Guid?>("DesignId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("design_id");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("kind");
+
+                    b.Property<Guid>("ProjectWorkingId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("project_provider_id");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("reason");
+
+                    b.Property<string>("RejectReason")
+                        .HasColumnType("text")
+                        .HasColumnName("reject_reason");
+
+                    b.Property<string>("RequestedByParty")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("requested_by_party");
+
+                    b.Property<DateTime?>("RespondedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("responded_at");
+
+                    b.Property<Guid?>("RespondedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("responded_by");
+
+                    b.Property<int?>("RevisionNo")
+                        .HasColumnType("integer")
+                        .HasColumnName("revision_no");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("title");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.HasKey("Id")
+                        .HasName("pk_change_orders");
+
+                    b.HasIndex("ConstructionItemId")
+                        .HasDatabaseName("ix_change_orders_construction_item_id");
+
+                    b.HasIndex("CreatedBy")
+                        .HasDatabaseName("ix_change_orders_created_by");
+
+                    b.HasIndex("DesignId")
+                        .HasDatabaseName("ix_change_orders_design_id");
+
+                    b.HasIndex("ProjectWorkingId")
+                        .HasDatabaseName("ix_change_orders_project_provider_id");
+
+                    b.HasIndex("RespondedBy")
+                        .HasDatabaseName("ix_change_orders_responded_by");
+
+                    b.ToTable("change_orders", (string)null);
+                });
+
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ChecklistItem", b =>
                 {
                     b.Property<Guid>("Id")
@@ -528,6 +635,15 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("date")
                         .HasColumnName("actual_at");
 
+                    b.Property<decimal?>("ActualLaborCost")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("actual_labor_cost");
+
+                    b.Property<DateOnly?>("ActualStartAt")
+                        .HasColumnType("date")
+                        .HasColumnName("actual_start_at");
+
                     b.Property<string>("Category")
                         .HasColumnType("text")
                         .HasColumnName("category");
@@ -550,6 +666,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("date")
                         .HasColumnName("estimate_at");
 
+                    b.Property<decimal?>("EstimatedLaborCost")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("estimated_labor_cost");
+
                     b.Property<bool>("IsPaid")
                         .HasColumnType("boolean")
                         .HasColumnName("is_paid");
@@ -566,6 +687,10 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     b.Property<Guid>("ProjectWorkingId")
                         .HasColumnType("uuid")
                         .HasColumnName("project_provider_id");
+
+                    b.Property<DateOnly?>("StartAt")
+                        .HasColumnType("date")
+                        .HasColumnName("start_at");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -682,6 +807,15 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("date")
                         .HasColumnName("actual_at");
 
+                    b.Property<decimal?>("ActualLaborCost")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("actual_labor_cost");
+
+                    b.Property<DateOnly?>("ActualStartAt")
+                        .HasColumnType("date")
+                        .HasColumnName("actual_start_at");
+
                     b.Property<Guid>("ConstructionItemId")
                         .HasColumnType("uuid")
                         .HasColumnName("construction_item_id");
@@ -704,6 +838,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("date")
                         .HasColumnName("estimate_at");
 
+                    b.Property<decimal?>("EstimatedLaborCost")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("estimated_labor_cost");
+
                     b.Property<string>("ImageUrl")
                         .HasColumnType("text")
                         .HasColumnName("image_url");
@@ -716,6 +855,10 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     b.Property<string>("Reason")
                         .HasColumnType("text")
                         .HasColumnName("reason");
+
+                    b.Property<DateOnly?>("StartAt")
+                        .HasColumnType("date")
+                        .HasColumnName("start_at");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -1096,6 +1239,10 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     b.Property<string>("Reason")
                         .HasColumnType("text")
                         .HasColumnName("reason");
+
+                    b.Property<int>("RevisionCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("revision_count");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -2388,6 +2535,329 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     b.ToTable("project_providers", (string)null);
                 });
 
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ProviderCertificate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("CertificateNo")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("certificate_no");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<DateOnly?>("ExpiresAt")
+                        .HasColumnType("date")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("FileUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("file_url");
+
+                    b.Property<bool>("IsVerified")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_verified");
+
+                    b.Property<DateOnly?>("IssuedAt")
+                        .HasColumnType("date")
+                        .HasColumnName("issued_at");
+
+                    b.Property<string>("Issuer")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("issuer");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("ServiceProviderProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("provider_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.HasKey("Id")
+                        .HasName("pk_provider_certificates");
+
+                    b.HasIndex("ServiceProviderProfileId")
+                        .HasDatabaseName("ix_provider_certificates_provider_id");
+
+                    b.ToTable("provider_certificates", (string)null);
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ProviderPortfolio", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<decimal?>("AreaM2")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("area_m2");
+
+                    b.Property<DateOnly?>("CompletedAt")
+                        .HasColumnType("date")
+                        .HasColumnName("completed_at");
+
+                    b.Property<decimal?>("ContractValue")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("numeric(15,2)")
+                        .HasColumnName("contract_value");
+
+                    b.Property<string>("CoverImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("cover_image_url");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<int?>("DurationDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("duration_days");
+
+                    b.Property<bool>("IsFeatured")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_featured");
+
+                    b.Property<string>("Location")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("location");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("role");
+
+                    b.Property<Guid>("ServiceProviderProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("provider_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<string>("Style")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("style");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("title");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("VideoUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("video_url");
+
+                    b.HasKey("Id")
+                        .HasName("pk_provider_portfolios");
+
+                    b.HasIndex("ServiceProviderProfileId")
+                        .HasDatabaseName("ix_provider_portfolios_provider_id");
+
+                    b.ToTable("provider_portfolios", (string)null);
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ProviderPortfolioImage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("Caption")
+                        .HasColumnType("text")
+                        .HasColumnName("caption");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("ImageUrl")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("image_url");
+
+                    b.Property<Guid>("ProviderPortfolioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("provider_portfolio_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id")
+                        .HasName("pk_provider_portfolio_images");
+
+                    b.HasIndex("ProviderPortfolioId")
+                        .HasDatabaseName("ix_provider_portfolio_images_provider_portfolio_id");
+
+                    b.ToTable("provider_portfolio_images", (string)null);
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ProviderServiceArea", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("District")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("district");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("text")
+                        .HasColumnName("note");
+
+                    b.Property<string>("Province")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("province");
+
+                    b.Property<Guid>("ServiceProviderProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("provider_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.HasKey("Id")
+                        .HasName("pk_provider_service_areas");
+
+                    b.HasIndex("Province")
+                        .HasDatabaseName("ix_provider_service_areas_province");
+
+                    b.HasIndex("ServiceProviderProfileId", "Province", "District")
+                        .IsUnique()
+                        .HasDatabaseName("ix_provider_service_areas_provider_id_province_district");
+
+                    b.ToTable("provider_service_areas", (string)null);
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ProviderSocialLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("Label")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("label");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("platform");
+
+                    b.Property<Guid>("ServiceProviderProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("provider_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("url");
+
+                    b.HasKey("Id")
+                        .HasName("pk_provider_social_links");
+
+                    b.HasIndex("ServiceProviderProfileId", "Platform")
+                        .IsUnique()
+                        .HasDatabaseName("ix_provider_social_links_provider_id_platform");
+
+                    b.ToTable("provider_social_links", (string)null);
+                });
+
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Quotation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2413,6 +2883,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     b.Property<int?>("EstimatedDurationDays")
                         .HasColumnType("integer")
                         .HasColumnName("estimated_duration_days");
+
+                    b.Property<decimal?>("ExtraRevisionFee")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("numeric(15,2)")
+                        .HasColumnName("extra_revision_fee");
 
                     b.Property<int?>("FreeRevisionCount")
                         .HasColumnType("integer")
@@ -2729,6 +3204,18 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("project_provider_id");
 
+                    b.Property<string>("ProviderReply")
+                        .HasColumnType("text")
+                        .HasColumnName("provider_reply");
+
+                    b.Property<DateTime?>("RepliedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("replied_at");
+
+                    b.Property<Guid?>("RepliedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("replied_by");
+
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -2741,7 +3228,51 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     b.HasIndex("ProjectWorkingId")
                         .HasDatabaseName("ix_reviews_project_provider_id");
 
+                    b.HasIndex("RepliedBy")
+                        .HasDatabaseName("ix_reviews_replied_by");
+
                     b.ToTable("reviews", (string)null);
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ReviewImage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("Caption")
+                        .HasColumnType("text")
+                        .HasColumnName("caption");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("ImageUrl")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("image_url");
+
+                    b.Property<Guid>("ReviewId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("review_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id")
+                        .HasName("pk_review_images");
+
+                    b.HasIndex("ReviewId")
+                        .HasDatabaseName("ix_review_images_review_id");
+
+                    b.ToTable("review_images", (string)null);
                 });
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ReviewScore", b =>
@@ -2800,15 +3331,29 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("text")
                         .HasColumnName("bio");
 
+                    b.Property<string>("BrandStory")
+                        .HasColumnType("text")
+                        .HasColumnName("brand_story");
+
                     b.Property<string>("Capability")
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)")
                         .HasColumnName("capability");
 
+                    b.Property<string>("CompanyAddress")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("company_address");
+
                     b.Property<string>("CompanyTaxCode")
                         .HasColumnType("text")
                         .HasColumnName("company_tax_code");
+
+                    b.Property<string>("CoverImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("cover_image_url");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -2825,9 +3370,27 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("text")
                         .HasColumnName("display_name");
 
+                    b.Property<int?>("EmployeeCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("employee_count");
+
+                    b.Property<int?>("FoundedYear")
+                        .HasColumnType("integer")
+                        .HasColumnName("founded_year");
+
+                    b.Property<string>("IntroVideoUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("intro_video_url");
+
                     b.Property<bool>("IsVerified")
                         .HasColumnType("boolean")
                         .HasColumnName("is_verified");
+
+                    b.Property<string>("LogoUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("logo_url");
 
                     b.Property<string>("PortfolioHeadline")
                         .HasColumnType("text")
@@ -2839,11 +3402,20 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("provider_type");
 
+                    b.Property<int>("ReviewCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("review_count");
+
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at")
                         .HasDefaultValueSql("now()");
+
+                    b.Property<string>("Website")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("website");
 
                     b.Property<int?>("YearsExperience")
                         .HasColumnType("integer")
@@ -2911,6 +3483,228 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasDatabaseName("ix_shop_owners_account_id");
 
                     b.ToTable("shop_owners", (string)null);
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.SiteFloor", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<decimal?>("AreaM2")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("area_m2");
+
+                    b.Property<decimal?>("CeilingHeightM")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("ceiling_height_m");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<int>("FloorNo")
+                        .HasColumnType("integer")
+                        .HasColumnName("floor_no");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("text")
+                        .HasColumnName("note");
+
+                    b.Property<string>("Purpose")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("purpose");
+
+                    b.Property<Guid>("SiteProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("site_profile_id");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.HasKey("Id")
+                        .HasName("pk_site_floors");
+
+                    b.HasIndex("SiteProfileId", "FloorNo")
+                        .IsUnique()
+                        .HasDatabaseName("ix_site_floors_site_profile_id_floor_no");
+
+                    b.ToTable("site_floors", (string)null);
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.SiteOpening", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<decimal?>("HeightM")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("height_m");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("text")
+                        .HasColumnName("note");
+
+                    b.Property<string>("Orientation")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("orientation");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer")
+                        .HasColumnName("quantity");
+
+                    b.Property<Guid?>("SiteFloorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("site_floor_id");
+
+                    b.Property<Guid>("SiteProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("site_profile_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("type");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<decimal?>("WidthM")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("width_m");
+
+                    b.HasKey("Id")
+                        .HasName("pk_site_openings");
+
+                    b.HasIndex("SiteFloorId")
+                        .HasDatabaseName("ix_site_openings_site_floor_id");
+
+                    b.HasIndex("SiteProfileId")
+                        .HasDatabaseName("ix_site_openings_site_profile_id");
+
+                    b.ToTable("site_openings", (string)null);
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.SiteProfile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<decimal?>("CeilingHeightM")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("ceiling_height_m");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("ExistingConditionNote")
+                        .HasColumnType("text")
+                        .HasColumnName("existing_condition_note");
+
+                    b.Property<int?>("FloorCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("floor_count");
+
+                    b.Property<decimal?>("FrontageWidthM")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("frontage_width_m");
+
+                    b.Property<bool>("HasMezzanine")
+                        .HasColumnType("boolean")
+                        .HasColumnName("has_mezzanine");
+
+                    b.Property<decimal?>("LengthM")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("length_m");
+
+                    b.Property<string>("Orientation")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("orientation");
+
+                    b.Property<Guid>("ProjectShopOwnerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("project_id");
+
+                    b.Property<decimal?>("RoadWidthM")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("road_width_m");
+
+                    b.Property<string>("StructureNote")
+                        .HasColumnType("text")
+                        .HasColumnName("structure_note");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<decimal?>("WidthM")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("width_m");
+
+                    b.HasKey("Id")
+                        .HasName("pk_site_profiles");
+
+                    b.HasIndex("CreatedBy")
+                        .HasDatabaseName("ix_site_profiles_created_by");
+
+                    b.HasIndex("ProjectShopOwnerId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_site_profiles_project_id");
+
+                    b.ToTable("site_profiles", (string)null);
                 });
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Subscription", b =>
@@ -3138,6 +3932,50 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasConstraintName("fk_budget_items_projects_project_id");
 
                     b.Navigation("ProjectShopOwner");
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ChangeOrder", b =>
+                {
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.ConstructionItem", "ConstructionItem")
+                        .WithMany("ChangeOrders")
+                        .HasForeignKey("ConstructionItemId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_change_orders_construction_items_construction_item_id");
+
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Account", "CreatedByAccount")
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_change_orders_accounts_created_by");
+
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Design", "Design")
+                        .WithMany("ChangeOrders")
+                        .HasForeignKey("DesignId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_change_orders_designs_design_id");
+
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.ProjectWorking", "ProjectWorking")
+                        .WithMany("ChangeOrders")
+                        .HasForeignKey("ProjectWorkingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_change_orders_project_providers_project_provider_id");
+
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Account", "RespondedByAccount")
+                        .WithMany()
+                        .HasForeignKey("RespondedBy")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_change_orders_accounts_responded_by");
+
+                    b.Navigation("ConstructionItem");
+
+                    b.Navigation("CreatedByAccount");
+
+                    b.Navigation("Design");
+
+                    b.Navigation("ProjectWorking");
+
+                    b.Navigation("RespondedByAccount");
                 });
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ChecklistItem", b =>
@@ -3766,6 +4604,66 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     b.Navigation("ServiceProviderProfile");
                 });
 
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ProviderCertificate", b =>
+                {
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.ServiceProviderProfile", "ServiceProviderProfile")
+                        .WithMany("Certificates")
+                        .HasForeignKey("ServiceProviderProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_provider_certificates_service_providers_provider_id");
+
+                    b.Navigation("ServiceProviderProfile");
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ProviderPortfolio", b =>
+                {
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.ServiceProviderProfile", "ServiceProviderProfile")
+                        .WithMany("Portfolios")
+                        .HasForeignKey("ServiceProviderProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_provider_portfolios_service_providers_provider_id");
+
+                    b.Navigation("ServiceProviderProfile");
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ProviderPortfolioImage", b =>
+                {
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.ProviderPortfolio", "ProviderPortfolio")
+                        .WithMany("Images")
+                        .HasForeignKey("ProviderPortfolioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_provider_portfolio_images_provider_portfolios_provider_port");
+
+                    b.Navigation("ProviderPortfolio");
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ProviderServiceArea", b =>
+                {
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.ServiceProviderProfile", "ServiceProviderProfile")
+                        .WithMany("ServiceAreas")
+                        .HasForeignKey("ServiceProviderProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_provider_service_areas_service_providers_provider_id");
+
+                    b.Navigation("ServiceProviderProfile");
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ProviderSocialLink", b =>
+                {
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.ServiceProviderProfile", "ServiceProviderProfile")
+                        .WithMany("SocialLinks")
+                        .HasForeignKey("ServiceProviderProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_provider_social_links_service_providers_provider_id");
+
+                    b.Navigation("ServiceProviderProfile");
+                });
+
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Quotation", b =>
                 {
                     b.HasOne("SmartCoffeeBuilder.Repository.Models.Apply", "Apply")
@@ -3866,7 +4764,27 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_reviews_project_providers_project_provider_id");
 
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Account", "RepliedByAccount")
+                        .WithMany()
+                        .HasForeignKey("RepliedBy")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_reviews_accounts_replied_by");
+
                     b.Navigation("ProjectWorking");
+
+                    b.Navigation("RepliedByAccount");
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ReviewImage", b =>
+                {
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Review", "Review")
+                        .WithMany("Images")
+                        .HasForeignKey("ReviewId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_review_images_reviews_review_id");
+
+                    b.Navigation("Review");
                 });
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ReviewScore", b =>
@@ -3903,6 +4821,58 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                         .HasConstraintName("fk_shop_owners_accounts_account_id");
 
                     b.Navigation("Account");
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.SiteFloor", b =>
+                {
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.SiteProfile", "SiteProfile")
+                        .WithMany("Floors")
+                        .HasForeignKey("SiteProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_site_floors_site_profiles_site_profile_id");
+
+                    b.Navigation("SiteProfile");
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.SiteOpening", b =>
+                {
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.SiteFloor", "SiteFloor")
+                        .WithMany("Openings")
+                        .HasForeignKey("SiteFloorId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_site_openings_site_floors_site_floor_id");
+
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.SiteProfile", "SiteProfile")
+                        .WithMany("Openings")
+                        .HasForeignKey("SiteProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_site_openings_site_profiles_site_profile_id");
+
+                    b.Navigation("SiteFloor");
+
+                    b.Navigation("SiteProfile");
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.SiteProfile", b =>
+                {
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.Account", "CreatedByAccount")
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_site_profiles_accounts_created_by");
+
+                    b.HasOne("SmartCoffeeBuilder.Repository.Models.ProjectShopOwner", "ProjectShopOwner")
+                        .WithOne("SiteProfile")
+                        .HasForeignKey("SmartCoffeeBuilder.Repository.Models.SiteProfile", "ProjectShopOwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_site_profiles_projects_project_id");
+
+                    b.Navigation("CreatedByAccount");
+
+                    b.Navigation("ProjectShopOwner");
                 });
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Subscription", b =>
@@ -3981,6 +4951,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ConstructionItem", b =>
                 {
+                    b.Navigation("ChangeOrders");
+
                     b.Navigation("ChecklistItems");
 
                     b.Navigation("Children");
@@ -4021,6 +4993,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Design", b =>
                 {
+                    b.Navigation("ChangeOrders");
+
                     b.Navigation("ChecklistItems");
 
                     b.Navigation("DesignImages");
@@ -4075,10 +5049,14 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     b.Navigation("Posts");
 
                     b.Navigation("ProjectWorkings");
+
+                    b.Navigation("SiteProfile");
                 });
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ProjectWorking", b =>
                 {
+                    b.Navigation("ChangeOrders");
+
                     b.Navigation("ConstructionItems");
 
                     b.Navigation("Contracts");
@@ -4100,6 +5078,11 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                     b.Navigation("Surveys");
                 });
 
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ProviderPortfolio", b =>
+                {
+                    b.Navigation("Images");
+                });
+
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Quotation", b =>
                 {
                     b.Navigation("Attachments");
@@ -4113,6 +5096,8 @@ namespace SmartCoffeeBuilder.Repository.Migrations
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Review", b =>
                 {
+                    b.Navigation("Images");
+
                     b.Navigation("ReviewScores");
                 });
 
@@ -4120,16 +5105,36 @@ namespace SmartCoffeeBuilder.Repository.Migrations
                 {
                     b.Navigation("Applies");
 
+                    b.Navigation("Certificates");
+
                     b.Navigation("ConstructorProfile");
 
                     b.Navigation("DesignerProfile");
 
+                    b.Navigation("Portfolios");
+
                     b.Navigation("ProjectWorkings");
+
+                    b.Navigation("ServiceAreas");
+
+                    b.Navigation("SocialLinks");
                 });
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.ShopOwner", b =>
                 {
                     b.Navigation("ProjectShopOwners");
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.SiteFloor", b =>
+                {
+                    b.Navigation("Openings");
+                });
+
+            modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.SiteProfile", b =>
+                {
+                    b.Navigation("Floors");
+
+                    b.Navigation("Openings");
                 });
 
             modelBuilder.Entity("SmartCoffeeBuilder.Repository.Models.Subscription", b =>

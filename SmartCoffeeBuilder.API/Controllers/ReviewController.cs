@@ -74,4 +74,39 @@ public class ReviewController : ControllerBase
         await _reviewService.DeleteAsync(User.GetAccountId(), id);
         return NoContent();
     }
+    /// <summary>Nhà cung cấp trả lời công khai một đánh giá (review 1.1). Gọi lại là ghi đè.</summary>
+    [HttpPost("{id:guid}/reply")]
+    [Authorize(Roles = "provider,admin")]
+    public async Task<IActionResult> Reply(Guid id, [FromBody] ReplyReviewRequest request)
+    {
+        var result = await _reviewService.ReplyAsync(User.GetAccountId(), id, request);
+        return Ok(result);
+    }
+
+    /// <summary>Nhà cung cấp gỡ phản hồi của mình.</summary>
+    [HttpDelete("{id:guid}/reply")]
+    [Authorize(Roles = "provider,admin")]
+    public async Task<IActionResult> RemoveReply(Guid id)
+    {
+        var result = await _reviewService.RemoveReplyAsync(User.GetAccountId(), id);
+        return Ok(result);
+    }
+
+    /// <summary>Chủ quán đính ảnh thành phẩm. Upload qua /api/files trước rồi gửi ObjectName.</summary>
+    [HttpPost("{id:guid}/images")]
+    [Authorize(Roles = "owner,admin")]
+    public async Task<IActionResult> AddImage(Guid id, [FromBody] ReviewImageRequest request)
+    {
+        var result = await _reviewService.AddImageAsync(User.GetAccountId(), id, request);
+        return Ok(result);
+    }
+
+    [HttpDelete("images/{imageId:guid}")]
+    [Authorize(Roles = "owner,admin")]
+    public async Task<IActionResult> RemoveImage(Guid imageId)
+    {
+        await _reviewService.RemoveImageAsync(User.GetAccountId(), imageId);
+        return NoContent();
+    }
+
 }

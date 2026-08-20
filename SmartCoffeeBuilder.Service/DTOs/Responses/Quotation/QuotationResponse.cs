@@ -19,6 +19,9 @@ public class QuotationResponse
     public int? EstimatedDurationDays { get; set; }
     public int? FreeRevisionCount { get; set; }
 
+    /// <summary>Phí mỗi vòng sửa vượt hạn mức miễn phí. null = chưa công bố đơn giá.</summary>
+    public decimal? ExtraRevisionFee { get; set; }
+
     /// <summary>draft | sent | revision_requested | accepted | rejected | superseded</summary>
     public string Status { get; set; } = null!;
 
@@ -60,6 +63,7 @@ public class QuotationResponse
         TotalAmount = e.TotalAmount,
         EstimatedDurationDays = e.EstimatedDurationDays,
         FreeRevisionCount = e.FreeRevisionCount,
+        ExtraRevisionFee = e.ExtraRevisionFee,
         Status = e.Status.ToString(),
         RevisionReason = e.RevisionReason,
         RejectReason = e.RejectReason,

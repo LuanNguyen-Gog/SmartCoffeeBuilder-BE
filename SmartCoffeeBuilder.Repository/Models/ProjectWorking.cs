@@ -65,4 +65,7 @@ public class ProjectWorking
 
     /// <summary>Bảng giá vật tư đã công bố cho engagement này (review 3).</summary>
     public ICollection<Material> Materials { get; set; } = new List<Material>();
+
+    /// <summary>Các khoản phát sinh chi phí ngoài báo giá đã chốt (phí sửa, đổi phạm vi…).</summary>
+    public ICollection<ChangeOrder> ChangeOrders { get; set; } = new List<ChangeOrder>();
 }

@@ -50,6 +50,13 @@ public class Quotation
     /// </summary>
     public int? FreeRevisionCount { get; set; }
 
+    /// <summary>
+    /// Phí cho MỖI vòng sửa vượt quá <see cref="FreeRevisionCount"/> (review 1.1: "quy định số lần
+    /// sửa và phí sửa"). null = provider không công bố phí, vượt hạn mức thì hai bên tự thoả thuận
+    /// bằng một <see cref="ChangeOrder"/> lập tay.
+    /// </summary>
+    public decimal? ExtraRevisionFee { get; set; }
+
     public QuotationStatus Status { get; set; } = QuotationStatus.draft;
 
     /// <summary>Lý do owner yêu cầu bản khác (status = revision_requested).</summary>
