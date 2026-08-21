@@ -65,6 +65,12 @@ public class ChangeOrder
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
+    /// <summary>
+    /// Đợt thanh toán sinh ra khi khoản này được duyệt — rỗng khi khoản còn treo, bị từ chối,
+    /// bằng 0 đồng, hoặc engagement chưa có hợp đồng đã ký để gắn đợt vào.
+    /// </summary>
+    public ICollection<PaymentBatch> PaymentBatches { get; set; } = new List<PaymentBatch>();
+
     public ProjectWorking ProjectWorking { get; set; } = null!;
     public Design? Design { get; set; }
     public ConstructionItem? ConstructionItem { get; set; }

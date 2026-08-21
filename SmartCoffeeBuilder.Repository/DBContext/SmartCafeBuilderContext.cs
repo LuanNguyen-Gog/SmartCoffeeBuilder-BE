@@ -704,6 +704,7 @@ public class SmartCafeBuilderContext : DbContext
             e.Property(x => x.Amount).HasPrecision(15, 2);
             e.HasIndex(x => x.ContractId);
             e.HasIndex(x => x.ConstructionItemId);
+            e.HasIndex(x => x.ChangeOrderId);
             e.HasOne(x => x.Contract).WithMany(c => c.PaymentBatches)
                 .HasForeignKey(x => x.ContractId).OnDelete(DeleteBehavior.Cascade);
             // Hạng mục bị xoá thì đợt tiền vẫn phải còn (đó là chứng từ) — chỉ gỡ liên kết.
@@ -711,6 +712,9 @@ public class SmartCafeBuilderContext : DbContext
                 .HasForeignKey(x => x.ConstructionItemId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.QuotationPaymentTerm).WithMany()
                 .HasForeignKey(x => x.QuotationPaymentTermId).OnDelete(DeleteBehavior.SetNull);
+            // Cùng lý lẽ với ConstructionItem: đợt tiền là chứng từ, xoá nguồn chỉ gỡ liên kết.
+            e.HasOne(x => x.ChangeOrder).WithMany(c => c.PaymentBatches)
+                .HasForeignKey(x => x.ChangeOrderId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.ConfirmedByAccount).WithMany()
                 .HasForeignKey(x => x.ConfirmedBy).OnDelete(DeleteBehavior.SetNull);
         });

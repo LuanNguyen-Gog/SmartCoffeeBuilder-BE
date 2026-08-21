@@ -89,6 +89,22 @@ public class EngagementCostSummaryResponse
     /// <summary>Số milestone gốc đã cộng vào tổng.</summary>
     public int RootItemCount { get; set; }
 
+    // ── Phát sinh ngoài dự toán ─────────────────────────────────────────────────────
+    //
+    // Dự toán thi công ở trên chỉ đếm nhân công + vật tư đã khai trong cây hạng mục. Các khoản
+    // change_order hai bên đã duyệt (phí sửa thiết kế, đổi phạm vi) là tiền THẬT của cùng hợp tác
+    // nhưng nằm ngoài cây đó — không kể ra đây thì màn hình chi phí và màn hình phát sinh nói hai
+    // con số khác nhau về cùng một dự án, và cả hai đều đúng theo cách hiểu của mình.
+
+    /// <summary>Tổng khoản phát sinh hai bên đã duyệt.</summary>
+    public decimal AcceptedChangeOrderAmount { get; set; }
+
+    /// <summary>Tổng khoản phát sinh còn chờ bên kia trả lời — chưa phải công nợ.</summary>
+    public decimal PendingChangeOrderAmount { get; set; }
+
+    /// <summary>= TotalEstimatedCost + AcceptedChangeOrderAmount.</summary>
+    public decimal TotalEstimatedCostWithChangeOrders { get; set; }
+
     /// <summary>Chi tiết từng milestone gốc (kèm milestone con của nó).</summary>
     public List<ConstructionCostSummaryResponse> Items { get; set; } = new();
 }

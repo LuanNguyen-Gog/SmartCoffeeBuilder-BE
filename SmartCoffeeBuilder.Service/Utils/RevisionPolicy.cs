@@ -70,4 +70,23 @@ public static class RevisionPolicy
             ? new RevisionTerms(null, null, null)
             : new RevisionTerms(accepted.Id, accepted.FreeRevisionCount, accepted.ExtraRevisionFee);
     }
+
+    /// <summary>
+    /// Tổng số vòng sửa owner đã đòi trên TOÀN engagement — cộng <c>designs.revision_count</c> của
+    /// mọi bản vẽ thuộc hợp tác.
+    ///
+    /// Phải đếm ở phạm vi này vì hạn mức miễn phí nằm trên BÁO GIÁ, mà báo giá phủ cả hợp tác chứ
+    /// không phủ riêng một bản vẽ. Đếm theo từng bản vẽ thì mỗi lần provider mở bản vẽ mới là hạn
+    /// mức tự nạp lại, và điều khoản "N lần sửa miễn phí" không còn nghĩa gì: không bên nào đoán
+    /// được mình đã mua bao nhiêu vòng sửa.
+    /// </summary>
+    public static async Task<int> CountUsedAsync(
+        IUnitOfWork<SmartCafeBuilderContext> unitOfWork, Guid projectWorkingId)
+    {
+        var perDesign = await unitOfWork.GetRepository<Design>().GetListAsync(
+            selector: d => d.RevisionCount,
+            predicate: d => d.ProjectWorkingId == projectWorkingId);
+
+        return perDesign.Sum();
+    }
 }

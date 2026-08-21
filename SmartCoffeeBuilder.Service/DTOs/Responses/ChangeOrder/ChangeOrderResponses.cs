@@ -1,4 +1,5 @@
 using Entities = SmartCoffeeBuilder.Repository.Models;
+using Enums = SmartCoffeeBuilder.Repository.Models.Enums;
 
 namespace SmartCoffeeBuilder.Service.DTOs.Responses.ChangeOrder;
 
@@ -29,8 +30,31 @@ public class ChangeOrderResponse
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
-    public static ChangeOrderResponse From(Entities.ChangeOrder e) => new()
+    /// <summary>
+    /// Đợt thanh toán đã sinh ra khi khoản này được duyệt. null = chưa ra đợt thu: khoản còn treo,
+    /// bị từ chối, bằng 0 đồng, hoặc hợp tác chưa ký hợp đồng để gắn đợt vào.
+    /// </summary>
+    public Guid? PaymentBatchId { get; set; }
+
+    /// <summary>pending | proof_submitted | confirmed | rejected — trạng thái đợt thu ở trên.</summary>
+    public string? PaymentBatchStatus { get; set; }
+
+    /// <summary>
+    /// Khoản phí sửa hệ thống dựng sẵn mà nhà cung cấp CHƯA điền đơn giá (báo giá không công bố
+    /// <c>extra_revision_fee</c>). FE dùng cờ này để bảo provider vào điền số, thay vì để owner nhìn
+    /// một khoản 0 đồng không hiểu chờ ai.
+    /// </summary>
+    public bool NeedsPricing { get; set; }
+
+    public static ChangeOrderResponse From(Entities.ChangeOrder e) => From(e, null);
+
+    public static ChangeOrderResponse From(Entities.ChangeOrder e, Entities.PaymentBatch? batch) => new()
     {
+        PaymentBatchId = batch?.Id,
+        PaymentBatchStatus = batch?.Status.ToString(),
+        NeedsPricing = e.Kind == Enums.ChangeOrderKind.extra_revision
+                       && e.Status == Enums.ChangeOrderStatus.pending
+                       && e.Amount <= 0m,
         Id = e.Id,
         ProjectWorkingId = e.ProjectWorkingId,
         DesignId = e.DesignId,
@@ -78,6 +102,21 @@ public class ChangeOrderSummaryResponse
 
     /// <summary>Riêng phần phí sửa thiết kế đã duyệt — tách ra vì review 1.1 hỏi đích danh.</summary>
     public decimal AcceptedRevisionFee { get; set; }
+
+    /// <summary>
+    /// Phần công nợ đã duyệt ĐÃ ra được đợt thu thật trong <c>payment_batches</c>.
+    /// "Đã duyệt" mới là hai bên đồng ý con số; có đợt thu mới là có đường đòi.
+    /// </summary>
+    public decimal BilledAmount { get; set; }
+
+    /// <summary>Phần đã ra đợt thu VÀ provider đã xác nhận nhận được tiền.</summary>
+    public decimal PaidAmount { get; set; }
+
+    /// <summary>
+    /// = AcceptedAmount − BilledAmount. Dương nghĩa là còn tiền hai bên đã đồng ý nhưng chưa vào
+    /// được đường thu — gần như luôn vì hợp tác chưa ký hợp đồng để gắn đợt vào.
+    /// </summary>
+    public decimal UnbilledAmount { get; set; }
 }
 
 /// <summary>
@@ -88,16 +127,25 @@ public class RevisionQuotaResponse
 {
     public Guid DesignId { get; set; }
 
+    /// <summary>Hợp tác mà hạn mức này thuộc về — hạn mức tiêu chung ở phạm vi này.</summary>
+    public Guid ProjectWorkingId { get; set; }
+
     /// <summary>Báo giá đang chi phối. null = chưa có báo giá chốt ⇒ không giới hạn.</summary>
     public Guid? QuotationId { get; set; }
 
     /// <summary>Số vòng miễn phí cam kết. null = không cam kết ⇒ không giới hạn.</summary>
     public int? FreeRevisionCount { get; set; }
 
-    /// <summary>Số vòng owner đã yêu cầu sửa.</summary>
+    /// <summary>Số vòng owner đã yêu cầu sửa TRÊN CHÍNH bản thiết kế này.</summary>
     public int UsedRevisionCount { get; set; }
 
-    /// <summary>Số vòng miễn phí còn lại. null khi không giới hạn.</summary>
+    /// <summary>
+    /// Số vòng đã dùng trên TOÀN hợp tác (cộng mọi bản thiết kế). Đây mới là con số đem so với
+    /// hạn mức: cam kết "N lần sửa miễn phí" nằm trên báo giá, mà báo giá phủ cả hợp tác.
+    /// </summary>
+    public int EngagementUsedRevisionCount { get; set; }
+
+    /// <summary>Số vòng miễn phí còn lại của cả hợp tác. null khi không giới hạn.</summary>
     public int? RemainingFreeRevisions { get; set; }
 
     /// <summary>Vòng sửa kế tiếp có phát sinh phí không.</summary>

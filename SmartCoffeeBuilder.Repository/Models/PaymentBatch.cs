@@ -27,6 +27,15 @@ public class PaymentBatch
     /// <summary>Điều khoản trong báo giá đã sinh ra đợt này — giữ vết để đối chiếu, có thể null.</summary>
     public Guid? QuotationPaymentTermId { get; set; }
 
+    /// <summary>
+    /// Khoản phát sinh đã sinh ra đợt này — null với đợt sinh từ báo giá gốc.
+    ///
+    /// Một khoản phát sinh hai bên đã duyệt là tiền owner NỢ THẬT, nên nó phải đi ra đường thu
+    /// tiền y hệt các đợt của báo giá. Thiếu cột này thì khoản duyệt xong nằm chết trong bảng
+    /// change_orders: tổng công nợ có kể nó, mà không đợt nào đòi nó.
+    /// </summary>
+    public Guid? ChangeOrderId { get; set; }
+
     public int SortOrder { get; set; }
     public string Name { get; set; } = null!;
     public decimal? Percentage { get; set; }
@@ -56,6 +65,7 @@ public class PaymentBatch
     public Contract Contract { get; set; } = null!;
     public ConstructionItem? ConstructionItem { get; set; }
     public QuotationPaymentTerm? QuotationPaymentTerm { get; set; }
+    public ChangeOrder? ChangeOrder { get; set; }
     public Account? ConfirmedByAccount { get; set; }
     public ICollection<PaymentProof> Proofs { get; set; } = new List<PaymentProof>();
 }

@@ -51,8 +51,12 @@ public class ChangeOrderService : IChangeOrderService
 
         var paged = await query.ToPaginationResponseAsync(pageNumber, pageSize);
 
+        // Đợt thu của cả trang lấy MỘT lượt: màn hình phát sinh phải nói được khoản nào đã ra tiền,
+        // và hỏi từng khoản một là N+1 query cho đúng một cột.
+        var batches = await LoadBatchesAsync(paged.Items.Select(c => c.Id));
+
         return new PaginationResponse<ChangeOrderResponse>(
-            paged.Items.Select(ChangeOrderResponse.From),
+            paged.Items.Select(c => ChangeOrderResponse.From(c, batches.GetValueOrDefault(c.Id))),
             paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
@@ -60,7 +64,9 @@ public class ChangeOrderService : IChangeOrderService
     {
         var order = await LoadAsync(id);
         await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, order.ProjectWorkingId);
-        return ChangeOrderResponse.From(order);
+
+        var batches = await LoadBatchesAsync([order.Id]);
+        return ChangeOrderResponse.From(order, batches.GetValueOrDefault(order.Id));
     }
 
     public async Task<ChangeOrderResponse> CreateAsync(Guid accountId, CreateChangeOrderRequest request)
@@ -182,7 +188,7 @@ public class ChangeOrderService : IChangeOrderService
         await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, projectWorkingId);
 
         var orders = await _repository.GetListAsync(
-            selector: c => new { c.Status, c.Amount, c.Kind },
+            selector: c => new { c.Id, c.Status, c.Amount, c.Kind },
             predicate: c => c.ProjectWorkingId == projectWorkingId);
 
         var contractValue = (await _unitOfWork.GetRepository<Contract>().GetListAsync(
@@ -194,6 +200,18 @@ public class ChangeOrderService : IChangeOrderService
         var accepted = orders.Where(o => o.Status == ChangeOrderStatus.accepted).ToList();
         var pending = orders.Where(o => o.Status == ChangeOrderStatus.pending).ToList();
         var acceptedAmount = accepted.Sum(o => o.Amount);
+
+        // Bao nhiêu phần công nợ đã duyệt thực sự ra được đợt thu, và bao nhiêu đã thu xong. Không
+        // có hai con số này thì "đã duyệt" trông như "sẽ đòi được", mà khoản duyệt lúc chưa ký hợp
+        // đồng (hoặc khoản 0 đồng) thì không ra đợt nào cả.
+        var acceptedIds = accepted.Select(o => o.Id).ToList();
+        var batches = acceptedIds.Count == 0
+            ? []
+            : await _unitOfWork.GetRepository<PaymentBatch>().GetListAsync(
+                selector: b => new { b.Amount, b.Status },
+                predicate: b => b.ChangeOrderId != null && acceptedIds.Contains(b.ChangeOrderId.Value));
+
+        var billedAmount = batches.Sum(b => b.Amount);
 
         return new ChangeOrderSummaryResponse
         {
@@ -208,7 +226,14 @@ public class ChangeOrderService : IChangeOrderService
             PendingCount = pending.Count,
             RejectedCount = orders.Count(o => o.Status == ChangeOrderStatus.rejected),
             AcceptedRevisionFee = accepted
-                .Where(o => o.Kind == ChangeOrderKind.extra_revision).Sum(o => o.Amount)
+                .Where(o => o.Kind == ChangeOrderKind.extra_revision).Sum(o => o.Amount),
+            BilledAmount = billedAmount,
+            PaidAmount = batches
+                .Where(b => b.Status == PaymentBatchStatus.confirmed).Sum(b => b.Amount),
+
+            // Phần đã duyệt mà chưa có đợt nào đòi. Dương = còn tiền hai bên đã đồng ý nhưng chưa
+            // vào được đường thu (thường vì chưa ký hợp đồng).
+            UnbilledAmount = acceptedAmount - billedAmount
         };
     }
 
@@ -222,16 +247,23 @@ public class ChangeOrderService : IChangeOrderService
 
         var terms = await RevisionPolicy.ResolveAsync(_unitOfWork, design.ProjectWorkingId);
 
+        // Hạn mức tiêu theo ENGAGEMENT, không theo từng bản vẽ — phải trả về đúng con số mà
+        // DesignService.RequestRevisionAsync sẽ đem đi so, nếu không màn hình hứa "còn 2 vòng miễn
+        // phí" rồi API lại 409 đòi tiền.
+        var usedInEngagement = await RevisionPolicy.CountUsedAsync(_unitOfWork, design.ProjectWorkingId);
+
         return new RevisionQuotaResponse
         {
             DesignId = design.Id,
+            ProjectWorkingId = design.ProjectWorkingId,
             QuotationId = terms.QuotationId,
             FreeRevisionCount = terms.FreeRevisionCount,
             UsedRevisionCount = design.RevisionCount,
+            EngagementUsedRevisionCount = usedInEngagement,
             RemainingFreeRevisions = terms.FreeRevisionCount is int free
-                ? Math.Max(0, free - design.RevisionCount)
+                ? Math.Max(0, free - usedInEngagement)
                 : null,
-            NextRevisionCharged = terms.Exceeds(design.RevisionCount + 1),
+            NextRevisionCharged = terms.Exceeds(usedInEngagement + 1),
             ExtraRevisionFee = terms.ExtraRevisionFee
         };
     }
@@ -261,14 +293,39 @@ public class ChangeOrderService : IChangeOrderService
         order.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(order);
+
+        // Đồng ý xong là tiền owner NỢ THẬT ⇒ phải ra đợt thu ngay, cùng transaction với cái gật
+        // đầu. Tách ra thì có đường chạy duyệt được khoản mà đợt tiền commit hụt, và khoản đó nằm
+        // trong tổng công nợ mãi mà không ai đòi.
+        PaymentBatch? batch = null;
+        if (decision == ChangeOrderStatus.accepted)
+            batch = await ChangeOrderBilling.TryCreateBatchAsync(_unitOfWork, order);
+
         await _unitOfWork.CommitAsync();
 
-        return ChangeOrderResponse.From(order);
+        return ChangeOrderResponse.From(order, batch);
     }
 
     private async Task<Entities.ChangeOrder> LoadAsync(Guid id) =>
         await _repository.SingleOrDefaultAsync(predicate: c => c.Id == id)
         ?? throw new KeyNotFoundException($"Không tìm thấy khoản phát sinh với id {id}.");
+
+    /// <summary>
+    /// Đợt thanh toán của từng khoản phát sinh, tra theo lô. Mỗi khoản sinh nhiều nhất một đợt
+    /// (<see cref="ChangeOrderBilling"/> chặn trùng), nên map 1–1 là đủ.
+    /// </summary>
+    private async Task<Dictionary<Guid, PaymentBatch>> LoadBatchesAsync(IEnumerable<Guid> orderIds)
+    {
+        var ids = orderIds.ToList();
+        if (ids.Count == 0) return [];
+
+        var batches = await _unitOfWork.GetRepository<PaymentBatch>().GetListAsync(
+            predicate: b => b.ChangeOrderId != null && ids.Contains(b.ChangeOrderId.Value));
+
+        return batches
+            .GroupBy(b => b.ChangeOrderId!.Value)
+            .ToDictionary(g => g.Key, g => g.OrderBy(b => b.CreatedAt).First());
+    }
 
     /// <summary>
     /// Design / hạng mục gắn kèm phải thuộc CHÍNH engagement này — nếu không thì khoản phát sinh

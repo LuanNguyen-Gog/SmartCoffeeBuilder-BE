@@ -12,6 +12,13 @@ public class PaymentBatchResponse
     public Guid ContractId { get; set; }
     public Guid? ConstructionItemId { get; set; }
     public string? ConstructionItemName { get; set; }
+
+    /// <summary>
+    /// Khoản phát sinh đã sinh ra đợt này — null với đợt chia từ báo giá gốc. FE dùng để nói rõ
+    /// "đợt này là phát sinh phát thêm", chứ không lẫn vào các đợt của hợp đồng ban đầu.
+    /// </summary>
+    public Guid? ChangeOrderId { get; set; }
+
     public int SortOrder { get; set; }
     public string Name { get; set; } = null!;
     public decimal? Percentage { get; set; }
@@ -40,6 +47,7 @@ public class PaymentBatchResponse
         ContractId = e.ContractId,
         ConstructionItemId = e.ConstructionItemId,
         ConstructionItemName = e.ConstructionItem?.Name,
+        ChangeOrderId = e.ChangeOrderId,
         SortOrder = e.SortOrder,
         Name = e.Name,
         Percentage = e.Percentage,

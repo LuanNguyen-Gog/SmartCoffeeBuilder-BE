@@ -301,6 +301,15 @@ public class ConstructionItemService : IConstructionItemService
             ? summaries.Sum(s => s.TotalActualCost!.Value)
             : (decimal?)null;
 
+        // Phát sinh đã duyệt là chi phí thật của hợp tác này, chỉ không nằm trong cây hạng mục.
+        // Kéo vào đây để một màn hình trả lời trọn câu "dự án này tốn bao nhiêu".
+        var changeOrders = await _unitOfWork.GetRepository<ChangeOrder>().GetListAsync(
+            selector: c => new { c.Status, c.Amount },
+            predicate: c => c.ProjectWorkingId == projectWorkingId);
+
+        var acceptedChangeOrders = changeOrders
+            .Where(c => c.Status == ChangeOrderStatus.accepted).Sum(c => c.Amount);
+
         return new EngagementCostSummaryResponse
         {
             ProjectWorkingId = projectWorkingId,
@@ -314,7 +323,11 @@ public class ConstructionItemService : IConstructionItemService
             MissingActualMaterialLines = missingMaterial,
             MissingActualLaborLines = missingLabor,
             RootItemCount = roots.Count,
-            Items = summaries
+            Items = summaries,
+            AcceptedChangeOrderAmount = acceptedChangeOrders,
+            PendingChangeOrderAmount = changeOrders
+                .Where(c => c.Status == ChangeOrderStatus.pending).Sum(c => c.Amount),
+            TotalEstimatedCostWithChangeOrders = estimated + acceptedChangeOrders
         };
     }
 
