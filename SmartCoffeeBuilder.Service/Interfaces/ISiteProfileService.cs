@@ -17,6 +17,12 @@ public interface ISiteProfileService
     Task<SiteProfileResponse> UpdateAsync(Guid accountId, Guid id, UpdateSiteProfileRequest request);
     Task DeleteAsync(Guid accountId, Guid id);
 
+    /// <summary>
+    /// Chủ dự án duyệt số đo đã khảo sát → đồng bộ tổng diện tích sàn sang <c>projects.area_m2</c>.
+    /// Chỉ owner/admin. Ném 409 khi chưa tầng nào khai diện tích.
+    /// </summary>
+    Task<SiteProfileResponse> ApproveMeasurementsAsync(Guid accountId, Guid id);
+
     // ── Tầng ───────────────────────────────────────────────────────────────
     Task<SiteFloorResponse> AddFloorAsync(Guid accountId, Guid siteProfileId, SiteFloorRequest request);
     Task<SiteFloorResponse> UpdateFloorAsync(Guid accountId, Guid floorId, SiteFloorRequest request);

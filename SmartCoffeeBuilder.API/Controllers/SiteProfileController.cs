@@ -66,6 +66,22 @@ public class SiteProfileController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// [CHỦ DỰ ÁN] Duyệt số đo đã khảo sát → ghi tổng diện tích sàn vào <c>projects.area_m2</c>.
+    ///
+    /// Đây là bước chốt: trước khi bấm, dự án (và payload AI) vẫn dùng con số owner khai lúc lập
+    /// dự án. Trả về hồ sơ đã cập nhật, trong đó <c>isAreaSyncedToProject</c> chuyển thành true.
+    ///
+    /// 401 nếu người gọi không phải chủ dự án — provider ghi được số đo nhưng không tự duyệt.
+    /// 409 nếu chưa tầng nào khai diện tích, hoặc dự án đã completed/cancelled.
+    /// </summary>
+    [HttpPost("{id:guid}/approve-measurements")]
+    public async Task<IActionResult> ApproveMeasurements(Guid id)
+    {
+        var result = await _siteProfileService.ApproveMeasurementsAsync(User.GetAccountId(), id);
+        return Ok(result);
+    }
+
     // ───────────────────────── Tầng ─────────────────────────
 
     /// <summary>Thêm một tầng. <c>floorNo</c>: 1 = trệt, số âm = hầm, 0 = gác lửng.</summary>

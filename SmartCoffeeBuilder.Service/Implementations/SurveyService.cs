@@ -35,12 +35,36 @@ public class SurveyService : ISurveyService
         _fileStorage = fileStorage;
     }
 
+    /// <summary>
+    /// Danh sách khảo sát trong TẦM NHÌN của người gọi: chủ dự án thấy mọi bản khảo sát trên dự án
+    /// của mình, provider thấy bản của chính mình, admin thấy tất cả.
+    ///
+    /// <paramref name="postId"/> là bộ lọc phục vụ đúng nghiệp vụ review 3 — chủ quán xem khảo sát
+    /// của mọi provider đã ứng tuyển một bài đăng cạnh nhau rồi mới chọn. Không có nó thì owner
+    /// phải lấy danh sách hồ sơ rồi gọi lần lượt từng <c>applyId</c>. Cố ý đặt tên và hành vi
+    /// giống <c>QuotationService.GetAllAsync</c>: khảo sát và báo giá là hai nửa của cùng một
+    /// quyết định, hai bên lệch tham số thì màn so sánh phải ghép bằng hai kiểu query khác nhau.
+    /// </summary>
     public async Task<PaginationResponse<SurveyResponse>> GetAllAsync(
-        int pageNumber = 1, int pageSize = 10, Guid? projectWorkingId = null, Guid? applyId = null)
+        Guid accountId, int pageNumber = 1, int pageSize = 10,
+        Guid? projectWorkingId = null, Guid? applyId = null, Guid? postId = null)
     {
+        var isAdmin = await IsAdminAsync(accountId);
+
+        // Lọc quyền NGAY TRONG query chứ không lấy về rồi ẩn — phân trang mới đếm đúng theo góc
+        // nhìn người gọi. Hai nhánh neo kiểm riêng vì mỗi survey chỉ có đúng một nhánh khác null.
         var query = _repository
-            .GetQueryable(s => (projectWorkingId == null || s.ProjectWorkingId == projectWorkingId)
-                               && (applyId == null || s.ApplyId == applyId))
+            .GetQueryable(
+                s => (projectWorkingId == null || s.ProjectWorkingId == projectWorkingId)
+                     && (applyId == null || s.ApplyId == applyId)
+                     && (postId == null || (s.Apply != null && s.Apply.PostId == postId))
+                     && (isAdmin
+                         || (s.Apply != null
+                             && (s.Apply.Post.ProjectShopOwner.Owner.AccountId == accountId
+                                 || s.Apply.ServiceProviderProfile.AccountId == accountId))
+                         || (s.ProjectWorking != null
+                             && (s.ProjectWorking.ProjectShopOwner.Owner.AccountId == accountId
+                                 || s.ProjectWorking.ServiceProviderProfile.AccountId == accountId))))
             .OrderByDescending(s => s.CreatedAt);
 
         var paged = await query.ToPaginationResponseAsync(pageNumber, pageSize);
@@ -50,12 +74,54 @@ public class SurveyService : ISurveyService
             paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
-    public async Task<SurveyResponse> GetByIdAsync(Guid id)
+    /// <summary>
+    /// Chi tiết một bản khảo sát. Cùng luật tầm nhìn với <see cref="GetAllAsync"/>.
+    /// </summary>
+    /// <exception cref="KeyNotFoundException">Không tồn tại (HTTP 404).</exception>
+    /// <exception cref="UnauthorizedAccessException">Khảo sát của dự án khác (HTTP 401).</exception>
+    public async Task<SurveyResponse> GetByIdAsync(Guid accountId, Guid id)
     {
+        // Không include gì: SurveyResponse.From chỉ đọc cột phẳng, còn kiểm quyền đi bằng query
+        // đếm riêng — nạp cả graph project → owner ở đây là join thừa cho mọi lần gọi.
         var survey = await _repository.SingleOrDefaultAsync(predicate: s => s.Id == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy survey với id {id}.");
 
+        await EnsureSurveyVisibleAsync(accountId, survey);
         return SurveyResponse.From(survey);
+    }
+
+    /// <summary>
+    /// Ai được ĐỌC một bản khảo sát: chủ dự án mang bản đó, provider đứng tên bản đó, admin.
+    ///
+    /// Hẹp hơn quyền đọc <c>site_profiles</c>/brief (những thứ mở cho mọi provider khi bài đăng còn
+    /// 'open') là CỐ Ý: khảo sát là công sức riêng và là quân bài cạnh tranh của từng provider —
+    /// để provider B đọc được bản của provider A thì họ chép số đo rồi báo giá đè lên mà không
+    /// phải đi đo.
+    /// </summary>
+    private async Task EnsureSurveyVisibleAsync(Guid accountId, Survey survey)
+    {
+        // Một query đếm, tự đi theo đúng nhánh neo mà survey đang dùng — tránh nạp cả graph chỉ để
+        // so hai cái account id.
+        var visible = await _repository.CountAsync(
+            s => s.Id == survey.Id
+                 && ((s.Apply != null
+                      && (s.Apply.Post.ProjectShopOwner.Owner.AccountId == accountId
+                          || s.Apply.ServiceProviderProfile.AccountId == accountId))
+                     || (s.ProjectWorking != null
+                         && (s.ProjectWorking.ProjectShopOwner.Owner.AccountId == accountId
+                             || s.ProjectWorking.ServiceProviderProfile.AccountId == accountId)))) > 0;
+
+        if (visible || await IsAdminAsync(accountId)) return;
+
+        throw new UnauthorizedAccessException(
+            "Bản khảo sát này thuộc một dự án mà tài khoản đang đăng nhập không tham gia.");
+    }
+
+    private async Task<bool> IsAdminAsync(Guid accountId)
+    {
+        var account = await _unitOfWork.GetRepository<Account>()
+            .SingleOrDefaultAsync(predicate: a => a.Id == accountId && a.DeletedAt == null);
+        return account?.Role == AccountRole.admin;
     }
 
     public async Task<SurveyResponse> CreateAsync(Guid accountId, CreateSurveyRequest request)

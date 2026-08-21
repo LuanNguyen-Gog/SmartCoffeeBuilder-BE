@@ -28,6 +28,24 @@ public class SiteProfileResponse
     /// <summary>Tổng diện tích sàn cộng từ các tầng đã khai. null khi chưa tầng nào có diện tích.</summary>
     public decimal? TotalFloorAreaM2 { get; set; }
 
+    /// <summary>
+    /// <c>projects.area_m2</c> đang lưu — con số owner khai lúc lập dự án và là con số DUY NHẤT
+    /// payload AI đọc. Trả kèm ở đây để FE đối chiếu với <see cref="TotalFloorAreaM2"/> mà không
+    /// phải gọi thêm <c>GET /api/projects/{id}</c>.
+    /// </summary>
+    public decimal? ProjectAreaM2 { get; set; }
+
+    /// <summary>
+    /// Số đo đã khảo sát có khớp con số dự án đang dùng hay chưa — TRẠNG THÁI SUY RA, không phải
+    /// cột trong DB (xem <c>ApproveMeasurementsAsync</c> để biết vì sao không cần cột riêng).
+    /// <list type="bullet">
+    /// <item><c>true</c> — tổng diện tích sàn đã được owner duyệt và đồng bộ sang dự án.</item>
+    /// <item><c>false</c> — có số đo mới chưa duyệt; dự án (và AI) vẫn đang dùng con số cũ.</item>
+    /// <item><c>null</c> — chưa tầng nào khai diện tích, chưa có gì để duyệt.</item>
+    /// </list>
+    /// </summary>
+    public bool? IsAreaSyncedToProject { get; set; }
+
     public Guid? CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
@@ -40,6 +58,11 @@ public class SiteProfileResponse
         var floors = (e.Floors ?? new List<Entities.SiteFloor>())
             .OrderBy(f => f.FloorNo).Select(SiteFloorResponse.From).ToList();
         var areas = floors.Where(f => f.AreaM2.HasValue).Select(f => f.AreaM2!.Value).ToList();
+        var totalFloorArea = areas.Count == 0 ? (decimal?)null : areas.Sum();
+
+        // Nav property chỉ có khi caller nạp kèm (LoadGraphAsync). Không nạp thì để null chứ không
+        // ném — response vẫn hợp lệ, FE chỉ mất phần đối chiếu.
+        var projectArea = e.ProjectShopOwner?.AreaM2;
 
         return new SiteProfileResponse
         {
@@ -58,7 +81,11 @@ public class SiteProfileResponse
             DerivedFootprintM2 = e.LengthM.HasValue && e.WidthM.HasValue
                 ? Math.Round(e.LengthM.Value * e.WidthM.Value, 2)
                 : null,
-            TotalFloorAreaM2 = areas.Count == 0 ? null : areas.Sum(),
+            TotalFloorAreaM2 = totalFloorArea,
+            ProjectAreaM2 = projectArea,
+            IsAreaSyncedToProject = totalFloorArea is null
+                ? null
+                : projectArea.HasValue && decimal.Round(projectArea.Value, 2) == decimal.Round(totalFloorArea.Value, 2),
             CreatedBy = e.CreatedBy,
             CreatedAt = e.CreatedAt,
             UpdatedAt = e.UpdatedAt,

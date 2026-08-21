@@ -166,6 +166,61 @@ public class SiteProfileService : ISiteProfileService
         await _unitOfWork.CommitAsync();
     }
 
+    /// <summary>
+    /// Owner duyệt số đo đã khảo sát và đồng bộ sang <c>projects.area_m2</c>.
+    ///
+    /// Đây là chỗ DUY NHẤT con số dự án được cập nhật từ số đo thật. Lý do phải có một bước duyệt
+    /// tường minh thay vì đồng bộ tự động mỗi lần provider sửa tầng: <c>projects.area_m2</c> là con
+    /// số payload AI đọc và là con số hiện trên mọi màn hình dự án — để provider đổi thẳng thì chủ
+    /// quán mất quyền kiểm soát thông số dự án của chính mình, mà bỏ đồng bộ thì số đo thật nằm mãi
+    /// trong <c>site_floors</c> còn AI thì chạy trên con số khai lúc đăng ký.
+    ///
+    /// KHÔNG có cột "đã duyệt" trong DB: trạng thái đó suy được bằng cách so
+    /// <c>projects.area_m2</c> với tổng diện tích các tầng (xem <c>IsAreaSyncedToProject</c>). Thêm
+    /// cột chỉ để lưu một thứ tính lại được là tạo cơ hội cho hai nguồn lệch nhau — và tránh được
+    /// một migration đụng vào <c>ModelSnapshot</c> mà nhánh khác đang sửa.
+    /// </summary>
+    /// <exception cref="KeyNotFoundException">Hồ sơ không tồn tại (HTTP 404).</exception>
+    /// <exception cref="UnauthorizedAccessException">Người gọi không phải chủ dự án (HTTP 401).</exception>
+    /// <exception cref="InvalidOperationException">Chưa tầng nào khai diện tích (HTTP 409).</exception>
+    public async Task<SiteProfileResponse> ApproveMeasurementsAsync(Guid accountId, Guid id)
+    {
+        var profile = await LoadGraphAsync(p => p.Id == id)
+            ?? throw new KeyNotFoundException($"Không tìm thấy hồ sơ mặt bằng với id {id}.");
+
+        // CHỈ chủ dự án — hẹp hơn EnsureCanWriteAsync một bậc. Provider ghi được số đo (họ cầm
+        // thước) nhưng không tự duyệt số của chính mình vào thông số dự án.
+        await EnsureProjectOwnerAsync(accountId, profile.ProjectShopOwnerId);
+
+        var areas = (profile.Floors ?? new List<SiteFloor>())
+            .Where(f => f.AreaM2.HasValue)
+            .Select(f => f.AreaM2!.Value)
+            .ToList();
+
+        if (areas.Count == 0)
+            throw new InvalidOperationException(
+                "Chưa tầng nào khai diện tích — không có số đo để duyệt. " +
+                "Điền diện tích cho ít nhất một tầng trước khi đồng bộ sang dự án.");
+
+        var project = await _unitOfWork.GetRepository<ProjectShopOwner>()
+            .SingleOrDefaultAsync(predicate: p => p.Id == profile.ProjectShopOwnerId && p.DeletedAt == null)
+            ?? throw new KeyNotFoundException($"Không tìm thấy dự án {profile.ProjectShopOwnerId}.");
+
+        // Dự án đã đóng thì thông số chốt luôn — khớp guard của ProjectShopOwnerService.UpdateAsync,
+        // không thì đây thành đường vòng sửa được dự án đã completed/cancelled.
+        if (project.Status is ProjectStatus.completed or ProjectStatus.cancelled)
+            throw new InvalidOperationException(
+                $"Dự án đang ở trạng thái '{project.Status}' — không cập nhật thông số nữa.");
+
+        project.AreaM2 = decimal.Round(areas.Sum(), 2);
+        project.UpdatedAt = DateTime.UtcNow;
+        _unitOfWork.GetRepository<ProjectShopOwner>().Update(project);
+        await _unitOfWork.CommitAsync();
+
+        // Nạp lại để ProjectAreaM2 / IsAreaSyncedToProject phản ánh giá trị vừa ghi.
+        return await GetByIdAsync(accountId, id);
+    }
+
     // ───────────────────────── Tầng ─────────────────────────
 
     public async Task<SiteFloorResponse> AddFloorAsync(Guid accountId, Guid siteProfileId, SiteFloorRequest request)
@@ -295,11 +350,16 @@ public class SiteProfileService : ISiteProfileService
 
     // ───────────────────────── Helper ─────────────────────────
 
+    // ProjectShopOwner nạp kèm để SiteProfileResponse điền được ProjectAreaM2 / IsAreaSyncedToProject
+    // — một join theo FK, rẻ hơn nhiều so với bắt FE gọi thêm GET /api/projects/{id} chỉ để lấy
+    // một con số rồi tự so sánh (và tự so thì mỗi client lại làm quy tắc làm tròn một kiểu).
     private Task<Entities.SiteProfile?> LoadGraphAsync(
         System.Linq.Expressions.Expression<Func<Entities.SiteProfile, bool>> predicate) =>
         _repository.SingleOrDefaultAsync(
             predicate: predicate,
-            include: q => q.Include(p => p.Floors).Include(p => p.Openings));
+            include: q => q.Include(p => p.Floors)
+                           .Include(p => p.Openings)
+                           .Include(p => p.ProjectShopOwner));
 
     private async Task<Entities.SiteProfile> LoadForWriteAsync(Guid accountId, Guid siteProfileId, string action)
     {
@@ -352,6 +412,24 @@ public class SiteProfileService : ISiteProfileService
 
         throw new UnauthorizedAccessException(
             $"Chỉ chủ dự án hoặc nhà cung cấp đang thực hiện dự án mới được {action}.");
+    }
+
+    /// <summary>
+    /// CHỈ chủ dự án (hoặc admin). Hẹp hơn <see cref="EnsureCanWriteAsync"/> một bậc: provider đang
+    /// thực hiện dự án ghi được số đo nhưng KHÔNG tự duyệt số của mình vào thông số dự án.
+    /// </summary>
+    /// <exception cref="UnauthorizedAccessException">Không phải chủ dự án (HTTP 401).</exception>
+    private async Task EnsureProjectOwnerAsync(Guid accountId, Guid projectShopOwnerId)
+    {
+        var isOwner = await _unitOfWork.GetRepository<ProjectShopOwner>().CountAsync(
+            p => p.Id == projectShopOwnerId
+                 && p.DeletedAt == null
+                 && p.Owner.AccountId == accountId) > 0;
+
+        if (isOwner || await IsAdminAsync(accountId)) return;
+
+        throw new UnauthorizedAccessException(
+            "Chỉ chủ dự án mới được duyệt số đo khảo sát vào thông số dự án.");
     }
 
     private async Task<bool> IsAdminAsync(Guid accountId)
