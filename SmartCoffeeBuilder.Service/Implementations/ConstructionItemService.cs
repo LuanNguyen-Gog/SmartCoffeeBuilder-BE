@@ -50,7 +50,21 @@ public class ConstructionItemService : IConstructionItemService
                                && (st == null || e.Status == st)
                                && (visibleEngagementIds == null
                                    || visibleEngagementIds.Contains(e.ProjectWorkingId)))
-            .OrderByDescending(e => e.CreatedAt);
+            // Theo MỐC THỜI GIAN, tăng dần — đây là tiến độ thi công, đọc xuôi theo lịch mới có
+            // nghĩa. Trước đây sắp theo CreatedAt giảm dần, và điều đó hỏng hẳn khi áp mẫu quy
+            // trình: ApplyAsync ghi cả bộ hạng mục trong một transaction nên chúng dùng CHUNG một
+            // CreatedAt tới từng mili-giây, khoá sắp xếp không phân biệt được hàng nào với hàng
+            // nào, Postgres trả về thứ tự tuỳ ý và màn kế hoạch hiện lộn xộn (Sơn nước trước Phần
+            // thô). Cả app chủ quán lẫn web nhà cung cấp đều tin thứ tự của server nên đều sai.
+            //
+            // NULL (hạng mục chưa đặt hạn) xuống cuối theo mặc định NULLS LAST của Postgres cho
+            // ASC — đúng ý: việc chưa có mốc thì chưa nằm trên lịch.
+            //
+            // ThenBy Id là chốt chặn cuối: hai hạng mục cùng ngày vẫn phải ra cùng một thứ tự ở
+            // mọi lần gọi, nếu không phân trang sẽ lặp hoặc bỏ sót hàng giữa hai trang.
+            .OrderBy(e => e.EstimateAt)
+            .ThenBy(e => e.CreatedAt)
+            .ThenBy(e => e.Id);
 
         var paged = await query.ToPaginationResponseAsync(pageNumber, pageSize);
 

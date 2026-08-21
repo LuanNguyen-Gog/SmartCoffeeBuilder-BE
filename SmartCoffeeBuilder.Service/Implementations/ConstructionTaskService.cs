@@ -53,7 +53,13 @@ public class ConstructionTaskService : IConstructionTaskService
                                && (st == null || e.Status == st)
                                && (visibleEngagementIds == null
                                    || visibleEngagementIds.Contains(e.ConstructionItem.ProjectWorkingId)))
-            .OrderByDescending(e => e.CreatedAt);
+            // Xuôi theo mốc thời gian, cùng lý do với ConstructionItemService: áp mẫu quy trình
+            // ghi mọi việc con trong một transaction nên chúng dùng chung một CreatedAt, sắp theo
+            // cột đó là thứ tự tuỳ ý — trong một hạng mục MEP, "thử áp lực nước" hiện trước "đi
+            // ống điện âm tường". ThenBy Id để hai việc cùng hạn vẫn ổn định qua các trang.
+            .OrderBy(e => e.EstimateAt)
+            .ThenBy(e => e.CreatedAt)
+            .ThenBy(e => e.Id);
 
         var paged = await query.ToPaginationResponseAsync(pageNumber, pageSize);
 

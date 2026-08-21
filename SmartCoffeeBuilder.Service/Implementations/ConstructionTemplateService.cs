@@ -148,8 +148,19 @@ public class ConstructionTemplateService : IConstructionTemplateService
 
         foreach (var templateItem in template.Items.OrderBy(i => i.SortOrder))
         {
+            // EstimateDays là SỐ NGÀY hạng mục chiếm, còn ConstructionSchedule.DurationDays đếm
+            // cả hai đầu (e − s + 1). Nên hạng mục n ngày chạy từ cursor đến cursor + n − 1, và
+            // hạng mục kế tiếp bắt đầu NGÀY HÔM SAU.
+            //
+            // Trước đây cộng thẳng n rồi lấy luôn mốc đó làm ngày bắt đầu của hạng mục sau, tức
+            // đếm theo ngày TRÔI QUA trong khi phần còn lại của hệ đếm theo ngày BAO GỒM. Hệ quả:
+            // mẫu khai 71 ngày sinh ra kế hoạch dài 72 ngày, và hai hạng mục liền nhau cùng nhận
+            // một ngày làm mốc — "Phần thô" bắt đầu đúng hôm "Chuẩn bị mặt bằng" kết thúc.
+            //
+            // n = 0 thì hạng mục không chiếm ngày nào: mốc đầu trùng mốc cuối và cursor đứng yên.
+            var itemDays = templateItem.EstimateDays ?? 0;
             var itemStart = cursor;
-            var itemEnd = cursor.AddDays(templateItem.EstimateDays ?? 0);
+            var itemEnd = itemDays > 0 ? cursor.AddDays(itemDays - 1) : cursor;
 
             var item = new ConstructionItem
             {
@@ -157,6 +168,11 @@ public class ConstructionTemplateService : IConstructionTemplateService
                 Name = templateItem.Name,
                 Description = templateItem.Description,
                 Category = templateItem.Category,
+                // Ghi CẢ HAI đầu mốc. itemStart vốn đã tính sẵn ở trên nhưng trước đây bị bỏ đi,
+                // nên hạng mục sinh từ mẫu có hạn hoàn thành mà không có ngày bắt đầu:
+                // PlannedDurationDays (StartAt → EstimateAt) luôn null và FE không dựng được
+                // khoảng thời gian thật, phải lấy tạm created_at làm ngày bắt đầu.
+                StartAt = itemStart,
                 EstimateAt = itemEnd,
                 Status = ItemStatus.pending,
                 CreatedBy = accountId,
@@ -168,7 +184,11 @@ public class ConstructionTemplateService : IConstructionTemplateService
             var taskCursor = itemStart;
             foreach (var templateTask in templateItem.Tasks.OrderBy(t => t.SortOrder))
             {
-                taskCursor = taskCursor.AddDays(templateTask.EstimateDays ?? 0);
+                // Cùng cách đếm với hạng mục, để tổng các việc con vừa khít khoảng của hạng mục
+                // cha thay vì tràn ra ngoài.
+                var taskDays = templateTask.EstimateDays ?? 0;
+                var taskStart = taskCursor;
+                var taskEnd = taskDays > 0 ? taskCursor.AddDays(taskDays - 1) : taskCursor;
                 tasks.Add(new ConstructionTask
                 {
                     // FK gán qua navigation: khoá chính của item chỉ có thật SAU CommitAsync
@@ -176,15 +196,18 @@ public class ConstructionTemplateService : IConstructionTemplateService
                     ConstructionItem = item,
                     Name = templateTask.Name,
                     Description = templateTask.Description,
-                    EstimateAt = taskCursor,
+                    StartAt = taskStart,
+                    EstimateAt = taskEnd,
                     Status = ItemStatus.pending,
                     CreatedBy = accountId,
                     CreatedAt = now,
                     UpdatedAt = now
                 });
+
+                if (taskDays > 0) taskCursor = taskEnd.AddDays(1);
             }
 
-            cursor = itemEnd;
+            if (itemDays > 0) cursor = itemEnd.AddDays(1);
         }
 
         await _unitOfWork.GetRepository<ConstructionItem>().InsertRangeAsync(items);
@@ -197,7 +220,11 @@ public class ConstructionTemplateService : IConstructionTemplateService
             ProjectWorkingId = engagement.Id,
             CreatedItems = items.Count,
             CreatedTasks = tasks.Count,
-            PlannedFinishAt = cursor
+            // Ngày LÀM VIỆC cuối cùng của kế hoạch, không phải cursor: cursor đã nhảy sang hôm
+            // sau để hạng mục kế tiếp có chỗ bắt đầu, nên trả về nó là báo thừa một ngày.
+            PlannedFinishAt = items.Count == 0
+                ? cursor
+                : items.Max(i => i.EstimateAt ?? cursor)
         };
     }
 
