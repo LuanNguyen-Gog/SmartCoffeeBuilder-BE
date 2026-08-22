@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using SmartCoffeeBuilder.Service.DTOs.Requests.ChangeOrder;
 using SmartCoffeeBuilder.Service.Interfaces;
 using SmartCoffeeBuilder.Service.Utils;
@@ -28,7 +29,11 @@ public class ChangeOrderController : ControllerBase
     /// <summary>Các khoản phát sinh của một hợp tác. Lọc thêm bằng <c>status</c>.</summary>
     [HttpGet]
     public async Task<IActionResult> GetAll(
-        [FromQuery] Guid projectWorkingId,
+        // BindRequired: thiếu tham số này thì Guid bind thành Guid.Empty, service tra cứu rồi báo
+        // 404 "Không tìm thấy project provider với id 00000000-0000-0000-0000-000000000000" — lỗi
+        // sai hoàn toàn (người gọi thiếu tham số chứ bản ghi không hề mất) và còn nêu một id họ
+        // chưa từng gửi. Kèm theo đó swagger sinh ra required=false nên FE đọc doc tưởng bỏ được.
+        [FromQuery, BindRequired] Guid projectWorkingId,
         [FromQuery] string? status = null,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20)
@@ -40,7 +45,7 @@ public class ChangeOrderController : ControllerBase
 
     /// <summary>Tổng công nợ: giá trị hợp đồng + các khoản phát sinh đã duyệt.</summary>
     [HttpGet("summary")]
-    public async Task<IActionResult> GetSummary([FromQuery] Guid projectWorkingId)
+    public async Task<IActionResult> GetSummary([FromQuery, BindRequired] Guid projectWorkingId)
     {
         var result = await _changeOrderService.GetSummaryAsync(User.GetAccountId(), projectWorkingId);
         return Ok(result);

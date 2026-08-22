@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using SmartCoffeeBuilder.Service.DTOs.Requests.Material;
 using SmartCoffeeBuilder.Service.Interfaces;
 using SmartCoffeeBuilder.Service.Utils;
@@ -29,7 +30,7 @@ public class MaterialController : ControllerBase
     /// <summary>Bảng giá vật tư đã công bố cho một hợp tác.</summary>
     [HttpGet]
     public async Task<IActionResult> GetAll(
-        [FromQuery] Guid projectWorkingId,
+        [FromQuery, BindRequired] Guid projectWorkingId,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 50)
     {

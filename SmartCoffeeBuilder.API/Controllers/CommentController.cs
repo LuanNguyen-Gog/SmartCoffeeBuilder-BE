@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using SmartCoffeeBuilder.Repository.Models.Enums;
 using SmartCoffeeBuilder.Service.DTOs.Requests.Comment;
 using SmartCoffeeBuilder.Service.Interfaces;
@@ -31,7 +32,7 @@ public class CommentController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll(
         [FromQuery] string targetType,
-        [FromQuery] Guid targetId,
+        [FromQuery, BindRequired] Guid targetId,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20)
     {

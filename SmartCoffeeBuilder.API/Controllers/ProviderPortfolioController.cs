@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using SmartCoffeeBuilder.Service.DTOs.Requests.ProviderPortfolio;
 using SmartCoffeeBuilder.Service.Interfaces;
 using SmartCoffeeBuilder.Service.Utils;
@@ -29,7 +30,7 @@ public class ProviderPortfolioController : ControllerBase
     /// <summary>Dự án mẫu của một nhà cung cấp — ghim lên đầu, rồi tới thứ tự tự sắp.</summary>
     [HttpGet]
     public async Task<IActionResult> GetByProvider(
-        [FromQuery] Guid serviceProviderProfileId,
+        [FromQuery, BindRequired] Guid serviceProviderProfileId,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20)
     {

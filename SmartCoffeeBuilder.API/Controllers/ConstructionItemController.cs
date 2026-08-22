@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using SmartCoffeeBuilder.Service.DTOs.Requests.ConstructionItem;
 using SmartCoffeeBuilder.Service.Interfaces;
 using SmartCoffeeBuilder.Service.Utils;
@@ -105,7 +106,7 @@ public class ConstructionItemController : ControllerBase
 
     /// <summary>Chi phí thi công của cả hợp tác — dự toán, thực chi và chênh lệch.</summary>
     [HttpGet("cost-summary")]
-    public async Task<IActionResult> GetEngagementCostSummary([FromQuery] Guid projectWorkingId)
+    public async Task<IActionResult> GetEngagementCostSummary([FromQuery, BindRequired] Guid projectWorkingId)
     {
         var result = await _constructionItemService.GetEngagementCostSummaryAsync(
             User.GetAccountId(), projectWorkingId);
