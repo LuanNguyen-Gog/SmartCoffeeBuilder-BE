@@ -87,4 +87,18 @@ public interface INotificationService
     /// </summary>
     Task NotifyProjectClosedAsync(
         Guid projectShopOwnerId, bool cancelled, IReadOnlyCollection<Guid> affectedProjectWorkingIds);
+
+    // ── Cảnh báo trễ tiến độ thi công ──
+
+    /// <summary>
+    /// OWNER nhận noti khi một hạng mục thi công quá hạn <c>estimate_at</c> mà chưa 'completed'.
+    /// Hệ thống chỉ BÁO — không giữ tiền và không tự phạt; owner tự làm việc với nhà cung cấp
+    /// và tự trừ tiền ngoài nền tảng.
+    ///
+    /// CHỐNG SPAM: một hạng mục chỉ báo lại sau <paramref name="renotifyAfterDays"/> ngày kể từ
+    /// noti gần nhất cùng loại — không thì job chạy hằng ngày sẽ dội đúng một tin mỗi sáng cho
+    /// tới khi hạng mục xong. Đã gửi trong cửa sổ đó thì trả về false và không tạo gì.
+    /// </summary>
+    /// <returns>true nếu vừa tạo noti; false nếu bỏ qua (đã báo gần đây, hoặc không resolve được owner).</returns>
+    Task<bool> NotifyConstructionOverdueAsync(Guid constructionItemId, int renotifyAfterDays = 7);
 }

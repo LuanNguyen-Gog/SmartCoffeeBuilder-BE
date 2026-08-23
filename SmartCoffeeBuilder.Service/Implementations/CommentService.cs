@@ -22,10 +22,18 @@ public class CommentService : ICommentService
     }
 
     public async Task<PaginationResponse<CommentResponse>> GetAllAsync(
-        CommentTargetType targetType, Guid targetId,
+        CommentTargetType targetType, Guid targetId, Guid currentAccountId,
         int pageNumber = 1, int pageSize = 20)
     {
-        // Read mở — chỉ cần target tồn tại. CommentService không kiểm tra quyền xem vì thread public.
+        // Thread của design/construction_item nằm sẵn trong một engagement nên vẫn để mở như cũ.
+        // Thread BÁO GIÁ thì không: nhiều provider cùng nộp báo giá vào một bài đăng, để mở thì
+        // đối thủ chỉ cần đoán id là đọc được cả cuộc mặc cả giá.
+        if (targetType == CommentTargetType.quotation)
+        {
+            var parties = await ResolvePartiesAsync(targetType, targetId);
+            await EnsureCanCommentAsync(parties, currentAccountId);
+        }
+
         var query = _repository
             .GetQueryable(
                 c => c.TargetType == targetType && c.TargetId == targetId,
@@ -52,11 +60,11 @@ public class CommentService : ICommentService
 
         var targetType = ParseTargetType(request.TargetType);
 
-        // 1. Lấy target + ProjectWorkingId tương ứng.
-        var projectWorkingId = await ResolveProjectWorkingIdAsync(targetType, request.TargetId);
+        // 1. Từ target suy ra hai đầu account của chỗ neo (owner + provider).
+        var parties = await ResolvePartiesAsync(targetType, request.TargetId);
 
-        // 2. Check quyền: account phải thuộc ProjectWorking hoặc là admin.
-        await EnsureCanCommentAsync(projectWorkingId, currentAccountId);
+        // 2. Check quyền: account phải là một trong hai bên, hoặc admin.
+        await EnsureCanCommentAsync(parties, currentAccountId);
 
         // 3. Load tên hiển thị người viết để FE render avatar — phải load trước khi insert
         //    vì sau khi save CreatedByAccount có thể chưa được Include.
@@ -109,12 +117,22 @@ public class CommentService : ICommentService
         var normalized = raw.Trim().ToLowerInvariant().Replace("-", "_");
         if (!Enum.TryParse<CommentTargetType>(normalized, ignoreCase: true, out var parsed))
             throw new ArgumentException(
-                $"TargetType '{raw}' không hợp lệ. Cho phép: construction_item, design.");
+                $"TargetType '{raw}' không hợp lệ. Cho phép: {TargetTypeList}.");
         return parsed;
     }
 
-    /// <summary>Từ (target_type, target_id) suy ra ProjectWorkingId — dùng để check quyền.</summary>
-    private async Task<Guid> ResolveProjectWorkingIdAsync(CommentTargetType type, Guid targetId)
+    /// <summary>Danh sách giá trị hợp lệ, sinh từ enum để câu lỗi không lạc hậu khi thêm target mới.</summary>
+    private static readonly string TargetTypeList = string.Join(", ", Enum.GetNames<CommentTargetType>());
+
+    /// <summary>
+    /// Hai đầu account của chỗ neo — người viết comment phải là một trong hai (hoặc admin).
+    /// Dùng cặp account thay vì <c>ProjectWorkingId</c> vì báo giá gắn hồ sơ ứng tuyển CHƯA có
+    /// engagement: lúc đó owner đến từ dự án của bài đăng, provider đến từ chính hồ sơ.
+    /// </summary>
+    private sealed record CommentParties(Guid OwnerAccountId, Guid ProviderAccountId);
+
+    /// <summary>Từ (target_type, target_id) suy ra hai bên được phép trao đổi trên thread đó.</summary>
+    private async Task<CommentParties> ResolvePartiesAsync(CommentTargetType type, Guid targetId)
     {
         switch (type)
         {
@@ -123,46 +141,67 @@ public class CommentService : ICommentService
                 var item = await _unitOfWork.GetRepository<ConstructionItem>()
                     .SingleOrDefaultAsync(predicate: ci => ci.Id == targetId)
                     ?? throw new KeyNotFoundException($"Không tìm thấy construction item với id {targetId}.");
-                return item.ProjectWorkingId;
+                return await LoadEngagementPartiesAsync(item.ProjectWorkingId);
             }
             case CommentTargetType.design:
             {
                 var design = await _unitOfWork.GetRepository<Design>()
                     .SingleOrDefaultAsync(predicate: d => d.Id == targetId)
                     ?? throw new KeyNotFoundException($"Không tìm thấy design với id {targetId}.");
-                return design.ProjectWorkingId;
+                return await LoadEngagementPartiesAsync(design.ProjectWorkingId);
+            }
+            case CommentTargetType.quotation:
+            {
+                var quotation = await _unitOfWork.GetRepository<Quotation>()
+                    .SingleOrDefaultAsync(predicate: q => q.Id == targetId)
+                    ?? throw new KeyNotFoundException($"Không tìm thấy báo giá với id {targetId}.");
+
+                // CHECK ck_quotations_anchor bảo đảm đúng MỘT trong hai cột có giá trị.
+                return quotation.ApplyId is Guid applyId
+                    ? await LoadApplyPartiesAsync(applyId)
+                    : await LoadEngagementPartiesAsync(quotation.ProjectWorkingId!.Value);
             }
             default:
                 throw new ArgumentException($"TargetType '{type}' chưa được hỗ trợ.");
         }
     }
 
+    /// <summary>Owner của dự án + provider của engagement, projection để khỏi nạp cả graph.</summary>
+    private async Task<CommentParties> LoadEngagementPartiesAsync(Guid projectWorkingId) =>
+        (await _unitOfWork.GetRepository<ProjectWorking>().GetListAsync(
+            selector: e => new CommentParties(
+                e.ProjectShopOwner.Owner.AccountId,
+                e.ServiceProviderProfile.AccountId),
+            predicate: e => e.Id == projectWorkingId))
+        .FirstOrDefault()
+        ?? throw new KeyNotFoundException($"Không tìm thấy engagement với id {projectWorkingId}.");
+
+    /// <summary>Owner đến từ dự án của bài đăng, provider đến từ chính hồ sơ ứng tuyển.</summary>
+    private async Task<CommentParties> LoadApplyPartiesAsync(Guid applyId) =>
+        (await _unitOfWork.GetRepository<Apply>().GetListAsync(
+            selector: a => new CommentParties(
+                a.Post.ProjectShopOwner.Owner.AccountId,
+                a.ServiceProviderProfile.AccountId),
+            predicate: a => a.Id == applyId))
+        .FirstOrDefault()
+        ?? throw new KeyNotFoundException($"Không tìm thấy hồ sơ ứng tuyển với id {applyId}.");
+
     /// <summary>
-    /// Đảm bảo currentAccountId có quyền comment trên ProjectWorking (owner/provider liên quan hoặc admin).
+    /// Đảm bảo currentAccountId là một trong hai bên của chỗ neo, hoặc admin.
     /// Ném <see cref="UnauthorizedAccessException"/> nếu không thuộc.
     /// </summary>
-    private async Task EnsureCanCommentAsync(Guid projectWorkingId, Guid currentAccountId)
+    private async Task EnsureCanCommentAsync(CommentParties parties, Guid currentAccountId)
     {
+        if (parties.OwnerAccountId == currentAccountId) return;
+        if (parties.ProviderAccountId == currentAccountId) return;
+
         var current = await _unitOfWork.GetRepository<Account>()
-            .SingleOrDefaultAsync(
-                predicate: a => a.Id == currentAccountId,
-                include: q => q.Include(a => a.ShopOwner).Include(a => a.ServiceProviderProfile))
+            .SingleOrDefaultAsync(predicate: a => a.Id == currentAccountId && a.DeletedAt == null)
             ?? throw new UnauthorizedAccessException("Tài khoản không hợp lệ.");
 
         if (current.Role == AccountRole.admin) return;
 
-        var pw = await _unitOfWork.GetRepository<ProjectWorking>()
-            .SingleOrDefaultAsync(
-                predicate: p => p.Id == projectWorkingId,
-                include: q => q.Include(p => p.ProjectShopOwner).ThenInclude(ps => ps.Owner)
-                    .Include(p => p.ServiceProviderProfile))
-            ?? throw new KeyNotFoundException($"Không tìm thấy engagement với id {projectWorkingId}.");
-
-        var isOwner = pw.ProjectShopOwner?.Owner?.AccountId == currentAccountId;
-        var isProvider = pw.ServiceProviderProfile?.AccountId == currentAccountId;
-
-        if (!isOwner && !isProvider)
-            throw new UnauthorizedAccessException(
-                "Bạn không thuộc engagement này — không thể comment.");
+        throw new UnauthorizedAccessException(
+            "Bạn không thuộc hồ sơ/hợp tác này — không thể comment.");
     }
 }

@@ -38,4 +38,14 @@ public interface IConstructionItemService
 
     /// <summary>Chi phí thi công của cả hợp tác — cộng từ mọi milestone gốc.</summary>
     Task<EngagementCostSummaryResponse> GetEngagementCostSummaryAsync(Guid accountId, Guid projectWorkingId);
+
+    /// <summary>
+    /// JOB NỀN (Hangfire, chạy hằng ngày) — KHÔNG phải endpoint, không nhận accountId: quét mọi
+    /// hạng mục quá hạn <c>estimate_at</c> mà chưa xong trên các engagement còn hoạt động, rồi
+    /// báo cho chủ quán tương ứng. Chỉ CẢNH BÁO: nền tảng không giữ tiền và không tự khấu trừ,
+    /// owner tự làm việc với nhà cung cấp.
+    /// </summary>
+    /// <param name="renotifyAfterDays">Số ngày tối thiểu giữa hai lần báo cho cùng một hạng mục.</param>
+    /// <returns>Số noti thực sự được tạo trong lượt quét.</returns>
+    Task<int> NotifyOverdueProgressAsync(int renotifyAfterDays = 7);
 }

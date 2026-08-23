@@ -3,12 +3,12 @@ using System.ComponentModel.DataAnnotations;
 namespace SmartCoffeeBuilder.Service.DTOs.Requests.Comment;
 
 /// <summary>
-/// Tạo comment neo vào một entity (ConstructionItem hoặc Design). Controller sẽ ghi đè
+/// Tạo comment neo vào một entity (ConstructionItem, Design hoặc Quotation). Controller sẽ ghi đè
 /// <see cref="CreatedBy"/> bằng account id từ JWT nếu request không truyền lên.
 /// </summary>
 public class CreateCommentRequest
 {
-    /// <summary>construction_item | design (chấp nhận cả snake_case lẫn PascalCase).</summary>
+    /// <summary>construction_item | design | quotation (chấp nhận cả snake_case lẫn PascalCase).</summary>
     [Required]
     public string TargetType { get; set; } = null!;
 

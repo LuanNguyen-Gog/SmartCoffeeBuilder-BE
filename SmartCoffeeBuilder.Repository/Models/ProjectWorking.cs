@@ -68,4 +68,7 @@ public class ProjectWorking
 
     /// <summary>Các khoản phát sinh chi phí ngoài báo giá đã chốt (phí sửa, đổi phạm vi…).</summary>
     public ICollection<ChangeOrder> ChangeOrders { get; set; } = new List<ChangeOrder>();
+
+    /// <summary>Nhật ký thi công hằng ngày của engagement này (review 3).</summary>
+    public ICollection<DailyLog> DailyLogs { get; set; } = new List<DailyLog>();
 }

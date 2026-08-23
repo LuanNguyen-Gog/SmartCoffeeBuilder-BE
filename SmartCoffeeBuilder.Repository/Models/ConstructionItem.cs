@@ -68,4 +68,5 @@ public class ConstructionItem
 
     /// <summary>Các khoản phát sinh chi phí gắn với hạng mục này.</summary>
     public ICollection<ChangeOrder> ChangeOrders { get; set; } = new List<ChangeOrder>();
+    public ICollection<DailyLog> DailyLogs { get; set; } = new List<DailyLog>();
 }

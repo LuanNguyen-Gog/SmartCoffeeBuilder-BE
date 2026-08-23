@@ -237,6 +237,13 @@ public class QuotationService : IQuotationService
 
         var attachments = quotation.Attachments.Select(a => a.FileUrl).ToList();
 
+        // Cascade xoá comment gắn vào bản báo giá này — FK mềm (target_type + target_id) nên DB
+        // không tự dọn, giống cách ConstructionItemService.DeleteAsync phải làm.
+        var commentRepo = _unitOfWork.GetRepository<Comment>();
+        var comments = await commentRepo.GetListAsync(
+            predicate: c => c.TargetType == CommentTargetType.quotation && c.TargetId == id);
+        commentRepo.DeleteRange(comments);
+
         _repository.Delete(quotation);
         await _unitOfWork.CommitAsync();
 

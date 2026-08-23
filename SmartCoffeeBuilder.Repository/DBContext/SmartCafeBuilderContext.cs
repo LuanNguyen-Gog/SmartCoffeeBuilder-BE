@@ -108,6 +108,10 @@ public class SmartCafeBuilderContext : DbContext
     public DbSet<ProviderCertificate> ProviderCertificates => Set<ProviderCertificate>();
     public DbSet<ReviewImage> ReviewImages => Set<ReviewImage>();
 
+    // Nhóm 19 — Nhật ký thi công hằng ngày (review 3: daily log của constructor)
+    public DbSet<DailyLog> DailyLogs => Set<DailyLog>();
+    public DbSet<DailyLogMedia> DailyLogMedia => Set<DailyLogMedia>();
+
     // Auth
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Otp> Otps => Set<Otp>();
@@ -147,6 +151,7 @@ public class SmartCafeBuilderContext : DbContext
         configurationBuilder.Properties<ChangeOrderStatus>().HaveConversion<string>().HaveMaxLength(20);
         configurationBuilder.Properties<SocialPlatform>().HaveConversion<string>().HaveMaxLength(30);
         configurationBuilder.Properties<CertificateKind>().HaveConversion<string>().HaveMaxLength(30);
+        configurationBuilder.Properties<DailyLogMediaType>().HaveConversion<string>().HaveMaxLength(20);
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -991,6 +996,42 @@ public class SmartCafeBuilderContext : DbContext
 
             e.HasOne(x => x.Review).WithMany(r => r.Images)
                 .HasForeignKey(x => x.ReviewId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ───────── Nhóm 19 — Nhật ký thi công hằng ngày (review 3) ─────────
+        modelBuilder.Entity<DailyLog>(e =>
+        {
+            // Entity đổi tên (ProjectProvider → ProjectWorking) nhưng cột DB giữ tên cũ — xem đầu file.
+            e.Property(x => x.ProjectWorkingId).HasColumnName("project_provider_id");
+            e.Property(x => x.WeatherNote).HasMaxLength(255);
+
+            // Truy vấn chính là "nhật ký của engagement này, mới nhất trước" → index ghép.
+            e.HasIndex(x => new { x.ProjectWorkingId, x.LogDate })
+                .HasDatabaseName("ix_daily_logs_project_provider_id_log_date");
+            e.HasIndex(x => x.ConstructionItemId);
+            e.HasIndex(x => x.ConstructionTaskId);
+
+            e.HasOne(x => x.ProjectWorking).WithMany(p => p.DailyLogs)
+                .HasForeignKey(x => x.ProjectWorkingId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_daily_logs_project_providers_project_provider_id");
+
+            // Xoá hạng mục/task chỉ GỠ LIÊN KẾT: nhật ký là vết công trường đã xảy ra, xoá theo
+            // thì mất luôn bằng chứng tiến độ của những ngày đó.
+            e.HasOne(x => x.ConstructionItem).WithMany(ci => ci.DailyLogs)
+                .HasForeignKey(x => x.ConstructionItemId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.ConstructionTask).WithMany(t => t.DailyLogs)
+                .HasForeignKey(x => x.ConstructionTaskId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.CreatedByAccount).WithMany()
+                .HasForeignKey(x => x.CreatedBy).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<DailyLogMedia>(e =>
+        {
+            e.Property(x => x.MediaUrl).HasMaxLength(500);
+            e.HasIndex(x => x.DailyLogId);
+
+            e.HasOne(x => x.DailyLog).WithMany(l => l.Media)
+                .HasForeignKey(x => x.DailyLogId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // Default now() cho mọi cột created_at / updated_at / sent_at.

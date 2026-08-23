@@ -20,11 +20,15 @@ public class ConstructionItemService : IConstructionItemService
 {
     private readonly IUnitOfWork<SmartCafeBuilderContext> _unitOfWork;
     private readonly IGenericRepository<ConstructionItem> _repository;
+    private readonly INotificationService _notificationService;
 
-    public ConstructionItemService(IUnitOfWork<SmartCafeBuilderContext> unitOfWork)
+    public ConstructionItemService(
+        IUnitOfWork<SmartCafeBuilderContext> unitOfWork,
+        INotificationService notificationService)
     {
         _unitOfWork = unitOfWork;
         _repository = unitOfWork.GetRepository<ConstructionItem>();
+        _notificationService = notificationService;
     }
 
     public async Task<PaginationResponse<ConstructionItemResponse>> GetAllAsync(
@@ -467,6 +471,35 @@ public class ConstructionItemService : IConstructionItemService
 
         _repository.Delete(item); // task con cascade; issue liên quan set null construction_item_id.
         await _unitOfWork.CommitAsync();
+    }
+
+    public async Task<int> NotifyOverdueProgressAsync(int renotifyAfterDays = 7)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        // Chỉ quét cấp MILESTONE, không quét task: task nằm trong milestone nên một hạng mục trễ
+        // sẽ kéo theo cả loạt task trễ, báo cả hai cấp là dội cùng một tin nhiều lần.
+        // Chỉ engagement còn sống mới có nghĩa — dự án đã nghiệm thu/huỷ ngang thì cảnh báo trễ
+        // chỉ là rác trong hộp thư.
+        var overdueIds = await _repository.GetListAsync(
+            selector: ci => ci.Id,
+            predicate: ci => ci.EstimateAt != null
+                             && ci.EstimateAt < today
+                             && ci.Status != ItemStatus.completed
+                             && ci.ProjectWorking.Status == ProviderStatus.accepted);
+
+        if (overdueIds.Count == 0) return 0;
+
+        var sent = 0;
+        foreach (var id in overdueIds)
+        {
+            // Best-effort từng hạng mục: một owner không có email / noti lỗi không được làm hỏng
+            // cả lượt quét của những hạng mục còn lại.
+            if (await _notificationService.NotifyConstructionOverdueAsync(id, renotifyAfterDays))
+                sent++;
+        }
+
+        return sent;
     }
 
     /// <summary>

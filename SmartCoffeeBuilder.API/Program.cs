@@ -62,6 +62,7 @@ builder.Services.AddScoped<ISurveyService, SurveyService>();
 builder.Services.AddScoped<IDesignService, DesignService>();
 builder.Services.AddScoped<IConstructionItemService, ConstructionItemService>();
 builder.Services.AddScoped<IConstructionTaskService, ConstructionTaskService>();
+builder.Services.AddScoped<IDailyLogService, DailyLogService>();
 builder.Services.AddScoped<IIssueService, IssueService>();
 builder.Services.AddScoped<IIssueTypeService, IssueTypeService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
@@ -255,6 +256,13 @@ try
         "close-expired-posts",
         service => service.CloseExpiredPostsAsync(),
         Cron.Hourly());
+
+    // Job cảnh báo trễ tiến độ (review 3): hạng mục quá hạn mà chưa xong → noti + email cho owner.
+    // Hằng NGÀY chứ không hằng giờ — trễ tiến độ tính theo ngày, quét mỗi giờ chỉ tốn công.
+    recurringJobs.AddOrUpdate<IConstructionItemService>(
+        "notify-overdue-construction",
+        service => service.NotifyOverdueProgressAsync(7),
+        Cron.Daily());
 }
 catch (Exception ex)
 {

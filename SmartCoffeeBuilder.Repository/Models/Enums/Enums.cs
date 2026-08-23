@@ -72,10 +72,15 @@ public enum PaymentPlatform { web, mobile }
 
 /// <summary>
 /// Loại entity mà một <c>Comment</c> neo vào. Dùng FK mềm (target_type + target_id) để một bảng
-/// <c>comments</c> phục vụ thread cho nhiều entity (ConstructionItem, Design) — không phải 2 bảng rồi UNION.
-/// Mở rộng thêm giá trị khi cần comment cho entity mới.
+/// <c>comments</c> phục vụ thread cho nhiều entity (ConstructionItem, Design, Quotation) — không phải
+/// 3 bảng rồi UNION. Mở rộng thêm giá trị khi cần comment cho entity mới.
+///
+/// <c>quotation</c> (review 3: "thêm phần comment cho từng báo giá") KHÁC hai giá trị còn lại ở chỗ
+/// nó KHÔNG chắc chắn có <c>project_working_id</c>: báo giá gửi kèm hồ sơ ứng tuyển chỉ neo vào
+/// <c>application_id</c>, engagement chưa tồn tại. Vì vậy <c>CommentService</c> phân quyền theo
+/// CẶP ACCOUNT hai đầu chỗ neo chứ không suy ra engagement.
 /// </summary>
-public enum CommentTargetType { construction_item, design }
+public enum CommentTargetType { construction_item, design, quotation }
 
 /// <summary>
 /// Loại snapshot của <c>DesignVersion</c> — mỗi mốc quan trọng sinh một bản BẤT BIẾN:
@@ -233,4 +238,10 @@ public enum CertificateKind
     /// <summary>Loại khác.</summary>
     other
 }
+
+/// <summary>
+/// Loại file hiện trường đính kèm <c>DailyLog</c> (review 3: "Hình ảnh/video hiện trường").
+/// FE dùng để chọn thẻ render — ảnh và video không cùng một khung.
+/// </summary>
+public enum DailyLogMediaType { image, video }
 #pragma warning restore CS8981

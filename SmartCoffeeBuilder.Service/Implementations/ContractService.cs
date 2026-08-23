@@ -97,6 +97,12 @@ public class ContractService : IContractService
         // thay đổi"). Không gửi quotationId thì vẫn đi luồng lập tay cũ.
         var quotation = await LoadAcceptedQuotationAsync(request.QuotationId, engagement);
 
+        // Thời gian thực hiện: nhận từ request, và nếu chỉ có ngày bắt đầu thì suy ngày kết thúc
+        // từ estimated_duration_days của báo giá đã duyệt — con số đó chính là cam kết owner đã
+        // đọc khi bấm duyệt, chép sang hợp đồng cho khớp thay vì bắt provider gõ lại.
+        var (executionStart, executionEnd) = ResolveExecutionPeriod(
+            request.ExecutionStartAt, request.ExecutionEndAt, quotation?.EstimatedDurationDays);
+
         var contract = new Contract
         {
             ProjectWorkingId = engagement.Id,
@@ -107,6 +113,8 @@ public class ContractService : IContractService
             AgreedValue = quotation?.TotalAmount ?? request.AgreedValue,
             // File hợp đồng phải upload qua api/files trước; giá trị gửi lên rút về ObjectName.
             DocumentUrl = await _fileStorage.NormalizeForStorageAsync(request.DocumentUrl, "documentUrl"),
+            ExecutionStartAt = executionStart,
+            ExecutionEndAt = executionEnd,
             Status = ContractStatus.drafted,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -183,6 +191,19 @@ public class ContractService : IContractService
                     "Muốn đổi giá thì huỷ hợp đồng và phát hành bản báo giá mới.");
 
             contract.AgreedValue = request.AgreedValue;
+        }
+
+        if (request.ExecutionStartAt != null || request.ExecutionEndAt != null)
+        {
+            // Validate trên GIÁ TRỊ SAU KHI GỘP, không phải chỉ trên field vừa gửi: sửa mỗi ngày
+            // kết thúc về trước ngày bắt đầu cũ vẫn là khoảng âm.
+            var (start, end) = ResolveExecutionPeriod(
+                request.ExecutionStartAt ?? contract.ExecutionStartAt,
+                request.ExecutionEndAt ?? contract.ExecutionEndAt,
+                estimatedDurationDays: null);
+
+            contract.ExecutionStartAt = start;
+            contract.ExecutionEndAt = end;
         }
 
         // File cũ bị thay thì dọn luôn object trên bucket (sau khi DB commit) để khỏi rác.
@@ -369,6 +390,31 @@ public class ContractService : IContractService
             project.UpdatedAt = DateTime.UtcNow;
             _unitOfWork.GetRepository<ProjectShopOwner>().Update(project);
         }
+    }
+
+    /// <summary>
+    /// Chốt khoảng thời gian thực hiện của hợp đồng (review 3: "Thời gian thực hiện").
+    ///
+    /// Chỉ có ngày bắt đầu + báo giá đã cam kết số ngày ⇒ suy ra ngày kết thúc, tính CẢ ngày đầu
+    /// (bắt đầu 01/09, 90 ngày ⇒ kết thúc 29/11) cho khớp cách đọc "thi công trong 90 ngày".
+    ///
+    /// Web chỉ quản MỐC THỜI GIAN. Điều khoản chung và bảo hành cố ý KHÔNG có cột riêng: chúng nằm
+    /// trong file hợp đồng hai bên tự upload (<c>document_url</c>) — số hoá thành field rồi hiển
+    /// thị lại là hệ thống đang phát ngôn về nội dung pháp lý của hợp đồng.
+    /// </summary>
+    /// <exception cref="ArgumentException">Ngày kết thúc nằm trước ngày bắt đầu (HTTP 400).</exception>
+    private static (DateOnly? Start, DateOnly? End) ResolveExecutionPeriod(
+        DateOnly? start, DateOnly? end, int? estimatedDurationDays)
+    {
+        if (start is DateOnly s && end is null && estimatedDurationDays is int days && days > 0)
+            end = s.AddDays(days - 1);
+
+        if (start is DateOnly from && end is DateOnly to && to < from)
+            throw new ArgumentException(
+                $"ExecutionEndAt '{to:yyyy-MM-dd}' nằm trước ExecutionStartAt '{from:yyyy-MM-dd}' — " +
+                "thời gian thực hiện không thể âm.");
+
+        return (start, end);
     }
 
     /// <summary>

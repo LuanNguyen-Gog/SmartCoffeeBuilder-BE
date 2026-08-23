@@ -468,11 +468,58 @@ public class NotificationService : INotificationService
         }
     }
 
+    public async Task<bool> NotifyConstructionOverdueAsync(Guid constructionItemId, int renotifyAfterDays = 7)
+    {
+        var item = await _unitOfWork.GetRepository<ConstructionItem>().SingleOrDefaultAsync(
+            predicate: ci => ci.Id == constructionItemId,
+            include: q => q
+                .Include(ci => ci.ProjectWorking).ThenInclude(e => e.ProjectShopOwner).ThenInclude(p => p.Owner).ThenInclude(o => o.Account)
+                .Include(ci => ci.ProjectWorking).ThenInclude(e => e.ServiceProviderProfile));
+
+        var ownerAccount = item?.ProjectWorking?.ProjectShopOwner?.Owner?.Account;
+        if (item is null || ownerAccount is null)
+        {
+            _logger.LogWarning(
+                "Bỏ qua noti construction_overdue: không resolve được owner cho hạng mục #{Id}.",
+                constructionItemId);
+            return false;
+        }
+
+        if (item.EstimateAt is not DateOnly due) return false;
+
+        // Đã báo trong cửa sổ renotify thì im — job chạy hằng ngày, không có chốt này thì owner
+        // nhận đúng một tin mỗi sáng cho tới khi hạng mục xong.
+        var since = DateTime.UtcNow.AddDays(-renotifyAfterDays);
+        var recentlyNotified = await _repository.CountAsync(
+            n => n.AccountId == ownerAccount.Id
+                 && n.Type == NotificationTypes.ConstructionOverdue
+                 && n.ReferenceId == item.Id
+                 && n.CreatedAt >= since);
+        if (recentlyNotified > 0) return false;
+
+        var daysLate = DateOnly.FromDateTime(DateTime.UtcNow).DayNumber - due.DayNumber;
+        var providerName = item.ProjectWorking?.ServiceProviderProfile?.DisplayName ?? "Nhà cung cấp";
+        var projectName = item.ProjectWorking?.ProjectShopOwner?.Name ?? "dự án của bạn";
+
+        await CreateAndDispatchAsync(
+            ownerAccount.Id, ownerAccount.Email, NotificationTypes.ConstructionOverdue,
+            title: $"Hạng mục \"{item.Name}\" đang trễ tiến độ",
+            content: $"Hạng mục \"{item.Name}\" thuộc dự án \"{projectName}\" có hạn hoàn thành " +
+                     $"{due:dd/MM/yyyy} nhưng đến nay vẫn chưa xong (trễ {daysLate} ngày). " +
+                     $"Nhà cung cấp phụ trách: \"{providerName}\". " +
+                     "Bạn nên trao đổi trực tiếp với nhà cung cấp về tiến độ; hệ thống không giữ " +
+                     "tiền và không tự khấu trừ, mọi điều chỉnh thanh toán do hai bên tự thoả thuận.",
+            referenceType: ConstructionItemReference, referenceId: item.Id);
+
+        return true;
+    }
+
     // ──────────────────────────────── Helpers ────────────────────────────────
 
     /// <summary>ReferenceType cho FE deep-link — dùng tên BẢNG DB để đồng bộ với noti sẵn có.</summary>
     private const string EngagementReference = "project_provider";
     private const string ProjectReference = "project";
+    private const string ConstructionItemReference = "construction_item";
 
     /// <summary>
     /// Dữ liệu chung của 3 noti huỷ-ngang-đồng-thuận: engagement, người nhận, và nhãn hiển thị
