@@ -14,6 +14,9 @@ namespace SmartCoffeeBuilder.Service.Implementations;
 /// <summary>
 /// Nhật ký thi công hằng ngày (review 3). Quyền xét theo engagement như
 /// <see cref="ConstructionItemService"/>: GHI chỉ nhà cung cấp, ĐỌC cả hai bên.
+///
+/// Ghi/sửa/xoá còn đòi hợp tác đang chạy (<see cref="ProviderStatus.accepted"/>); ĐỌC thì không —
+/// sau khi nghiệm thu hai bên vẫn phải tra lại được nhật ký của cả công trình.
 /// </summary>
 public class DailyLogService : IDailyLogService
 {
@@ -77,7 +80,7 @@ public class DailyLogService : IDailyLogService
     public async Task<DailyLogResponse> GetByIdAsync(Guid accountId, Guid id)
     {
         var log = await LoadForActionAsync(accountId, id, "xem nhật ký thi công",
-            EngagementActor.Owner, EngagementActor.Provider);
+            requireActiveEngagement: false, EngagementActor.Owner, EngagementActor.Provider);
 
         return DailyLogResponse.From(log);
     }
@@ -93,8 +96,11 @@ public class DailyLogService : IDailyLogService
         var actor = await EngagementAuthorization.ResolveActorAsync(
             _unitOfWork, accountId, anchor.ProjectWorkingId);
         EngagementAuthorization.EnsureActor(actor, "ghi nhật ký thi công", EngagementActor.Provider);
+        await EnsureEngagementActiveAsync(anchor.ProjectWorkingId, actor, "ghi nhật ký thi công");
 
-        var logDate = request.LogDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        // Mặc định là hôm nay THEO GIỜ VN — lấy theo UTC thì nhật ký ghi lúc rạng sáng bị đóng
+        // dấu sang ngày hôm trước.
+        var logDate = request.LogDate ?? VietnamTime.Today;
         EnsureLogDateNotInFuture(logDate);
 
         var log = new DailyLog
@@ -126,7 +132,8 @@ public class DailyLogService : IDailyLogService
 
     public async Task<DailyLogResponse> UpdateAsync(Guid accountId, Guid id, UpdateDailyLogRequest request)
     {
-        var log = await LoadForActionAsync(accountId, id, "sửa nhật ký thi công", EngagementActor.Provider);
+        var log = await LoadForActionAsync(accountId, id, "sửa nhật ký thi công",
+            requireActiveEngagement: true, EngagementActor.Provider);
 
         // Đổi chỗ neo thì phải neo lại trong CÙNG engagement — không cho chuyển nhật ký sang dự án khác.
         if (request.ConstructionItemId != null || request.ConstructionTaskId != null)
@@ -187,7 +194,8 @@ public class DailyLogService : IDailyLogService
 
     public async Task DeleteAsync(Guid accountId, Guid id)
     {
-        var log = await LoadForActionAsync(accountId, id, "xoá nhật ký thi công", EngagementActor.Provider);
+        var log = await LoadForActionAsync(accountId, id, "xoá nhật ký thi công",
+            requireActiveEngagement: true, EngagementActor.Provider);
 
         var files = log.Media.Select(m => m.MediaUrl).ToList();
 
@@ -301,12 +309,14 @@ public class DailyLogService : IDailyLogService
 
     /// <summary>
     /// Nhật ký ghi lại việc ĐÃ làm — ngày tương lai là dữ liệu sai, không phải kế hoạch.
-    /// Mốc lấy theo UTC cho khớp phần còn lại của tầng service; VN là UTC+7 nên mốc này chỉ có thể
-    /// DỄ hơn giờ địa phương, không bao giờ chặn nhầm một ngày hợp lệ.
+    ///
+    /// Mốc lấy theo GIỜ VN (<see cref="VietnamTime.Today"/>), KHÔNG phải UTC: UTC đi sau VN 7
+    /// tiếng, nên nếu so với ngày UTC thì từ 00:00 đến 07:00 giờ VN mốc so sánh vẫn là hôm qua —
+    /// người ghi nhật ký lúc rạng sáng bị chặn đúng cái ngày họ vừa làm việc.
     /// </summary>
     private static void EnsureLogDateNotInFuture(DateOnly logDate)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = VietnamTime.Today;
         if (logDate > today)
             throw new ArgumentException(
                 $"LogDate '{logDate:yyyy-MM-dd}' nằm sau ngày hiện tại ({today:yyyy-MM-dd}) — " +
@@ -324,9 +334,38 @@ public class DailyLogService : IDailyLogService
     private static string? Clean(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    /// <summary>Nạp nhật ký và chốt quyền trong một bước — mọi endpoint theo id đều đi qua đây.</summary>
+    /// <summary>
+    /// Nhật ký chỉ GHI được khi hợp tác đang chạy: engagement mới <c>requested</c> thì công trường
+    /// chưa mở, còn <c>completed</c> / <c>terminated</c> / <c>rejected</c> thì sổ đã chốt — ghi
+    /// thêm vào đó là sửa lịch sử của một hợp tác đã đóng. Admin đi xuyên để còn dọn dữ liệu hỏng.
+    ///
+    /// Chỉ chặn đường GHI. ĐỌC vẫn mở ở mọi trạng thái: nhật ký là hồ sơ công trình, sau nghiệm thu
+    /// vẫn phải tra lại được.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Hợp tác không còn ở accepted (HTTP 409).</exception>
+    private async Task EnsureEngagementActiveAsync(
+        Guid projectWorkingId, EngagementActor actor, string action)
+    {
+        if (actor == EngagementActor.Admin) return;
+
+        var status = (await _unitOfWork.GetRepository<ProjectWorking>().GetListAsync(
+                selector: e => (ProviderStatus?)e.Status,
+                predicate: e => e.Id == projectWorkingId))
+            .FirstOrDefault();
+
+        if (status != ProviderStatus.accepted)
+            throw new InvalidOperationException(
+                $"Hợp tác đang ở trạng thái '{status?.ToString() ?? "không xác định"}' — chỉ " +
+                $"{action} được khi hợp tác đang chạy (accepted).");
+    }
+
+    /// <summary>
+    /// Nạp nhật ký và chốt quyền trong một bước — mọi endpoint theo id đều đi qua đây.
+    /// <paramref name="requireActiveEngagement"/> bật cho đường GHI (sửa/xoá), tắt cho đường ĐỌC.
+    /// </summary>
     private async Task<DailyLog> LoadForActionAsync(
-        Guid accountId, Guid id, string action, params EngagementActor[] allowed)
+        Guid accountId, Guid id, string action, bool requireActiveEngagement,
+        params EngagementActor[] allowed)
     {
         var log = await _repository.SingleOrDefaultAsync(
             predicate: e => e.Id == id,
@@ -341,6 +380,9 @@ public class DailyLogService : IDailyLogService
         var actor = await EngagementAuthorization.ResolveActorAsync(
             _unitOfWork, accountId, log.ProjectWorkingId);
         EngagementAuthorization.EnsureActor(actor, action, allowed);
+
+        if (requireActiveEngagement)
+            await EnsureEngagementActiveAsync(log.ProjectWorkingId, actor, action);
 
         return log;
     }

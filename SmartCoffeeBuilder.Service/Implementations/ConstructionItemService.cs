@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using SmartCoffeeBuilder.Repository.DBContext;
 using SmartCoffeeBuilder.Repository.Interfaces;
 using SmartCoffeeBuilder.Repository.Models;
@@ -21,14 +22,17 @@ public class ConstructionItemService : IConstructionItemService
     private readonly IUnitOfWork<SmartCafeBuilderContext> _unitOfWork;
     private readonly IGenericRepository<ConstructionItem> _repository;
     private readonly INotificationService _notificationService;
+    private readonly ILogger<ConstructionItemService> _logger;
 
     public ConstructionItemService(
         IUnitOfWork<SmartCafeBuilderContext> unitOfWork,
-        INotificationService notificationService)
+        INotificationService notificationService,
+        ILogger<ConstructionItemService> logger)
     {
         _unitOfWork = unitOfWork;
         _repository = unitOfWork.GetRepository<ConstructionItem>();
         _notificationService = notificationService;
+        _logger = logger;
     }
 
     public async Task<PaginationResponse<ConstructionItemResponse>> GetAllAsync(
@@ -475,7 +479,9 @@ public class ConstructionItemService : IConstructionItemService
 
     public async Task<int> NotifyOverdueProgressAsync(int renotifyAfterDays = 7)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        // Mốc theo giờ VN: job chạy 00:00 UTC = 07:00 sáng VN, lấy ngày UTC thì sáng sớm vẫn đang
+        // đứng ở hôm qua và hạng mục vừa quá hạn hôm nay bị bỏ sót thêm một vòng.
+        var today = VietnamTime.Today;
 
         // Chỉ quét cấp MILESTONE, không quét task: task nằm trong milestone nên một hạng mục trễ
         // sẽ kéo theo cả loạt task trễ, báo cả hai cấp là dội cùng một tin nhiều lần.
@@ -491,13 +497,30 @@ public class ConstructionItemService : IConstructionItemService
         if (overdueIds.Count == 0) return 0;
 
         var sent = 0;
+        var failed = 0;
         foreach (var id in overdueIds)
         {
-            // Best-effort từng hạng mục: một owner không có email / noti lỗi không được làm hỏng
-            // cả lượt quét của những hạng mục còn lại.
-            if (await _notificationService.NotifyConstructionOverdueAsync(id, renotifyAfterDays))
-                sent++;
+            // Best-effort từng hạng mục: một hạng mục lỗi (owner không resolve được, DB trục trặc)
+            // không được làm hỏng cả lượt quét của những hạng mục còn lại. Lỗi gửi EMAIL đã được
+            // NotificationService nuốt sẵn; chốt chặn ở đây là cho những lỗi còn lại.
+            try
+            {
+                if (await _notificationService.NotifyConstructionOverdueAsync(id, renotifyAfterDays))
+                    sent++;
+            }
+            catch (Exception ex)
+            {
+                failed++;
+                _logger.LogError(ex,
+                    "Không tạo được cảnh báo trễ tiến độ cho hạng mục #{ItemId} — bỏ qua, " +
+                    "lượt quét tiếp tục với các hạng mục còn lại.", id);
+            }
         }
+
+        if (failed > 0)
+            _logger.LogWarning(
+                "Lượt quét trễ tiến độ: {Sent} cảnh báo đã gửi, {Failed}/{Total} hạng mục lỗi.",
+                sent, failed, overdueIds.Count);
 
         return sent;
     }

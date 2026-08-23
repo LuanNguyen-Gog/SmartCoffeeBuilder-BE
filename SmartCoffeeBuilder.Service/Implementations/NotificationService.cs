@@ -497,7 +497,8 @@ public class NotificationService : INotificationService
                  && n.CreatedAt >= since);
         if (recentlyNotified > 0) return false;
 
-        var daysLate = DateOnly.FromDateTime(DateTime.UtcNow).DayNumber - due.DayNumber;
+        // Số ngày trễ đếm theo giờ VN cho khớp con số owner tự nhẩm trên lịch của họ.
+        var daysLate = VietnamTime.Today.DayNumber - due.DayNumber;
         var providerName = item.ProjectWorking?.ServiceProviderProfile?.DisplayName ?? "Nhà cung cấp";
         var projectName = item.ProjectWorking?.ProjectShopOwner?.Name ?? "dự án của bạn";
 
