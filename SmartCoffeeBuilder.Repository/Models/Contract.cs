@@ -18,6 +18,18 @@ public class Contract
     public string? Terms { get; set; }
     public decimal? AgreedValue { get; set; }
     public string? DocumentUrl { get; set; }
+
+    /// <summary>
+    /// Ngày bắt đầu thực hiện theo hợp đồng (review 3: "Có thể bổ sung thêm các field khác bao gồm:
+    /// Thời gian thực hiện"). null = hai bên chưa chốt mốc.
+    /// </summary>
+    public DateOnly? ExecutionStartAt { get; set; }
+
+    /// <summary>
+    /// Ngày kết thúc thực hiện theo hợp đồng. Đây là mốc CAM KẾT trong hợp đồng, khác
+    /// <c>construction_items.estimate_at</c> (hạn của từng hạng mục do provider tự lập).
+    /// </summary>
+    public DateOnly? ExecutionEndAt { get; set; }
     public string? OtpCode { get; set; }
     public DateTime? OtpExpiresAt { get; set; }
     public DateTime? ConfirmedAt { get; set; }

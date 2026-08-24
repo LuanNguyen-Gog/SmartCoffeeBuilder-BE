@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using SmartCoffeeBuilder.Service.Interfaces;
 using SmartCoffeeBuilder.Service.Utils;
 
@@ -28,7 +29,7 @@ public class ChatMessageController : ControllerBase
     /// </summary>
     [HttpGet]
     public async Task<IActionResult> Poll(
-        [FromQuery] Guid conversationId,
+        [FromQuery, BindRequired] Guid conversationId,
         [FromQuery] Guid? sinceId = null,
         [FromQuery] DateTime? sinceSentAt = null,
         [FromQuery] int limit = 100)

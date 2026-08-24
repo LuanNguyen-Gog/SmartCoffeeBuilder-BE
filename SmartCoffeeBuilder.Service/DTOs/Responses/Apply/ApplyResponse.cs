@@ -41,6 +41,12 @@ public class ApplyResponse
     public bool? ProviderIsVerified { get; set; }
     public decimal? ProviderAvgRating { get; set; }
 
+    /// <summary>Số đánh giá của provider — "4.8" một mình không nói lên gì nếu chỉ có 1 lượt.</summary>
+    public int? ProviderReviewCount { get; set; }
+
+    /// <summary>URL public logo provider — để owner nhận diện khi so sánh nhiều hồ sơ.</summary>
+    public string? ProviderLogoViewUrl { get; set; }
+
     /// <summary>Số dự án provider đã hoàn thành trên hệ thống (engagement 'completed').</summary>
     public int? ProviderCompletedProjects { get; set; }
 
@@ -63,6 +69,30 @@ public class ApplyResponse
 
     public Guid? LatestQuotationId { get; set; }
 
+    // ── Khảo sát kèm hồ sơ ──
+    //
+    // Owner so nhiều provider rồi mới chọn, nên phải thấy AI đã đi khảo sát thực tế chứ không
+    // chỉ ai đã báo giá. Với bài đăng có pha thiết kế, đây cũng là điều kiện để accept được
+    // (xem ApplyService.EnsureSurveySubmittedAsync) — trả ra đây để owner biết TRƯỚC khi bấm.
+
+    /// <summary>Số bản khảo sát provider đã nộp cho hồ sơ này.</summary>
+    public int SurveyCount { get; set; }
+
+    /// <summary>Bản khảo sát mới nhất — null khi provider chưa nộp bản nào.</summary>
+    public Guid? LatestSurveyId { get; set; }
+
+    /// <summary>Lịch hẹn khảo sát của bản mới nhất.</summary>
+    public DateTime? LatestSurveyScheduledAt { get; set; }
+
+    /// <summary>
+    /// Thời điểm provider ĐÃ đi khảo sát thực tế. Null nghĩa là mới chỉ hẹn lịch — với bài đăng
+    /// có pha thiết kế thì owner chưa accept được hồ sơ này.
+    /// </summary>
+    public DateTime? LatestSurveyedAt { get; set; }
+
+    /// <summary>Đã đi khảo sát thực tế chưa — rút gọn của <see cref="LatestSurveyedAt"/> != null.</summary>
+    public bool HasCompletedSurvey { get; set; }
+
     public static ApplyResponse From(SmartCoffeeBuilder.Repository.Models.Apply a)
     {
         var provider = a.ServiceProviderProfile;
@@ -70,6 +100,11 @@ public class ApplyResponse
         // Bản báo giá "đang nói chuyện" là bản version cao nhất — các bản cũ đã superseded/rejected.
         var latestQuotation = a.Quotations?
             .OrderByDescending(q => q.Version)
+            .FirstOrDefault();
+
+        // "Mới nhất" theo thời điểm tạo — survey không có version như quotation.
+        var latestSurvey = a.Surveys?
+            .OrderByDescending(s => s.CreatedAt)
             .FirstOrDefault();
 
         return new ApplyResponse
@@ -94,6 +129,8 @@ public class ApplyResponse
             ProviderYearsExperience = provider?.YearsExperience,
             ProviderIsVerified = provider?.IsVerified,
             ProviderAvgRating = provider?.AvgRating,
+            ProviderReviewCount = provider?.ReviewCount,
+            ProviderLogoViewUrl = SmartCoffeeBuilder.Service.Utils.MediaUrl.Resolve(provider?.LogoUrl),
 
             // Các trường dưới đây chỉ có khi caller nạp kèm engagement + review (xem ApplyService).
             ProviderCompletedProjects = provider?.ProjectWorkings
@@ -103,7 +140,13 @@ public class ApplyResponse
             QuotationCount = a.Quotations?.Count ?? 0,
             LatestQuotationId = latestQuotation?.Id,
             LatestQuotationAmount = latestQuotation?.TotalAmount,
-            LatestQuotationStatus = latestQuotation?.Status.ToString()
+            LatestQuotationStatus = latestQuotation?.Status.ToString(),
+
+            SurveyCount = a.Surveys?.Count ?? 0,
+            LatestSurveyId = latestSurvey?.Id,
+            LatestSurveyScheduledAt = latestSurvey?.ScheduledAt,
+            LatestSurveyedAt = latestSurvey?.SurveyedAt,
+            HasCompletedSurvey = a.Surveys?.Any(s => s.SurveyedAt != null) ?? false
         };
     }
 
@@ -125,7 +168,7 @@ public class ApplyResponse
         return scores
             .GroupBy(s => s.Dimension)
             .ToDictionary(
-                g => g.Key,
+                g => g.Key.ToString(),
                 g => decimal.Round(g.Average(s => (decimal)s.Score), 1));
     }
 }

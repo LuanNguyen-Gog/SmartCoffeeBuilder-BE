@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using SmartCoffeeBuilder.Service.DTOs.Requests.AiRecommendation;
 using SmartCoffeeBuilder.Service.Interfaces;
 using SmartCoffeeBuilder.Service.Utils;
@@ -36,7 +37,7 @@ public class AiRecommendationController : ControllerBase
     /// </summary>
     [HttpGet]
     public async Task<IActionResult> GetAllByBriefId(
-        [FromQuery] Guid briefId,
+        [FromQuery, BindRequired] Guid briefId,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10)
     {

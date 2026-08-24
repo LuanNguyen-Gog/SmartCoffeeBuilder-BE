@@ -8,4 +8,10 @@ public class UpdateContractRequest
     public string? Terms { get; set; }
     public decimal? AgreedValue { get; set; }
     public string? DocumentUrl { get; set; }
+
+    /// <summary>Ngày bắt đầu thực hiện (yyyy-MM-dd). null = giữ nguyên.</summary>
+    public DateOnly? ExecutionStartAt { get; set; }
+
+    /// <summary>Ngày kết thúc thực hiện (yyyy-MM-dd). null = giữ nguyên.</summary>
+    public DateOnly? ExecutionEndAt { get; set; }
 }

@@ -19,4 +19,15 @@ public interface IReviewService
     Task<ReviewResponse> UpdateAsync(Guid accountId, Guid id, UpdateReviewRequest request);
 
     Task DeleteAsync(Guid accountId, Guid id);
+
+    /// <summary>Nhà cung cấp trả lời công khai một đánh giá — ghi đè phản hồi cũ (review 1.1).</summary>
+    Task<ReviewResponse> ReplyAsync(Guid accountId, Guid id, ReplyReviewRequest request);
+
+    /// <summary>Nhà cung cấp gỡ phản hồi của mình.</summary>
+    Task<ReviewResponse> RemoveReplyAsync(Guid accountId, Guid id);
+
+    /// <summary>Chủ quán đính ảnh thành phẩm vào đánh giá của mình.</summary>
+    Task<ReviewImageResponse> AddImageAsync(Guid accountId, Guid id, ReviewImageRequest request);
+
+    Task RemoveImageAsync(Guid accountId, Guid imageId);
 }

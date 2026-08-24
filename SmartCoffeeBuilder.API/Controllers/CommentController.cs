@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using SmartCoffeeBuilder.Repository.Models.Enums;
 using SmartCoffeeBuilder.Service.DTOs.Requests.Comment;
 using SmartCoffeeBuilder.Service.Interfaces;
@@ -8,9 +9,9 @@ using SmartCoffeeBuilder.Service.Utils;
 namespace SmartCoffeeBuilder.API.Controllers;
 
 /// <summary>
-/// Thread comment public neo vào ConstructionItem hoặc Design. FK mềm (target_type + target_id).
-/// - GET: cả owner và provider liên quan tới ProjectWorking đều đọc được.
-/// - POST: chỉ owner/provider liên quan hoặc admin (kiểm tra trong service).
+/// Thread comment neo vào ConstructionItem, Design hoặc Quotation. FK mềm (target_type + target_id).
+/// - GET: thread trong engagement để mở; thread báo giá chỉ hai bên của chỗ neo đọc được.
+/// - POST: chỉ owner/provider của chỗ neo hoặc admin (kiểm tra trong service).
 /// - DELETE: chỉ người tạo hoặc admin.
 /// </summary>
 [ApiController]
@@ -26,12 +27,13 @@ public class CommentController : ControllerBase
     }
 
     /// <summary>
-    /// Danh sách comment theo target. targetType: construction_item | design (chấp nhận cả PascalCase).
+    /// Danh sách comment theo target. targetType: construction_item | design | quotation
+    /// (chấp nhận cả PascalCase).
     /// </summary>
     [HttpGet]
     public async Task<IActionResult> GetAll(
         [FromQuery] string targetType,
-        [FromQuery] Guid targetId,
+        [FromQuery, BindRequired] Guid targetId,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20)
     {
@@ -39,10 +41,12 @@ public class CommentController : ControllerBase
         if (!Enum.TryParse<CommentTargetType>(normalized, ignoreCase: true, out var parsed))
             return BadRequest(new
             {
-                message = $"targetType '{targetType}' không hợp lệ. Cho phép: construction_item, design."
+                message = $"targetType '{targetType}' không hợp lệ. " +
+                          $"Cho phép: {string.Join(", ", Enum.GetNames<CommentTargetType>())}."
             });
 
-        var result = await _commentService.GetAllAsync(parsed, targetId, pageNumber, pageSize);
+        var result = await _commentService.GetAllAsync(
+            parsed, targetId, User.GetAccountId(), pageNumber, pageSize);
         return Ok(result);
     }
 

@@ -81,10 +81,36 @@ public class SmartCafeBuilderContext : DbContext
     // Nhóm 12 — Checklist nghiệm thu (design hoặc construction_item)
     public DbSet<ChecklistItem> ChecklistItems => Set<ChecklistItem>();
 
+    // Nhóm 14 — Vật tư: bảng giá công bố trước + lượng dùng theo hạng mục/task
+    public DbSet<Material> Materials => Set<Material>();
+    public DbSet<ConstructionMaterial> ConstructionMaterials => Set<ConstructionMaterial>();
+
     // Nhóm 13 — Mẫu quy trình thi công tái dùng
     public DbSet<ConstructionTemplate> ConstructionTemplates => Set<ConstructionTemplate>();
     public DbSet<ConstructionTemplateItem> ConstructionTemplateItems => Set<ConstructionTemplateItem>();
     public DbSet<ConstructionTemplateTask> ConstructionTemplateTasks => Set<ConstructionTemplateTask>();
+
+    // Nhóm 15 — Hồ sơ mặt bằng: kích thước, hướng, tầng, cửa/ban công (review 1.1)
+    public DbSet<SiteProfile> SiteProfiles => Set<SiteProfile>();
+    public DbSet<SiteFloor> SiteFloors => Set<SiteFloor>();
+    public DbSet<SiteOpening> SiteOpenings => Set<SiteOpening>();
+
+    // Nhóm 16 — Phát sinh chi phí ngoài báo giá đã chốt (review 1.1: phí sửa)
+    public DbSet<ChangeOrder> ChangeOrders => Set<ChangeOrder>();
+
+    // Nhóm 17 — Dự án mẫu trong hồ sơ năng lực provider (review 1.1)
+    public DbSet<ProviderPortfolio> ProviderPortfolios => Set<ProviderPortfolio>();
+    public DbSet<ProviderPortfolioImage> ProviderPortfolioImages => Set<ProviderPortfolioImage>();
+
+    // Nhóm 18 — Thương hiệu, năng lực provider và ảnh đánh giá (review 1.1)
+    public DbSet<ProviderSocialLink> ProviderSocialLinks => Set<ProviderSocialLink>();
+    public DbSet<ProviderServiceArea> ProviderServiceAreas => Set<ProviderServiceArea>();
+    public DbSet<ProviderCertificate> ProviderCertificates => Set<ProviderCertificate>();
+    public DbSet<ReviewImage> ReviewImages => Set<ReviewImage>();
+
+    // Nhóm 19 — Nhật ký thi công hằng ngày (review 3: daily log của constructor)
+    public DbSet<DailyLog> DailyLogs => Set<DailyLog>();
+    public DbSet<DailyLogMedia> DailyLogMedia => Set<DailyLogMedia>();
 
     // Auth
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
@@ -117,6 +143,15 @@ public class SmartCafeBuilderContext : DbContext
         configurationBuilder.Properties<QuotationStatus>().HaveConversion<string>().HaveMaxLength(30);
         configurationBuilder.Properties<PaymentBatchStatus>().HaveConversion<string>().HaveMaxLength(30);
         configurationBuilder.Properties<ChecklistStatus>().HaveConversion<string>().HaveMaxLength(30);
+        configurationBuilder.Properties<ReviewDimension>().HaveConversion<string>().HaveMaxLength(30);
+        configurationBuilder.Properties<MaterialUnit>().HaveConversion<string>().HaveMaxLength(20);
+        configurationBuilder.Properties<Orientation>().HaveConversion<string>().HaveMaxLength(20);
+        configurationBuilder.Properties<SiteOpeningType>().HaveConversion<string>().HaveMaxLength(30);
+        configurationBuilder.Properties<ChangeOrderKind>().HaveConversion<string>().HaveMaxLength(30);
+        configurationBuilder.Properties<ChangeOrderStatus>().HaveConversion<string>().HaveMaxLength(20);
+        configurationBuilder.Properties<SocialPlatform>().HaveConversion<string>().HaveMaxLength(30);
+        configurationBuilder.Properties<CertificateKind>().HaveConversion<string>().HaveMaxLength(30);
+        configurationBuilder.Properties<DailyLogMediaType>().HaveConversion<string>().HaveMaxLength(20);
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -144,6 +179,11 @@ public class SmartCafeBuilderContext : DbContext
             e.ToTable("service_providers");
             e.HasIndex(x => x.AccountId).IsUnique();
             e.Property(x => x.AvgRating).HasPrecision(3, 2);
+            e.Property(x => x.LogoUrl).HasMaxLength(500);
+            e.Property(x => x.CoverImageUrl).HasMaxLength(500);
+            e.Property(x => x.IntroVideoUrl).HasMaxLength(500);
+            e.Property(x => x.Website).HasMaxLength(500);
+            e.Property(x => x.CompanyAddress).HasMaxLength(500);
             e.HasOne(x => x.Account).WithOne(a => a.ServiceProviderProfile)
                 .HasForeignKey<ServiceProviderProfile>(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
         });
@@ -277,9 +317,20 @@ public class SmartCafeBuilderContext : DbContext
         {
             e.Property(x => x.ProjectWorkingId).HasColumnName("project_provider_id");
             e.HasIndex(x => x.ProjectWorkingId).HasDatabaseName("ix_surveys_project_provider_id");
+            e.HasIndex(x => x.ApplyId);
+
+            // Review 3: khảo sát làm được TỪ LÚC ỨNG TUYỂN, nên hai chỗ neo và phải đúng một.
+            // Mồ côi cả hai thì không suy ra được quyền xem (quyền đi theo apply hoặc engagement).
+            e.ToTable(t => t.HasCheckConstraint(
+                "ck_surveys_target",
+                "(project_provider_id IS NOT NULL AND apply_id IS NULL) OR " +
+                "(project_provider_id IS NULL AND apply_id IS NOT NULL)"));
+
             e.HasOne(x => x.ProjectWorking).WithMany(p => p.Surveys)
                 .HasForeignKey(x => x.ProjectWorkingId).OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("fk_surveys_project_providers_project_provider_id");
+            e.HasOne(x => x.Apply).WithMany(a => a.Surveys)
+                .HasForeignKey(x => x.ApplyId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.CreatedByAccount).WithMany()
                 .HasForeignKey(x => x.CreatedBy).OnDelete(DeleteBehavior.SetNull);
         });
@@ -358,6 +409,8 @@ public class SmartCafeBuilderContext : DbContext
         {
             e.Property(x => x.ProjectWorkingId).HasColumnName("project_provider_id");
             e.HasIndex(x => x.ProjectWorkingId).HasDatabaseName("ix_construction_items_project_provider_id");
+            e.Property(x => x.EstimatedLaborCost).HasPrecision(18, 2);
+            e.Property(x => x.ActualLaborCost).HasPrecision(18, 2);
             e.HasIndex(x => x.ParentId);
             e.HasOne(x => x.ProjectWorking).WithMany(p => p.ConstructionItems)
                 .HasForeignKey(x => x.ProjectWorkingId).OnDelete(DeleteBehavior.Cascade)
@@ -370,6 +423,8 @@ public class SmartCafeBuilderContext : DbContext
 
         modelBuilder.Entity<ConstructionTask>(e =>
         {
+            e.Property(x => x.EstimatedLaborCost).HasPrecision(18, 2);
+            e.Property(x => x.ActualLaborCost).HasPrecision(18, 2);
             e.HasIndex(x => x.ConstructionItemId);
             e.HasOne(x => x.ConstructionItem).WithMany(c => c.Tasks)
                 .HasForeignKey(x => x.ConstructionItemId).OnDelete(DeleteBehavior.Cascade);
@@ -499,12 +554,16 @@ public class SmartCafeBuilderContext : DbContext
             e.HasOne(x => x.ProjectWorking).WithMany(p => p.Reviews)
                 .HasForeignKey(x => x.ProjectWorkingId).OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("fk_reviews_project_providers_project_provider_id");
+            e.HasOne(x => x.RepliedByAccount).WithMany()
+                .HasForeignKey(x => x.RepliedBy).OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<ReviewScore>(e =>
         {
             e.HasIndex(x => x.ReviewId);
-            e.Property(x => x.Dimension).HasMaxLength(50);
+            // Mỗi tiêu chí chỉ được chấm một điểm trong cùng một review — chặn ở DB thay vì chỉ
+            // dựa vào validate ở service.
+            e.HasIndex(x => new { x.ReviewId, x.Dimension }).IsUnique();
             e.HasOne(x => x.Review).WithMany(r => r.ReviewScores)
                 .HasForeignKey(x => x.ReviewId).OnDelete(DeleteBehavior.Cascade);
         });
@@ -577,6 +636,7 @@ public class SmartCafeBuilderContext : DbContext
             e.Property(x => x.ProjectWorkingId).HasColumnName("project_provider_id");
             e.Property(x => x.Title).HasMaxLength(255);
             e.Property(x => x.TotalAmount).HasPrecision(15, 2);
+            e.Property(x => x.ExtraRevisionFee).HasPrecision(15, 2);
 
             e.HasIndex(x => x.ApplyId).HasDatabaseName("ix_quotations_application_id");
             e.HasIndex(x => x.ProjectWorkingId).HasDatabaseName("ix_quotations_project_provider_id");
@@ -649,6 +709,7 @@ public class SmartCafeBuilderContext : DbContext
             e.Property(x => x.Amount).HasPrecision(15, 2);
             e.HasIndex(x => x.ContractId);
             e.HasIndex(x => x.ConstructionItemId);
+            e.HasIndex(x => x.ChangeOrderId);
             e.HasOne(x => x.Contract).WithMany(c => c.PaymentBatches)
                 .HasForeignKey(x => x.ContractId).OnDelete(DeleteBehavior.Cascade);
             // Hạng mục bị xoá thì đợt tiền vẫn phải còn (đó là chứng từ) — chỉ gỡ liên kết.
@@ -656,6 +717,9 @@ public class SmartCafeBuilderContext : DbContext
                 .HasForeignKey(x => x.ConstructionItemId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.QuotationPaymentTerm).WithMany()
                 .HasForeignKey(x => x.QuotationPaymentTermId).OnDelete(DeleteBehavior.SetNull);
+            // Cùng lý lẽ với ConstructionItem: đợt tiền là chứng từ, xoá nguồn chỉ gỡ liên kết.
+            e.HasOne(x => x.ChangeOrder).WithMany(c => c.PaymentBatches)
+                .HasForeignKey(x => x.ChangeOrderId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.ConfirmedByAccount).WithMany()
                 .HasForeignKey(x => x.ConfirmedBy).OnDelete(DeleteBehavior.SetNull);
         });
@@ -720,6 +784,254 @@ public class SmartCafeBuilderContext : DbContext
             e.HasIndex(x => x.ConstructionTemplateItemId);
             e.HasOne(x => x.ConstructionTemplateItem).WithMany(i => i.Tasks)
                 .HasForeignKey(x => x.ConstructionTemplateItemId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ───────── Nhóm 14 — Vật tư (review 3) ─────────
+        modelBuilder.Entity<Material>(e =>
+        {
+            e.Property(x => x.ProjectWorkingId).HasColumnName("project_provider_id");
+            e.Property(x => x.Name).HasMaxLength(255);
+            e.Property(x => x.UnitPrice).HasPrecision(18, 2);
+            e.HasIndex(x => x.ProjectWorkingId).HasDatabaseName("ix_materials_project_provider_id");
+
+            // Cùng một engagement không khai hai dòng trùng tên — bảng giá phải tra được theo tên.
+            e.HasIndex(x => new { x.ProjectWorkingId, x.Name }).IsUnique();
+
+            e.HasOne(x => x.ProjectWorking).WithMany(p => p.Materials)
+                .HasForeignKey(x => x.ProjectWorkingId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_materials_project_providers_project_provider_id");
+            e.HasOne(x => x.CreatedByAccount).WithMany()
+                .HasForeignKey(x => x.CreatedBy).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<ConstructionMaterial>(e =>
+        {
+            e.Property(x => x.EstimatedQuantity).HasPrecision(18, 3);
+            e.Property(x => x.ActualQuantity).HasPrecision(18, 3);
+            e.Property(x => x.UnitPrice).HasPrecision(18, 2);
+            e.HasIndex(x => x.ConstructionItemId);
+            e.HasIndex(x => x.ConstructionTaskId);
+            e.HasIndex(x => x.MaterialId);
+
+            // Dòng vật tư treo vào ĐÚNG MỘT chỗ: milestone (khi không chia task) hoặc task.
+            // Treo cả hai thì tổng của milestone cộng trùng chính nó.
+            e.ToTable(t => t.HasCheckConstraint(
+                "ck_construction_materials_target",
+                "(construction_item_id IS NOT NULL AND construction_task_id IS NULL) OR " +
+                "(construction_item_id IS NULL AND construction_task_id IS NOT NULL)"));
+
+            e.HasOne(x => x.ConstructionItem).WithMany(ci => ci.Materials)
+                .HasForeignKey(x => x.ConstructionItemId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.ConstructionTask).WithMany(t => t.Materials)
+                .HasForeignKey(x => x.ConstructionTaskId).OnDelete(DeleteBehavior.Cascade);
+
+            // Restrict: vật tư đã có hạng mục dùng thì không xoá khỏi bảng giá được, nếu không
+            // các dòng đã chốt mất mất tên/đơn vị và báo cáo chi phí không đọc lại được.
+            e.HasOne(x => x.Material).WithMany(m => m.Usages)
+                .HasForeignKey(x => x.MaterialId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.CreatedByAccount).WithMany()
+                .HasForeignKey(x => x.CreatedBy).OnDelete(DeleteBehavior.SetNull);
+        });
+
+
+        // ───────── Nhóm 15 — Hồ sơ mặt bằng (review 1.1: kích thước, hướng, cửa, ban công, tầng) ─────────
+        modelBuilder.Entity<SiteProfile>(e =>
+        {
+            e.Property(x => x.ProjectShopOwnerId).HasColumnName("project_id");
+            e.Property(x => x.LengthM).HasPrecision(10, 2);
+            e.Property(x => x.WidthM).HasPrecision(10, 2);
+            e.Property(x => x.FrontageWidthM).HasPrecision(10, 2);
+            e.Property(x => x.CeilingHeightM).HasPrecision(10, 2);
+            e.Property(x => x.RoadWidthM).HasPrecision(10, 2);
+
+            // 1-1 với dự án: unique index chính là thứ enforce, không để service tự canh.
+            e.HasIndex(x => x.ProjectShopOwnerId).IsUnique()
+                .HasDatabaseName("ix_site_profiles_project_id");
+
+            e.HasOne(x => x.ProjectShopOwner).WithOne(p => p.SiteProfile)
+                .HasForeignKey<SiteProfile>(x => x.ProjectShopOwnerId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_site_profiles_projects_project_id");
+            e.HasOne(x => x.CreatedByAccount).WithMany()
+                .HasForeignKey(x => x.CreatedBy).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<SiteFloor>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(100);
+            e.Property(x => x.AreaM2).HasPrecision(10, 2);
+            e.Property(x => x.CeilingHeightM).HasPrecision(10, 2);
+            e.Property(x => x.Purpose).HasMaxLength(255);
+
+            // Một mặt bằng không có hai "tầng 2" — số hiệu tầng là thứ người dùng tra theo.
+            e.HasIndex(x => new { x.SiteProfileId, x.FloorNo }).IsUnique();
+
+            e.HasOne(x => x.SiteProfile).WithMany(p => p.Floors)
+                .HasForeignKey(x => x.SiteProfileId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<SiteOpening>(e =>
+        {
+            e.Property(x => x.WidthM).HasPrecision(10, 2);
+            e.Property(x => x.HeightM).HasPrecision(10, 2);
+            e.HasIndex(x => x.SiteProfileId);
+            e.HasIndex(x => x.SiteFloorId);
+
+            e.HasOne(x => x.SiteProfile).WithMany(p => p.Openings)
+                .HasForeignKey(x => x.SiteProfileId).OnDelete(DeleteBehavior.Cascade);
+
+            // SetNull: xoá một tầng không được xoá mất ô cửa đã khai — nó vẫn thuộc mặt bằng,
+            // chỉ là chưa biết nằm ở tầng nào nữa.
+            e.HasOne(x => x.SiteFloor).WithMany(f => f.Openings)
+                .HasForeignKey(x => x.SiteFloorId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // ───────── Nhóm 16 — Phát sinh chi phí ngoài báo giá (review 1.1: phí sửa) ─────────
+        modelBuilder.Entity<ChangeOrder>(e =>
+        {
+            e.Property(x => x.ProjectWorkingId).HasColumnName("project_provider_id");
+            e.Property(x => x.Title).HasMaxLength(255);
+            e.Property(x => x.Amount).HasPrecision(15, 2);
+
+            e.HasIndex(x => x.ProjectWorkingId).HasDatabaseName("ix_change_orders_project_provider_id");
+            e.HasIndex(x => x.DesignId);
+            e.HasIndex(x => x.ConstructionItemId);
+
+            e.HasOne(x => x.ProjectWorking).WithMany(p => p.ChangeOrders)
+                .HasForeignKey(x => x.ProjectWorkingId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_change_orders_project_providers_project_provider_id");
+
+            // SetNull ở cả hai FK phụ: công nợ đã hai bên đồng ý thì không được biến mất chỉ vì
+            // hạng mục/bản thiết kế nó tham chiếu bị xoá.
+            e.HasOne(x => x.Design).WithMany(d => d.ChangeOrders)
+                .HasForeignKey(x => x.DesignId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.ConstructionItem).WithMany(ci => ci.ChangeOrders)
+                .HasForeignKey(x => x.ConstructionItemId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.CreatedByAccount).WithMany()
+                .HasForeignKey(x => x.CreatedBy).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.RespondedByAccount).WithMany()
+                .HasForeignKey(x => x.RespondedBy).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // ───────── Nhóm 17 — Dự án mẫu của provider (review 1.1) ─────────
+        modelBuilder.Entity<ProviderPortfolio>(e =>
+        {
+            e.Property(x => x.ServiceProviderProfileId).HasColumnName("provider_id");
+            e.Property(x => x.Title).HasMaxLength(255);
+            e.Property(x => x.Style).HasMaxLength(100);
+            e.Property(x => x.Location).HasMaxLength(255);
+            e.Property(x => x.VideoUrl).HasMaxLength(500);
+            e.Property(x => x.CoverImageUrl).HasMaxLength(500);
+            e.Property(x => x.AreaM2).HasPrecision(10, 2);
+            e.Property(x => x.ContractValue).HasPrecision(15, 2);
+
+            e.HasIndex(x => x.ServiceProviderProfileId).HasDatabaseName("ix_provider_portfolios_provider_id");
+
+            e.HasOne(x => x.ServiceProviderProfile).WithMany(p => p.Portfolios)
+                .HasForeignKey(x => x.ServiceProviderProfileId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_provider_portfolios_service_providers_provider_id");
+        });
+
+        modelBuilder.Entity<ProviderPortfolioImage>(e =>
+        {
+            e.Property(x => x.ImageUrl).HasMaxLength(500);
+            e.HasIndex(x => x.ProviderPortfolioId);
+
+            e.HasOne(x => x.ProviderPortfolio).WithMany(p => p.Images)
+                .HasForeignKey(x => x.ProviderPortfolioId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+
+        // ───────── Nhóm 18 — Thương hiệu & năng lực provider (review 1.1) ─────────
+        modelBuilder.Entity<ProviderSocialLink>(e =>
+        {
+            e.Property(x => x.ServiceProviderProfileId).HasColumnName("provider_id");
+            e.Property(x => x.Url).HasMaxLength(500);
+            e.Property(x => x.Label).HasMaxLength(150);
+
+            // Một provider không khai hai lần cùng một nền tảng — hai fanpage Facebook thì gộp
+            // vào một dòng, không phải hai dòng để FE vẽ hai icon giống hệt nhau.
+            e.HasIndex(x => new { x.ServiceProviderProfileId, x.Platform }).IsUnique()
+                .HasDatabaseName("ix_provider_social_links_provider_id_platform");
+
+            e.HasOne(x => x.ServiceProviderProfile).WithMany(p => p.SocialLinks)
+                .HasForeignKey(x => x.ServiceProviderProfileId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_provider_social_links_service_providers_provider_id");
+        });
+
+        modelBuilder.Entity<ProviderServiceArea>(e =>
+        {
+            e.Property(x => x.ServiceProviderProfileId).HasColumnName("provider_id");
+            e.Property(x => x.Province).HasMaxLength(100);
+            e.Property(x => x.District).HasMaxLength(100);
+
+            // Lọc provider theo tỉnh là truy vấn của trang tìm nhà cung cấp — cần index.
+            e.HasIndex(x => x.Province);
+            e.HasIndex(x => new { x.ServiceProviderProfileId, x.Province, x.District }).IsUnique()
+                .HasDatabaseName("ix_provider_service_areas_provider_id_province_district");
+
+            e.HasOne(x => x.ServiceProviderProfile).WithMany(p => p.ServiceAreas)
+                .HasForeignKey(x => x.ServiceProviderProfileId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_provider_service_areas_service_providers_provider_id");
+        });
+
+        modelBuilder.Entity<ProviderCertificate>(e =>
+        {
+            e.Property(x => x.ServiceProviderProfileId).HasColumnName("provider_id");
+            e.Property(x => x.Name).HasMaxLength(255);
+            e.Property(x => x.Issuer).HasMaxLength(255);
+            e.Property(x => x.CertificateNo).HasMaxLength(100);
+            e.Property(x => x.FileUrl).HasMaxLength(500);
+            e.HasIndex(x => x.ServiceProviderProfileId)
+                .HasDatabaseName("ix_provider_certificates_provider_id");
+
+            e.HasOne(x => x.ServiceProviderProfile).WithMany(p => p.Certificates)
+                .HasForeignKey(x => x.ServiceProviderProfileId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_provider_certificates_service_providers_provider_id");
+        });
+
+        modelBuilder.Entity<ReviewImage>(e =>
+        {
+            e.Property(x => x.ImageUrl).HasMaxLength(500);
+            e.HasIndex(x => x.ReviewId);
+
+            e.HasOne(x => x.Review).WithMany(r => r.Images)
+                .HasForeignKey(x => x.ReviewId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ───────── Nhóm 19 — Nhật ký thi công hằng ngày (review 3) ─────────
+        modelBuilder.Entity<DailyLog>(e =>
+        {
+            // Entity đổi tên (ProjectProvider → ProjectWorking) nhưng cột DB giữ tên cũ — xem đầu file.
+            e.Property(x => x.ProjectWorkingId).HasColumnName("project_provider_id");
+            e.Property(x => x.WeatherNote).HasMaxLength(255);
+
+            // Truy vấn chính là "nhật ký của engagement này, mới nhất trước" → index ghép.
+            e.HasIndex(x => new { x.ProjectWorkingId, x.LogDate })
+                .HasDatabaseName("ix_daily_logs_project_provider_id_log_date");
+            e.HasIndex(x => x.ConstructionItemId);
+            e.HasIndex(x => x.ConstructionTaskId);
+
+            e.HasOne(x => x.ProjectWorking).WithMany(p => p.DailyLogs)
+                .HasForeignKey(x => x.ProjectWorkingId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_daily_logs_project_providers_project_provider_id");
+
+            // Xoá hạng mục/task chỉ GỠ LIÊN KẾT: nhật ký là vết công trường đã xảy ra, xoá theo
+            // thì mất luôn bằng chứng tiến độ của những ngày đó.
+            e.HasOne(x => x.ConstructionItem).WithMany(ci => ci.DailyLogs)
+                .HasForeignKey(x => x.ConstructionItemId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.ConstructionTask).WithMany(t => t.DailyLogs)
+                .HasForeignKey(x => x.ConstructionTaskId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.CreatedByAccount).WithMany()
+                .HasForeignKey(x => x.CreatedBy).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<DailyLogMedia>(e =>
+        {
+            e.Property(x => x.MediaUrl).HasMaxLength(500);
+            e.HasIndex(x => x.DailyLogId);
+
+            e.HasOne(x => x.DailyLog).WithMany(l => l.Media)
+                .HasForeignKey(x => x.DailyLogId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // Default now() cho mọi cột created_at / updated_at / sent_at.

@@ -20,4 +20,10 @@ public class Apply
 
     /// <summary>Các bản báo giá provider gửi kèm hồ sơ ứng tuyển này (nhiều version).</summary>
     public ICollection<Quotation> Quotations { get; set; } = new List<Quotation>();
+
+    /// <summary>
+    /// Khảo sát provider làm trong lúc ứng tuyển — chủ quán xem khảo sát + báo giá của từng
+    /// provider rồi mới chọn (review 3).
+    /// </summary>
+    public ICollection<Survey> Surveys { get; set; } = new List<Survey>();
 }

@@ -27,4 +27,25 @@ public static class ConstructionSchedule
                 $"EstimateAt '{due:yyyy-MM-dd}' nằm trước ngày hiện tại ({today:yyyy-MM-dd}) — " +
                 $"hạn hoàn thành {subject} không được đặt về quá khứ.");
     }
+
+    /// <summary>
+    /// Ngày bắt đầu không được nằm SAU hạn hoàn thành — thời lượng âm là dữ liệu sai, không phải
+    /// một lịch chặt. Bỏ qua khi một trong hai mốc còn trống (kế hoạch điền dần).
+    /// </summary>
+    /// <exception cref="ArgumentException">StartAt > EstimateAt (HTTP 400).</exception>
+    public static void EnsureRangeOrdered(DateOnly? startAt, DateOnly? estimateAt, string subject)
+    {
+        if (startAt is not DateOnly start || estimateAt is not DateOnly due) return;
+
+        if (start > due)
+            throw new ArgumentException(
+                $"StartAt '{start:yyyy-MM-dd}' nằm sau EstimateAt '{due:yyyy-MM-dd}' — " +
+                $"thời lượng {subject} không thể âm.");
+    }
+
+    /// <summary>Số ngày theo kế hoạch, tính cả ngày đầu và ngày cuối. null khi thiếu một mốc.</summary>
+    public static int? DurationDays(DateOnly? startAt, DateOnly? endAt) =>
+        startAt is DateOnly s && endAt is DateOnly e && e >= s
+            ? e.DayNumber - s.DayNumber + 1
+            : null;
 }

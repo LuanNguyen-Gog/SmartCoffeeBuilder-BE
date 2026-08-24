@@ -17,6 +17,16 @@ public class Design
     /// owner đọc lại lịch sử từng vòng.
     /// </summary>
     public string? ChangeSummary { get; set; }
+    /// <summary>
+    /// Số vòng owner ĐÃ yêu cầu sửa bản thiết kế này. Tăng 1 mỗi lần
+    /// <c>DesignService.RequestRevisionAsync</c> chạy, KHÔNG bao giờ giảm.
+    ///
+    /// Đây là con số đối chiếu với <c>quotations.free_revision_count</c> để biết vòng sửa tiếp theo
+    /// còn miễn phí hay đã phát sinh chi phí. Không suy từ <see cref="Version"/> được: version cũng
+    /// tăng khi provider chủ động nộp lại, mà cái đó không phải owner đòi sửa.
+    /// </summary>
+    public int RevisionCount { get; set; }
+
     public DesignStatus Status { get; set; } = DesignStatus.in_progress;
     public Guid? CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -28,4 +38,7 @@ public class Design
 
     /// <summary>Checklist nghiệm thu bản thiết kế này (review 3).</summary>
     public ICollection<ChecklistItem> ChecklistItems { get; set; } = new List<ChecklistItem>();
+
+    /// <summary>Các khoản phát sinh chi phí do vòng sửa vượt hạn mức của bản thiết kế này.</summary>
+    public ICollection<ChangeOrder> ChangeOrders { get; set; } = new List<ChangeOrder>();
 }

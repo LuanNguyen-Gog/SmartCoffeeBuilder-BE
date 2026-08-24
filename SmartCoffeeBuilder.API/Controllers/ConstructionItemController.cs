@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using SmartCoffeeBuilder.Service.DTOs.Requests.ConstructionItem;
 using SmartCoffeeBuilder.Service.Interfaces;
 using SmartCoffeeBuilder.Service.Utils;
@@ -90,5 +91,25 @@ public class ConstructionItemController : ControllerBase
     {
         await _constructionItemService.DeleteAsync(User.GetAccountId(), id);
         return NoContent();
+    }
+
+    /// <summary>
+    /// Chi phí của một hạng mục: nhân công + vật tư, gộp task con và milestone con
+    /// (review 1.1: "quản lý thi công theo … chi phí").
+    /// </summary>
+    [HttpGet("{id:guid}/cost-summary")]
+    public async Task<IActionResult> GetCostSummary(Guid id)
+    {
+        var result = await _constructionItemService.GetCostSummaryAsync(User.GetAccountId(), id);
+        return Ok(result);
+    }
+
+    /// <summary>Chi phí thi công của cả hợp tác — dự toán, thực chi và chênh lệch.</summary>
+    [HttpGet("cost-summary")]
+    public async Task<IActionResult> GetEngagementCostSummary([FromQuery, BindRequired] Guid projectWorkingId)
+    {
+        var result = await _constructionItemService.GetEngagementCostSummaryAsync(
+            User.GetAccountId(), projectWorkingId);
+        return Ok(result);
     }
 }

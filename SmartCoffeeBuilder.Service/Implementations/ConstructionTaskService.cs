@@ -53,7 +53,13 @@ public class ConstructionTaskService : IConstructionTaskService
                                && (st == null || e.Status == st)
                                && (visibleEngagementIds == null
                                    || visibleEngagementIds.Contains(e.ConstructionItem.ProjectWorkingId)))
-            .OrderByDescending(e => e.CreatedAt);
+            // Xuôi theo mốc thời gian, cùng lý do với ConstructionItemService: áp mẫu quy trình
+            // ghi mọi việc con trong một transaction nên chúng dùng chung một CreatedAt, sắp theo
+            // cột đó là thứ tự tuỳ ý — trong một hạng mục MEP, "thử áp lực nước" hiện trước "đi
+            // ống điện âm tường". ThenBy Id để hai việc cùng hạn vẫn ổn định qua các trang.
+            .OrderBy(e => e.EstimateAt)
+            .ThenBy(e => e.CreatedAt)
+            .ThenBy(e => e.Id);
 
         var paged = await query.ToPaginationResponseAsync(pageNumber, pageSize);
 
@@ -86,6 +92,8 @@ public class ConstructionTaskService : IConstructionTaskService
             throw new InvalidOperationException("Milestone đã 'completed' — không thêm task được nữa.");
 
         ConstructionSchedule.EnsureEstimateNotInPast(request.EstimateAt, "task");
+        ConstructionSchedule.EnsureRangeOrdered(request.StartAt, request.EstimateAt, "task");
+        EnsureCostNotNegative(request.EstimatedLaborCost, nameof(request.EstimatedLaborCost));
 
         var task = new ConstructionTask
         {
@@ -94,7 +102,9 @@ public class ConstructionTaskService : IConstructionTaskService
             Description = request.Description,
             // Ảnh phải upload qua api/files trước; giá trị gửi lên được rút về ObjectName.
             ImageUrl = await _fileStorage.NormalizeForStorageAsync(request.ImageUrl, "imageUrl"),
+            StartAt = request.StartAt,
             EstimateAt = request.EstimateAt,
+            EstimatedLaborCost = request.EstimatedLaborCost,
             Status = ItemStatus.pending,
             // Người tạo lấy từ JWT, KHÔNG nhận từ body (xem CreateConstructionTaskRequest).
             CreatedBy = accountId,
@@ -120,6 +130,16 @@ public class ConstructionTaskService : IConstructionTaskService
         if (request.EstimateAt.HasValue)
             ConstructionSchedule.EnsureEstimateNotInPast(request.EstimateAt, "task");
 
+        // So trên giá trị SAU KHI GHÉP với bản ghi hiện tại — xem ghi chú ở ConstructionItemService.
+        ConstructionSchedule.EnsureRangeOrdered(
+            request.StartAt ?? task.StartAt, request.EstimateAt ?? task.EstimateAt, "task");
+        ConstructionSchedule.EnsureRangeOrdered(
+            request.ActualStartAt ?? task.ActualStartAt, request.ActualAt ?? task.ActualAt,
+            "task (thực tế)");
+
+        EnsureCostNotNegative(request.EstimatedLaborCost, nameof(request.EstimatedLaborCost));
+        EnsureCostNotNegative(request.ActualLaborCost, nameof(request.ActualLaborCost));
+
         if (request.Name != null) task.Name = request.Name;
         if (request.Description != null) task.Description = request.Description;
 
@@ -132,7 +152,12 @@ public class ConstructionTaskService : IConstructionTaskService
             task.ImageUrl = newImage;
         }
 
+        if (request.StartAt.HasValue) task.StartAt = request.StartAt.Value;
         if (request.EstimateAt.HasValue) task.EstimateAt = request.EstimateAt.Value;
+        if (request.ActualStartAt.HasValue) task.ActualStartAt = request.ActualStartAt.Value;
+        if (request.ActualAt.HasValue) task.ActualAt = request.ActualAt.Value;
+        if (request.EstimatedLaborCost.HasValue) task.EstimatedLaborCost = request.EstimatedLaborCost;
+        if (request.ActualLaborCost.HasValue) task.ActualLaborCost = request.ActualLaborCost;
         if (request.Reason != null) task.Reason = request.Reason;
         task.UpdatedAt = DateTime.UtcNow;
 
@@ -164,8 +189,14 @@ public class ConstructionTaskService : IConstructionTaskService
             throw new InvalidOperationException($"Không thể chuyển task từ '{task.Status}' sang '{target}'.");
 
         task.Status = target;
+
+        // Mốc thực tế tự đóng theo trạng thái (xem ConstructionItemService.UpdateStatusAsync).
+        if (target == ItemStatus.in_progress && task.ActualStartAt == null)
+            task.ActualStartAt = DateOnly.FromDateTime(DateTime.UtcNow);
         if (target == ItemStatus.completed && task.ActualAt == null)
             task.ActualAt = DateOnly.FromDateTime(DateTime.UtcNow);
+        if (target == ItemStatus.completed && task.ActualStartAt == null)
+            task.ActualStartAt = task.ActualAt;
         task.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(task);
@@ -202,5 +233,13 @@ public class ConstructionTaskService : IConstructionTaskService
         EngagementAuthorization.EnsureActor(actor, action, allowed);
 
         return task;
+    }
+
+    /// <summary>Chi phí âm là dữ liệu sai — bỏ trống nếu chưa biết.</summary>
+    /// <exception cref="ArgumentException">Giá trị âm (HTTP 400).</exception>
+    private static void EnsureCostNotNegative(decimal? value, string fieldName)
+    {
+        if (value is decimal v && v < 0)
+            throw new ArgumentException($"{fieldName} không được âm — bỏ trống nếu chưa có số liệu.");
     }
 }

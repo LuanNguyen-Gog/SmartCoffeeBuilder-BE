@@ -23,21 +23,32 @@ public class SurveyController : ControllerBase
         _surveyService = surveyService;
     }
 
-    /// <summary>Danh sách survey, lọc theo engagement.</summary>
+    /// <summary>
+    /// Danh sách khảo sát, đã lọc theo tầm nhìn của người gọi: chủ dự án thấy khảo sát trên dự án
+    /// của mình, provider thấy bản của chính mình, admin thấy tất cả.
+    ///
+    /// Lọc <c>postId</c> để owner xem khảo sát của mọi provider đã ứng tuyển một bài đăng cạnh
+    /// nhau mà so sánh — cùng tham số với <c>GET /api/quotations</c>, hai bên ghép lại thành màn
+    /// "khảo sát + báo giá" trước khi chọn nhà cung cấp.
+    /// </summary>
     [HttpGet]
     public async Task<IActionResult> GetAll(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
-        [FromQuery] Guid? projectWorkingId = null)
+        [FromQuery] Guid? projectWorkingId = null,
+        [FromQuery] Guid? applyId = null,
+        [FromQuery] Guid? postId = null)
     {
-        var result = await _surveyService.GetAllAsync(pageNumber, pageSize, projectWorkingId);
+        var result = await _surveyService.GetAllAsync(
+            User.GetAccountId(), pageNumber, pageSize, projectWorkingId, applyId, postId);
         return Ok(result);
     }
 
+    /// <summary>Chi tiết một bản khảo sát. 401 nếu không thuộc dự án của người gọi.</summary>
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id)
     {
-        var result = await _surveyService.GetByIdAsync(id);
+        var result = await _surveyService.GetByIdAsync(User.GetAccountId(), id);
         return Ok(result);
     }
 

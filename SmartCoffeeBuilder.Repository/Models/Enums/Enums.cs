@@ -72,10 +72,15 @@ public enum PaymentPlatform { web, mobile }
 
 /// <summary>
 /// Loại entity mà một <c>Comment</c> neo vào. Dùng FK mềm (target_type + target_id) để một bảng
-/// <c>comments</c> phục vụ thread cho nhiều entity (ConstructionItem, Design) — không phải 2 bảng rồi UNION.
-/// Mở rộng thêm giá trị khi cần comment cho entity mới.
+/// <c>comments</c> phục vụ thread cho nhiều entity (ConstructionItem, Design, Quotation) — không phải
+/// 3 bảng rồi UNION. Mở rộng thêm giá trị khi cần comment cho entity mới.
+///
+/// <c>quotation</c> (review 3: "thêm phần comment cho từng báo giá") KHÁC hai giá trị còn lại ở chỗ
+/// nó KHÔNG chắc chắn có <c>project_working_id</c>: báo giá gửi kèm hồ sơ ứng tuyển chỉ neo vào
+/// <c>application_id</c>, engagement chưa tồn tại. Vì vậy <c>CommentService</c> phân quyền theo
+/// CẶP ACCOUNT hai đầu chỗ neo chứ không suy ra engagement.
 /// </summary>
-public enum CommentTargetType { construction_item, design }
+public enum CommentTargetType { construction_item, design, quotation }
 
 /// <summary>
 /// Loại snapshot của <c>DesignVersion</c> — mỗi mốc quan trọng sinh một bản BẤT BIẾN:
@@ -110,4 +115,133 @@ public enum PaymentBatchStatus { pending, proof_submitted, confirmed, rejected }
 /// một chiều: 'failed' kèm ghi chú "cần sửa gì", provider sửa xong thì owner chấm lại thành 'passed'.
 /// </summary>
 public enum ChecklistStatus { pending, passed, failed }
+
+/// <summary>
+/// Tiêu chí chấm điểm provider — DANH SÁCH CỐ ĐỊNH, không phải chuỗi tự do.
+///
+/// Trước đây <c>review_scores.dimension</c> là text: mỗi người gõ một kiểu ("Tiến độ",
+/// "Tien do", "Tiến độ thi công") nên phần tổng hợp điểm trung bình theo tiêu chí tách
+/// thành nhiều dòng rời rạc và không so sánh được giữa các provider. Đóng khung thành enum
+/// để mọi provider được chấm trên cùng một bộ thước đo.
+/// </summary>
+public enum ReviewDimension
+{
+    /// <summary>Tiến độ — bám sát mốc thời gian đã cam kết.</summary>
+    progress,
+    /// <summary>Chất lượng — thành phẩm thiết kế / thi công.</summary>
+    quality,
+    /// <summary>Giao tiếp — phản hồi, cập nhật tình hình.</summary>
+    communication,
+    /// <summary>Chi phí — bám sát báo giá, không phát sinh tuỳ tiện.</summary>
+    cost,
+    /// <summary>Thái độ làm việc — chuyên nghiệp, giữ cam kết.</summary>
+    professionalism
+}
+
+/// <summary>
+/// Đơn vị tính của vật tư (review 3: "định nghĩa bằng tiền/đơn vị"). Cố định thành enum để
+/// đơn giá còn cộng trừ được — đơn vị tự do thì "m2" và "M²" thành hai thứ khác nhau.
+/// </summary>
+public enum MaterialUnit
+{
+    /// <summary>Mét dài (md).</summary>
+    md,
+    /// <summary>Mét vuông (m²).</summary>
+    m2,
+    /// <summary>Mét khối (m³).</summary>
+    m3,
+    /// <summary>Kilôgam.</summary>
+    kg,
+    /// <summary>Lít.</summary>
+    litre,
+    /// <summary>Cái / chiếc — đếm từng đơn vị (bóng đèn, ổ cắm…).</summary>
+    item,
+    /// <summary>Bộ — cụm nhiều món bán kèm nhau.</summary>
+    set,
+    /// <summary>Công (ngày công nhân).</summary>
+    manday
+}
+
+/// <summary>
+/// Hướng của mặt bằng hoặc của một ô cửa (review 1.1: "gắn thông số thực tế như … hướng").
+/// Tám hướng cố định thay vì text tự do: hướng là thứ AI và người thiết kế phải suy luận trên đó
+/// (nắng chiều, gió, chỗ đặt biển hiệu). "Đông Nam" và "dong nam" mà thành hai giá trị khác nhau
+/// thì không lọc, không thống kê và không đưa vào prompt được.
+/// </summary>
+public enum Orientation { north, northeast, east, southeast, south, southwest, west, northwest }
+
+/// <summary>
+/// Loại ô mở trên mặt bằng (review 1.1: "cửa, ban công"). Ô mở quyết định lối vào, ánh sáng tự
+/// nhiên và chỗ đặt mặt tiền — là ràng buộc thiết kế thật, không phải ghi chú.
+/// </summary>
+public enum SiteOpeningType
+{
+    /// <summary>Cửa chính — lối vào khách.</summary>
+    main_door,
+    /// <summary>Cửa phụ / lối thoát hiểm.</summary>
+    secondary_door,
+    /// <summary>Cửa phục vụ: nhập hàng, đổ rác, bếp.</summary>
+    service_door,
+    /// <summary>Cửa sổ.</summary>
+    window,
+    /// <summary>Ban công.</summary>
+    balcony,
+    /// <summary>Sân thượng.</summary>
+    terrace,
+    /// <summary>Giếng trời.</summary>
+    skylight
+}
+
+/// <summary>
+/// Loại phát sinh chi phí NGOÀI báo giá đã chốt (review 1.1: "quy định số lần sửa và phí sửa").
+/// </summary>
+public enum ChangeOrderKind
+{
+    /// <summary>Vòng sửa thiết kế vượt quá số lần miễn phí cam kết trong báo giá.</summary>
+    extra_revision,
+    /// <summary>Owner đổi phạm vi công việc so với báo giá.</summary>
+    scope_change,
+    /// <summary>Đổi vật tư so với bảng giá đã công bố.</summary>
+    material_change,
+    /// <summary>Phát sinh khác.</summary>
+    other
+}
+
+/// <summary>
+/// Vòng đời một phát sinh chi phí: <c>pending</c> (đã lập, chờ bên kia đồng ý) →
+/// <c>accepted</c> | <c>rejected</c>. Bản <c>accepted</c> bị KHOÁ, muốn đổi thì lập bản mới —
+/// cùng nguyên tắc với <see cref="QuotationStatus"/>: số tiền hai bên đã đồng ý không sửa đè.
+/// </summary>
+public enum ChangeOrderStatus { pending, accepted, rejected }
+
+/// <summary>
+/// Kênh mạng xã hội / website của nhà cung cấp (review 1.1: "thương hiệu"). Đóng khung thành enum
+/// thay vì để mỗi dòng một chuỗi tự do: FE cần biết vẽ icon nào, và "Facebook" / "facebook" / "FB"
+/// mà thành ba nền tảng khác nhau thì không nhóm được.
+/// </summary>
+public enum SocialPlatform { facebook, instagram, tiktok, youtube, linkedin, zalo, website, other }
+
+/// <summary>
+/// Loại hồ sơ năng lực đính kèm (review 1.1: "năng lực"): giấy phép hành nghề, chứng chỉ chuyên
+/// môn, giải thưởng, tư cách thành viên hiệp hội.
+/// </summary>
+public enum CertificateKind
+{
+    /// <summary>Giấy phép hành nghề / đăng ký kinh doanh.</summary>
+    license,
+    /// <summary>Chứng chỉ chuyên môn.</summary>
+    certificate,
+    /// <summary>Giải thưởng.</summary>
+    award,
+    /// <summary>Tư cách thành viên hiệp hội nghề.</summary>
+    membership,
+    /// <summary>Loại khác.</summary>
+    other
+}
+
+/// <summary>
+/// Loại file hiện trường đính kèm <c>DailyLog</c> (review 3: "Hình ảnh/video hiện trường").
+/// FE dùng để chọn thẻ render — ảnh và video không cùng một khung.
+/// </summary>
+public enum DailyLogMediaType { image, video }
 #pragma warning restore CS8981

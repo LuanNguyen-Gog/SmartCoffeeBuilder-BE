@@ -14,6 +14,18 @@ public class ContractResponse
     public string? DocumentUrl { get; set; }
     /// <summary>URL public tuyệt đối của file hợp đồng — FE dùng thẳng để xem/tải.</summary>
     public string? DocumentViewUrl { get; set; }
+
+    /// <summary>Ngày bắt đầu thực hiện theo hợp đồng.</summary>
+    public DateOnly? ExecutionStartAt { get; set; }
+
+    /// <summary>Ngày kết thúc thực hiện theo hợp đồng.</summary>
+    public DateOnly? ExecutionEndAt { get; set; }
+
+    /// <summary>
+    /// Số ngày thực hiện, tính cả ngày đầu và ngày cuối. DERIVED từ hai mốc trên — không lưu DB
+    /// để khỏi có hai nguồn sự thật lệch nhau. null khi thiếu một mốc.
+    /// </summary>
+    public int? ExecutionDurationDays { get; set; }
     public DateTime? OtpExpiresAt { get; set; }
     public DateTime? ConfirmedAt { get; set; }
     public Guid? ConfirmedBy { get; set; }
@@ -35,6 +47,9 @@ public class ContractResponse
         AgreedValue = e.AgreedValue,
         DocumentUrl = e.DocumentUrl,
         DocumentViewUrl = MediaUrl.Resolve(e.DocumentUrl),
+        ExecutionStartAt = e.ExecutionStartAt,
+        ExecutionEndAt = e.ExecutionEndAt,
+        ExecutionDurationDays = ConstructionSchedule.DurationDays(e.ExecutionStartAt, e.ExecutionEndAt),
         OtpExpiresAt = e.OtpExpiresAt,
         ConfirmedAt = e.ConfirmedAt,
         ConfirmedBy = e.ConfirmedBy,

@@ -62,4 +62,13 @@ public class ProjectWorking
 
     /// <summary>Báo giá của đường MỜI TRỰC TIẾP (không qua hồ sơ ứng tuyển).</summary>
     public ICollection<Quotation> Quotations { get; set; } = new List<Quotation>();
+
+    /// <summary>Bảng giá vật tư đã công bố cho engagement này (review 3).</summary>
+    public ICollection<Material> Materials { get; set; } = new List<Material>();
+
+    /// <summary>Các khoản phát sinh chi phí ngoài báo giá đã chốt (phí sửa, đổi phạm vi…).</summary>
+    public ICollection<ChangeOrder> ChangeOrders { get; set; } = new List<ChangeOrder>();
+
+    /// <summary>Nhật ký thi công hằng ngày của engagement này (review 3).</summary>
+    public ICollection<DailyLog> DailyLogs { get; set; } = new List<DailyLog>();
 }

@@ -12,6 +12,12 @@ public class DesignResponse
     /// <summary>Provider mô tả thay đổi so với bản trước.</summary>
     public string? ChangeSummary { get; set; }
     public string Status { get; set; } = null!;
+
+    /// <summary>
+    /// Số vòng owner ĐÃ yêu cầu sửa. So với free_revision_count của báo giá đã chốt để biết vòng
+    /// tiếp theo còn miễn phí hay phát sinh phí (review 1.1).
+    /// </summary>
+    public int RevisionCount { get; set; }
     public Guid? CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
@@ -27,6 +33,7 @@ public class DesignResponse
         Reason = e.Reason,
         ChangeSummary = e.ChangeSummary,
         Status = e.Status.ToString(),
+        RevisionCount = e.RevisionCount,
         CreatedBy = e.CreatedBy,
         CreatedAt = e.CreatedAt,
         UpdatedAt = e.UpdatedAt,

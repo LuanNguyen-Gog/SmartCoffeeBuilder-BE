@@ -7,8 +7,10 @@ namespace SmartCoffeeBuilder.Repository.SeedData;
 
 /// <summary>
 /// Seed tối thiểu: 3 tài khoản provider để test (designer / constructor / both) + các bảng lookup
-/// mà API cần mới chạy được (issue_types, doc_types, subscription_plans). KHÔNG seed dữ liệu
-/// nghiệp vụ mẫu — dự án, hợp đồng, thiết kế… đều tạo qua API khi test.
+/// mà API cần mới chạy được (issue_types, doc_types, subscription_plans) + mẫu quy trình thi công
+/// công khai (không có đường nào khác tạo được mẫu <c>IsPublic</c>, xem
+/// <see cref="SeedConstructionTemplatesAsync"/>). KHÔNG seed dữ liệu giao dịch — dự án, hợp đồng,
+/// thiết kế… đều tạo qua API khi test.
 ///
 /// Mọi phần đều idempotent (kiểm tra trước khi thêm) nên gọi mỗi lần app khởi động đều an toàn.
 /// Mọi tài khoản dùng chung mật khẩu: "Password123!".
@@ -26,6 +28,7 @@ public static class DbSeeder
         await SeedLookupsAsync(db, ct);
         await SeedSubscriptionPlansAsync(db, ct);
         await SeedTestAccountsAsync(db, ct);
+        await SeedConstructionTemplatesAsync(db, ct);
     }
 
     /// <summary>
@@ -226,5 +229,171 @@ public static class DbSeeder
         }
 
         await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Mẫu quy trình CÔNG KHAI của hệ thống (review 3: "add thêm template cho quá trình thi công").
+    ///
+    /// Phải seed ở đây chứ không tạo qua API được: <c>ConstructionTemplateService.CreateAsync</c>
+    /// ép <c>IsPublic = false</c> cho mọi mẫu provider tạo — công khai là quyết định quản trị. Không
+    /// có bước seed này thì màn "chọn mẫu" của provider mở ra trống trơn cho tới khi có người tự gõ
+    /// một bộ hạng mục từ đầu, đúng thứ mà template sinh ra để khỏi phải làm.
+    ///
+    /// <c>CreatedBy = null</c> đánh dấu mẫu của hệ thống, không thuộc provider nào — nên không ai
+    /// xoá được nó qua <c>DeleteAsync</c> (chỉ admin).
+    ///
+    /// Thời lượng là ước tính cho một mặt bằng 80–120 m² và chỉ là điểm khởi đầu: áp mẫu là COPY,
+    /// provider sửa lại mốc trên dự án của mình mà không đụng gì tới mẫu gốc.
+    /// </summary>
+    private static async Task SeedConstructionTemplatesAsync(SmartCafeBuilderContext db, CancellationToken ct)
+    {
+        // Gate on PUBLIC templates, not on the table being empty. Providers author
+        // their own private mẫu through the API, so an "any row at all" check would
+        // let the first provider-created template block the system set from ever
+        // being seeded — on a shared database that is one `POST` away.
+        if (await db.ConstructionTemplates.AnyAsync(t => t.IsPublic, ct))
+            return;
+
+        var now = DateTime.UtcNow;
+
+        db.ConstructionTemplates.AddRange(
+            new ConstructionTemplate
+            {
+                Name = "Thi công quán cà phê - Quy trình chuẩn",
+                Description =
+                    "Chín giai đoạn từ nhận mặt bằng tới nghiệm thu bàn giao, áp cho mặt bằng " +
+                    "80–120 m². Tổng thời lượng dự kiến 71 ngày.",
+                ServiceKind = ServiceKind.construction,
+                IsPublic = true,
+                CreatedBy = null,
+                CreatedAt = now,
+                UpdatedAt = now,
+                Items = BuildTemplateItems(
+                    ("Chuẩn bị mặt bằng & tháo dỡ", "Bàn giao mặt bằng, dọn hiện trạng cũ và định vị theo bản vẽ.", "Chuẩn bị", 5, new[]
+                    {
+                        ("Nhận mặt bằng, chụp ảnh hiện trạng", "Lập biên bản bàn giao kèm ảnh làm căn cứ đối chiếu khi nghiệm thu.", 1),
+                        ("Tháo dỡ vách, trần và thiết bị cũ", (string?)null, 2),
+                        ("Vận chuyển phế thải, vệ sinh mặt bằng", null, 1),
+                        ("Định vị tim trục, bật mực theo bản vẽ", "Sai ở bước này kéo lệch toàn bộ các hạng mục sau.", 1),
+                    }),
+                    ("Phần thô & xây tô", "Xây tường ngăn, tô trát, chống thấm khu ướt.", "Kết cấu", 10, new[]
+                    {
+                        ("Xây tường ngăn khu pha chế, kho, WC", (string?)null, 4),
+                        ("Tô trát, cán nền tạo dốc", null, 3),
+                        ("Chống thấm WC và khu pha chế", "Ngâm thử nước 24h trước khi cho ốp lát đè lên.", 3),
+                    }),
+                    ("Hệ thống điện - nước (MEP)", "Đi ngầm toàn bộ đường điện, cấp thoát nước và mạng trước khi đóng trần.", "MEP", 12, new[]
+                    {
+                        ("Đi ống điện âm tường, âm trần", (string?)null, 3),
+                        ("Đi ống cấp thoát nước quầy bar và WC", null, 3),
+                        ("Lắp tủ điện, aptomat, kéo dây trục chính", "Tính tải riêng cho máy espresso và máy lạnh.", 2),
+                        ("Đi dây mạng, camera, loa", null, 2),
+                        ("Thử áp lực nước, đo cách điện", "Nghiệm thu phần ngầm — sau bước này là đóng trần, sửa rất đắt.", 2),
+                    }),
+                    ("Trần - vách - sàn", "Đóng trần, ốp lát sàn và mặt dựng.", "Hoàn thiện thô", 10, new[]
+                    {
+                        ("Đóng khung xương trần thạch cao", (string?)null, 3),
+                        ("Hoàn thiện tấm trần, xử lý mối nối", null, 2),
+                        ("Ốp lát sàn khu khách và khu pha chế", null, 4),
+                        ("Ốp gạch mặt dựng quầy bar, WC", null, 1),
+                    }),
+                    ("Sơn nước & hoàn thiện bề mặt", "Bả, sơn lót và sơn phủ toàn bộ tường trần.", "Hoàn thiện", 7, new[]
+                    {
+                        ("Bả matit, xả nhám", (string?)null, 3),
+                        ("Sơn lót chống kiềm", null, 1),
+                        ("Sơn phủ hai lớp hoàn thiện", null, 3),
+                    }),
+                    ("Quầy bar & nội thất cố định", "Gia công tại xưởng rồi lắp đặt tại công trình.", "Nội thất", 12, new[]
+                    {
+                        ("Gia công quầy bar tại xưởng", "Chạy song song với các hạng mục hoàn thiện tại công trình.", 6),
+                        ("Lắp đặt quầy bar, mặt đá", null, 3),
+                        ("Lắp kệ trưng bày, tủ bếp, kho", null, 2),
+                        ("Lắp chậu rửa, vòi, hệ thoát quầy", null, 1),
+                    }),
+                    ("Thiết bị & chiếu sáng", "Lắp đèn theo layout ánh sáng và toàn bộ thiết bị vận hành.", "MEP", 6, new[]
+                    {
+                        ("Lắp đèn chiếu sáng theo layout", (string?)null, 2),
+                        ("Lắp máy lạnh, quạt hút, thông gió bếp", null, 2),
+                        ("Lắp thiết bị pha chế, chạy thử", "Máy espresso, máy xay, tủ mát — thử tải thật trước khi nghiệm thu.", 2),
+                    }),
+                    ("Biển hiệu & nhận diện thương hiệu", "Mặt tiền và các hạng mục nhận diện trong quán.", "Nhận diện", 5, new[]
+                    {
+                        ("Gia công biển hiệu mặt tiền", (string?)null, 3),
+                        ("Lắp biển hiệu, đèn hắt mặt tiền", null, 1),
+                        ("Dán decal, tranh tường, bảng menu", null, 1),
+                    }),
+                    ("Vệ sinh & nghiệm thu bàn giao", "Chạy thử toàn hệ thống và nghiệm thu theo checklist.", "Nghiệm thu", 4, new[]
+                    {
+                        ("Vệ sinh công nghiệp toàn bộ mặt bằng", (string?)null, 2),
+                        ("Chạy thử tổng thể điện, nước, thiết bị", null, 1),
+                        ("Nghiệm thu theo checklist, lập biên bản bàn giao", "Đính kèm ảnh minh chứng cho từng mục chưa đạt.", 1),
+                    })),
+            },
+            new ConstructionTemplate
+            {
+                Name = "Thiết kế quán cà phê - Quy trình chuẩn",
+                Description =
+                    "Bốn giai đoạn từ khảo sát tới bàn giao hồ sơ kỹ thuật. Tổng thời lượng dự " +
+                    "kiến 28 ngày, đã tính hai vòng chỉnh sửa concept.",
+                ServiceKind = ServiceKind.design,
+                IsPublic = true,
+                CreatedBy = null,
+                CreatedAt = now,
+                UpdatedAt = now,
+                Items = BuildTemplateItems(
+                    ("Khảo sát & chốt yêu cầu", "Đo đạc hiện trạng và thống nhất brief với chủ quán.", "Khảo sát", 3, new[]
+                    {
+                        ("Khảo sát hiện trạng, đo đạc mặt bằng", "Số đo vào hồ sơ mặt bằng để chủ quán duyệt đồng bộ sang dự án.", 1),
+                        ("Chốt brief: phong cách, công năng, ngân sách", (string?)null, 2),
+                    }),
+                    ("Concept & bố trí công năng", "Phương án mặt bằng và hình ảnh concept để chủ quán duyệt.", "Concept", 10, new[]
+                    {
+                        ("Lập mặt bằng bố trí công năng", (string?)null, 3),
+                        ("Dựng 3D concept các khu vực chính", "Quầy bar, khu khách, mặt tiền.", 5),
+                        ("Trình bày và chốt concept với chủ quán", null, 2),
+                    }),
+                    ("Hồ sơ thiết kế kỹ thuật", "Bộ bản vẽ đủ để nhà thầu bóc khối lượng và thi công.", "Kỹ thuật", 12, new[]
+                    {
+                        ("Bản vẽ mặt bằng, mặt cắt, mặt đứng", (string?)null, 5),
+                        ("Bản vẽ chi tiết quầy bar và nội thất", null, 4),
+                        ("Bản vẽ phối hợp điện - nước", "Khớp với layout thiết bị pha chế đã chốt.", 3),
+                    }),
+                    ("Bàn giao hồ sơ", "Thống kê vật tư và nghiệm thu thiết kế.", "Bàn giao", 3, new[]
+                    {
+                        ("Lập bảng thống kê vật tư, bảng finish", (string?)null, 2),
+                        ("Bàn giao hồ sơ, nghiệm thu thiết kế", null, 1),
+                    })),
+            });
+
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Dựng danh sách hạng mục mẫu kèm việc con, tự đánh <c>SortOrder</c> theo thứ tự khai báo —
+    /// thứ tự các giai đoạn thi công là thông tin nghiệp vụ, đánh số tay thì thêm/bớt một giai đoạn
+    /// là phải sửa lại cả dãy.
+    /// </summary>
+    private static List<ConstructionTemplateItem> BuildTemplateItems(
+        params (string Name, string? Description, string Category, int EstimateDays,
+                (string Name, string? Description, int EstimateDays)[] Tasks)[] items)
+    {
+        // Cả hai cấp đều lấy thứ tự từ overload có index của Select. Dùng biến đếm bên ngoài thì
+        // SortOrder phụ thuộc vào việc lambda được duyệt bao nhiêu lần — đúng chỉ vì có ToList()
+        // ngay sau, và hỏng lặng lẽ nếu về sau ai đó trả về IEnumerable rồi duyệt hai lần.
+        return items.Select((i, itemOrder) => new ConstructionTemplateItem
+        {
+            Name = i.Name,
+            Description = i.Description,
+            Category = i.Category,
+            EstimateDays = i.EstimateDays,
+            SortOrder = itemOrder,
+            Tasks = i.Tasks.Select((t, taskOrder) => new ConstructionTemplateTask
+            {
+                Name = t.Name,
+                Description = t.Description,
+                EstimateDays = t.EstimateDays,
+                SortOrder = taskOrder,
+            }).ToList(),
+        }).ToList();
     }
 }

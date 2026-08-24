@@ -19,6 +19,9 @@ public class CreateQuotationRequest
     /// <summary>Số lần sửa design miễn phí đi kèm báo giá (dành cho provider làm design).</summary>
     public int? FreeRevisionCount { get; set; }
 
+    /// <summary>Phí cho MỖI vòng sửa vượt quá FreeRevisionCount (review 1.1). null = chưa công bố.</summary>
+    public decimal? ExtraRevisionFee { get; set; }
+
     public List<QuotationItemRequest> Items { get; set; } = new();
     public List<QuotationPaymentTermRequest> PaymentTerms { get; set; } = new();
 }

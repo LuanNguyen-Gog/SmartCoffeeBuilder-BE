@@ -63,6 +63,15 @@ public static class NotificationTypes
     /// <summary>Gửi cho các PROVIDER đang hợp tác khi owner huỷ dự án.</summary>
     public const string ProjectCancelled = "project_cancelled";
 
+    // ───────── Cảnh báo tiến độ thi công ─────────
+
+    /// <summary>
+    /// Gửi cho OWNER khi một hạng mục thi công quá hạn hoàn thành mà chưa xong (review 3).
+    /// Hệ thống chỉ BÁO — không giữ tiền, không tự phạt: owner tự làm việc với nhà cung cấp
+    /// và tự trừ tiền ngoài nền tảng.
+    /// </summary>
+    public const string ConstructionOverdue = "construction_overdue";
+
     /// <summary>Tên file template email (không đuôi .html) tương ứng mỗi loại.</summary>
     public static string TemplateFor(string type) => type switch
     {
@@ -92,6 +101,7 @@ public static class NotificationTypes
         ProjectReadyToClose => "Dự án đã xong, chờ bạn đóng - Smart Coffee Builder",
         ProjectCompleted => "Dự án đã hoàn thành - Smart Coffee Builder",
         ProjectCancelled => "Dự án đã bị huỷ - Smart Coffee Builder",
+        ConstructionOverdue => "Hạng mục thi công đang trễ tiến độ - Smart Coffee Builder",
         _ => "Thông báo - Smart Coffee Builder"
     };
 }

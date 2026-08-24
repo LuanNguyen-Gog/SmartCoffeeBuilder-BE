@@ -569,6 +569,11 @@ public class ProjectWorkingService : IProjectWorkingService
                 throw new InvalidOperationException(
                     $"Còn {unfinished} hạng mục thi công chưa 'completed' — {blockedAction}.");
         }
+
+        // Chốt cuối: mọi mục nghiệm thu BẮT BUỘC của engagement (cả design lẫn thi công) phải đạt.
+        // Hai guard trên chỉ nhìn trạng thái design/hạng mục; mục nghiệm thu thêm vào SAU khi
+        // duyệt/đóng thì chỉ chỗ này mới thấy (review 3).
+        await ChecklistGate.EnsureEngagementPassedAsync(_unitOfWork, engagement.Id, blockedAction);
     }
 
     public async Task<DesignBriefResponse> GetBriefAsync(Guid accountId, Guid id)

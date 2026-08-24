@@ -17,6 +17,9 @@ public class ProjectShopOwner
 
     public ShopOwner Owner { get; set; } = null!;
     public DesignBrief? DesignBrief { get; set; }
+
+    /// <summary>Hồ sơ thông số vật lý của mặt bằng (1-1) — kích thước, hướng, tầng, cửa/ban công.</summary>
+    public SiteProfile? SiteProfile { get; set; }
     public ICollection<BudgetItem> BudgetItems { get; set; } = new List<BudgetItem>();
     public ICollection<Post> Posts { get; set; } = new List<Post>();
     public ICollection<ProjectWorking> ProjectWorkings { get; set; } = new List<ProjectWorking>();
