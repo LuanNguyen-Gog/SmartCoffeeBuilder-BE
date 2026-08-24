@@ -35,7 +35,7 @@ public class AccountService : IAccountService
     public async Task<AccountResponse> GetByIdAsync(Guid id)
     {
         var account = await _repository.SingleOrDefaultAsync(predicate: a => a.Id == id && a.DeletedAt == null)
-            ?? throw new KeyNotFoundException($"Không tìm thấy account với id {id}.");
+            ?? throw new KeyNotFoundException($"No account found with id {id}.");
 
         return AccountResponse.From(account);
     }
@@ -44,15 +44,15 @@ public class AccountService : IAccountService
     {
         var existing = await _repository.SingleOrDefaultAsync(predicate: a => a.Email == request.Email);
         if (existing != null)
-            throw new InvalidOperationException("Email đã được sử dụng.");
+            throw new InvalidOperationException("That email is already in use.");
 
         if (!Enum.TryParse<AccountRole>(request.Role, ignoreCase: true, out var role))
-            throw new ArgumentException($"Role '{request.Role}' không hợp lệ. Cho phép: owner, provider, admin.");
+            throw new ArgumentException($"Role '{request.Role}' is not valid. Allowed: owner, provider, admin.");
 
         var status = AccountStatus.active;
         if (!string.IsNullOrWhiteSpace(request.Status)
             && !Enum.TryParse(request.Status, ignoreCase: true, out status))
-            throw new ArgumentException($"Status '{request.Status}' không hợp lệ. Cho phép: active, inactive, banned, pending.");
+            throw new ArgumentException($"Status '{request.Status}' is not valid. Allowed: active, inactive, banned, pending.");
 
         var account = new Account
         {
@@ -75,21 +75,21 @@ public class AccountService : IAccountService
     {
         var account = await _repository.GetByIdAsync(id);
         if (account == null || account.DeletedAt != null)
-            throw new KeyNotFoundException($"Không tìm thấy account với id {id}.");
+            throw new KeyNotFoundException($"No account found with id {id}.");
 
         if (request.Phone != null) account.Phone = request.Phone;
 
         if (!string.IsNullOrWhiteSpace(request.Role))
         {
             if (!Enum.TryParse<AccountRole>(request.Role, ignoreCase: true, out var role))
-                throw new ArgumentException($"Role '{request.Role}' không hợp lệ. Cho phép: owner, provider, admin.");
+                throw new ArgumentException($"Role '{request.Role}' is not valid. Allowed: owner, provider, admin.");
             account.Role = role;
         }
 
         if (!string.IsNullOrWhiteSpace(request.Status))
         {
             if (!Enum.TryParse<AccountStatus>(request.Status, ignoreCase: true, out var status))
-                throw new ArgumentException($"Status '{request.Status}' không hợp lệ. Cho phép: active, inactive, banned, pending.");
+                throw new ArgumentException($"Status '{request.Status}' is not valid. Allowed: active, inactive, banned, pending.");
             account.Status = status;
         }
 
@@ -104,21 +104,21 @@ public class AccountService : IAccountService
     {
         var account = await _repository.GetByIdAsync(id);
         if (account == null || account.DeletedAt != null)
-            throw new KeyNotFoundException($"Không tìm thấy account với id {id}.");
+            throw new KeyNotFoundException($"No account found with id {id}.");
 
         var activeEngagements = await _unitOfWork.GetRepository<ProjectWorking>().CountAsync(
             e => (e.Status == ProviderStatus.requested || e.Status == ProviderStatus.accepted)
                  && (e.ServiceProviderProfile.AccountId == id || e.ProjectShopOwner.Owner.AccountId == id));
         if (activeEngagements > 0)
             throw new InvalidOperationException(
-                $"Tài khoản còn {activeEngagements} engagement đang hoạt động — đóng/huỷ hết trước khi xoá tài khoản.");
+                $"This account still has {activeEngagements} active engagement(s) — close or cancel all of them before deleting the account.");
 
         // Owner còn dự án đang 'in_progress' (đã bắt đầu chạy) thì phải nghiệm thu/huỷ trước.
         var inProgressProjects = await _unitOfWork.GetRepository<ProjectShopOwner>().CountAsync(
             p => p.DeletedAt == null && p.Owner.AccountId == id && p.Status == ProjectStatus.in_progress);
         if (inProgressProjects > 0)
             throw new InvalidOperationException(
-                $"Tài khoản còn {inProgressProjects} dự án đang 'in_progress' — nghiệm thu/huỷ trước khi xoá tài khoản.");
+                $"This account still has {inProgressProjects} project(s) in 'in_progress' — accept or cancel them before deleting the account.");
 
         account.DeletedAt = DateTime.UtcNow;
         _repository.Update(account);
@@ -142,7 +142,7 @@ public class AccountService : IAccountService
         if (!string.IsNullOrWhiteSpace(role))
         {
             if (!Enum.TryParse<AccountRole>(role, ignoreCase: true, out var parsedRole))
-                throw new ArgumentException($"Role '{role}' không hợp lệ. Cho phép: owner, provider, admin.");
+                throw new ArgumentException($"Role '{role}' is not valid. Allowed: owner, provider, admin.");
             roleFilter = parsedRole;
         }
 
@@ -150,7 +150,7 @@ public class AccountService : IAccountService
         if (!string.IsNullOrWhiteSpace(status))
         {
             if (!Enum.TryParse<AccountStatus>(status, ignoreCase: true, out var parsedStatus))
-                throw new ArgumentException($"Status '{status}' không hợp lệ. Cho phép: active, inactive, banned, pending.");
+                throw new ArgumentException($"Status '{status}' is not valid. Allowed: active, inactive, banned, pending.");
             statusFilter = parsedStatus;
         }
 
@@ -173,10 +173,10 @@ public class AccountService : IAccountService
     public async Task<AccountResponse> SetStatusAsync(Guid id, string status)
     {
         if (!Enum.TryParse<AccountStatus>(status, ignoreCase: true, out var parsedStatus))
-            throw new ArgumentException($"Status '{status}' không hợp lệ. Cho phép: active, inactive, banned, pending.");
+            throw new ArgumentException($"Status '{status}' is not valid. Allowed: active, inactive, banned, pending.");
 
         var account = await _repository.SingleOrDefaultAsync(predicate: a => a.Id == id && a.DeletedAt == null)
-            ?? throw new KeyNotFoundException($"Không tìm thấy account với id {id}.");
+            ?? throw new KeyNotFoundException($"No account found with id {id}.");
 
         account.Status = parsedStatus;
         account.UpdatedAt = DateTime.UtcNow;

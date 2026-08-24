@@ -35,7 +35,7 @@ public class ShopOwnerService : IShopOwnerService
     public async Task<ShopOwnerResponse> GetByIdAsync(Guid id)
     {
         var shopOwner = await _repository.SingleOrDefaultAsync(predicate: s => s.Id == id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy shop owner với id {id}.");
+            ?? throw new KeyNotFoundException($"No shop owner found with id {id}.");
 
         return ShopOwnerResponse.From(shopOwner);
     }
@@ -44,14 +44,14 @@ public class ShopOwnerService : IShopOwnerService
     {
         var account = await _unitOfWork.GetRepository<Account>()
             .SingleOrDefaultAsync(predicate: a => a.Id == request.AccountId && a.DeletedAt == null)
-            ?? throw new KeyNotFoundException($"Không tìm thấy account với id {request.AccountId}.");
+            ?? throw new KeyNotFoundException($"No account found with id {request.AccountId}.");
 
         if (account.Role != AccountRole.owner)
-            throw new ArgumentException("Account phải có role 'owner' để tạo shop owner.");
+            throw new ArgumentException("The account must have role 'owner' to create a shop owner profile.");
 
         var existing = await _repository.SingleOrDefaultAsync(predicate: s => s.AccountId == request.AccountId);
         if (existing != null)
-            throw new InvalidOperationException("Account này đã có hồ sơ shop owner.");
+            throw new InvalidOperationException("This account already has a shop owner profile.");
 
         var shopOwner = new ShopOwner
         {
@@ -73,7 +73,7 @@ public class ShopOwnerService : IShopOwnerService
     public async Task<ShopOwnerResponse> UpdateAsync(Guid id, UpdateShopOwnerRequest request)
     {
         var shopOwner = await _repository.GetByIdAsync(id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy shop owner với id {id}.");
+            ?? throw new KeyNotFoundException($"No shop owner found with id {id}.");
 
         if (request.FullName != null) shopOwner.FullName = request.FullName;
         if (request.ShopName != null) shopOwner.ShopName = request.ShopName;
@@ -90,7 +90,7 @@ public class ShopOwnerService : IShopOwnerService
     public async Task DeleteAsync(Guid id)
     {
         var shopOwner = await _repository.GetByIdAsync(id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy shop owner với id {id}.");
+            ?? throw new KeyNotFoundException($"No shop owner found with id {id}.");
 
         _repository.Delete(shopOwner);
         await _unitOfWork.CommitAsync();

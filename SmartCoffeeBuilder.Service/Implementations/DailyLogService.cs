@@ -43,7 +43,7 @@ public class DailyLogService : IDailyLogService
     {
         if (fromDate is DateOnly f && toDate is DateOnly t && f > t)
             throw new ArgumentException(
-                $"fromDate '{f:yyyy-MM-dd}' nằm sau toDate '{t:yyyy-MM-dd}'.");
+                $"fromDate '{f:yyyy-MM-dd}' falls after toDate '{t:yyyy-MM-dd}'.");
 
         // Lọc TRONG query (null = admin, xem tất cả) — lọc sau khi lấy về sẽ làm sai TotalItems.
         var visibleEngagementIds = await EngagementAuthorization
@@ -79,7 +79,7 @@ public class DailyLogService : IDailyLogService
 
     public async Task<DailyLogResponse> GetByIdAsync(Guid accountId, Guid id)
     {
-        var log = await LoadForActionAsync(accountId, id, "xem nhật ký thi công",
+        var log = await LoadForActionAsync(accountId, id, "view daily logs",
             requireActiveEngagement: false, EngagementActor.Owner, EngagementActor.Provider);
 
         return DailyLogResponse.From(log);
@@ -88,15 +88,15 @@ public class DailyLogService : IDailyLogService
     public async Task<DailyLogResponse> CreateAsync(Guid accountId, CreateDailyLogRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.WorkDone))
-            throw new ArgumentException("WorkDone không được để trống — nhật ký trống không có giá trị.");
+            throw new ArgumentException("WorkDone cannot be empty — an empty log has no value.");
 
         var anchor = await ResolveAnchorAsync(
             request.ProjectWorkingId, request.ConstructionItemId, request.ConstructionTaskId);
 
         var actor = await EngagementAuthorization.ResolveActorAsync(
             _unitOfWork, accountId, anchor.ProjectWorkingId);
-        EngagementAuthorization.EnsureActor(actor, "ghi nhật ký thi công", EngagementActor.Provider);
-        await EnsureEngagementActiveAsync(anchor.ProjectWorkingId, actor, "ghi nhật ký thi công");
+        EngagementAuthorization.EnsureActor(actor, "write a daily log", EngagementActor.Provider);
+        await EnsureEngagementActiveAsync(anchor.ProjectWorkingId, actor, "write a daily log");
 
         // Mặc định là hôm nay THEO GIỜ VN — lấy theo UTC thì nhật ký ghi lúc rạng sáng bị đóng
         // dấu sang ngày hôm trước.
@@ -132,7 +132,7 @@ public class DailyLogService : IDailyLogService
 
     public async Task<DailyLogResponse> UpdateAsync(Guid accountId, Guid id, UpdateDailyLogRequest request)
     {
-        var log = await LoadForActionAsync(accountId, id, "sửa nhật ký thi công",
+        var log = await LoadForActionAsync(accountId, id, "edit a daily log",
             requireActiveEngagement: true, EngagementActor.Provider);
 
         // Đổi chỗ neo thì phải neo lại trong CÙNG engagement — không cho chuyển nhật ký sang dự án khác.
@@ -156,7 +156,7 @@ public class DailyLogService : IDailyLogService
         if (request.WorkDone != null)
         {
             if (string.IsNullOrWhiteSpace(request.WorkDone))
-                throw new ArgumentException("WorkDone không được để trống.");
+                throw new ArgumentException("WorkDone cannot be empty.");
             log.WorkDone = request.WorkDone.Trim();
         }
 
@@ -194,7 +194,7 @@ public class DailyLogService : IDailyLogService
 
     public async Task DeleteAsync(Guid accountId, Guid id)
     {
-        var log = await LoadForActionAsync(accountId, id, "xoá nhật ký thi công",
+        var log = await LoadForActionAsync(accountId, id, "delete a daily log",
             requireActiveEngagement: true, EngagementActor.Provider);
 
         var files = log.Media.Select(m => m.MediaUrl).ToList();
@@ -228,11 +228,11 @@ public class DailyLogService : IDailyLogService
                 .SingleOrDefaultAsync(
                     predicate: t => t.Id == taskId,
                     include: q => q.Include(t => t.ConstructionItem))
-                ?? throw new KeyNotFoundException($"Không tìm thấy task thi công với id {taskId}.");
+                ?? throw new KeyNotFoundException($"No construction task found with id {taskId}.");
 
             if (constructionItemId is Guid itemId && task.ConstructionItemId != itemId)
                 throw new ArgumentException(
-                    $"Task {taskId} không thuộc hạng mục {itemId} — kiểm tra lại constructionItemId.");
+                    $"Task {taskId} does not belong to construction item {itemId} — check constructionItemId again.");
 
             resolvedItemId = task.ConstructionItemId;
             engagementFromChain = task.ConstructionItem.ProjectWorkingId;
@@ -241,18 +241,18 @@ public class DailyLogService : IDailyLogService
         {
             var item = await _unitOfWork.GetRepository<ConstructionItem>()
                 .SingleOrDefaultAsync(predicate: ci => ci.Id == itemId)
-                ?? throw new KeyNotFoundException($"Không tìm thấy hạng mục thi công với id {itemId}.");
+                ?? throw new KeyNotFoundException($"No construction item found with id {itemId}.");
 
             engagementFromChain = item.ProjectWorkingId;
         }
 
         if (projectWorkingId is Guid given && engagementFromChain is Guid derived && given != derived)
             throw new ArgumentException(
-                "Hạng mục/task được chọn không thuộc engagement đã truyền — nhật ký phải nằm cùng một hợp tác.");
+                "The chosen item or task does not belong to the engagement provided — a log must stay within one engagement.");
 
         var finalEngagementId = engagementFromChain ?? projectWorkingId
             ?? throw new ArgumentException(
-                "Thiếu chỗ neo: truyền projectWorkingId, hoặc constructionItemId / constructionTaskId để suy ra.");
+                "Missing anchor: pass projectWorkingId, or constructionItemId / constructionTaskId to derive it from.");
 
         return new DailyLogAnchor(finalEngagementId, resolvedItemId, constructionTaskId);
     }
@@ -271,7 +271,7 @@ public class DailyLogService : IDailyLogService
         {
             var m = media[i];
             if (string.IsNullOrWhiteSpace(m.MediaUrl))
-                throw new ArgumentException($"Media[{i}].MediaUrl không được để trống.");
+                throw new ArgumentException($"Media[{i}].MediaUrl cannot be empty.");
 
             // Chuẩn hoá về ObjectName + kiểm tra file có thật, giống các entity lưu chuỗi file khác.
             var stored = await _fileStorage.NormalizeForStorageAsync(m.MediaUrl, $"Media[{i}].MediaUrl");
@@ -302,7 +302,7 @@ public class DailyLogService : IDailyLogService
 
         if (!Enum.TryParse<DailyLogMediaType>(raw.Trim(), ignoreCase: true, out var parsed))
             throw new ArgumentException(
-                $"Media[{index}].MediaType '{raw}' không hợp lệ. Cho phép: image, video.");
+                $"Media[{index}].MediaType '{raw}' is not valid. Allowed: image, video.");
 
         return parsed;
     }
@@ -319,14 +319,14 @@ public class DailyLogService : IDailyLogService
         var today = VietnamTime.Today;
         if (logDate > today)
             throw new ArgumentException(
-                $"LogDate '{logDate:yyyy-MM-dd}' nằm sau ngày hiện tại ({today:yyyy-MM-dd}) — " +
-                "nhật ký chỉ ghi việc đã làm.");
+                $"LogDate '{logDate:yyyy-MM-dd}' falls after the current date ({today:yyyy-MM-dd}) — " +
+                "a daily log only records work already done.");
     }
 
     private static int? EnsureWorkerCountValid(int? workerCount)
     {
         if (workerCount is int count && count < 0)
-            throw new ArgumentException("WorkerCount không được âm.");
+            throw new ArgumentException("WorkerCount cannot be negative.");
         return workerCount;
     }
 
@@ -355,8 +355,8 @@ public class DailyLogService : IDailyLogService
 
         if (status != ProviderStatus.accepted)
             throw new InvalidOperationException(
-                $"Hợp tác đang ở trạng thái '{status?.ToString() ?? "không xác định"}' — chỉ " +
-                $"{action} được khi hợp tác đang chạy (accepted).");
+                $"The engagement is in status '{status?.ToString() ?? "unknown"}' — you can only " +
+                $"{action} while the engagement is running (accepted).");
     }
 
     /// <summary>
@@ -375,7 +375,7 @@ public class DailyLogService : IDailyLogService
                 .Include(e => e.Media)
                 .Include(e => e.CreatedByAccount!).ThenInclude(a => a!.ServiceProviderProfile)
                 .Include(e => e.CreatedByAccount!).ThenInclude(a => a!.ShopOwner))
-            ?? throw new KeyNotFoundException($"Không tìm thấy nhật ký thi công với id {id}.");
+            ?? throw new KeyNotFoundException($"No daily log found with id {id}.");
 
         var actor = await EngagementAuthorization.ResolveActorAsync(
             _unitOfWork, accountId, log.ProjectWorkingId);

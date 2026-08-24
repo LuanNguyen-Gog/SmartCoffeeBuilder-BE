@@ -42,11 +42,11 @@ public class PaymentStatusResponse
         Message = t.Status switch
         {
             PaymentTransactionStatus.paid => t.Purpose == PaymentPurpose.post_boost
-                ? "Thanh toán thành công — bài đăng đã được đẩy lên nổi bật."
-                : "Thanh toán thành công — gói đã được kích hoạt.",
-            PaymentTransactionStatus.cancelled => "Giao dịch đã bị huỷ.",
-            PaymentTransactionStatus.failed => "Thanh toán thất bại.",
-            _ => "Đang chờ payOS xác nhận thanh toán."
+                ? "Payment successful — the post has been boosted to featured."
+                : "Payment successful — the plan has been activated.",
+            PaymentTransactionStatus.cancelled => "The transaction was cancelled.",
+            PaymentTransactionStatus.failed => "Payment failed.",
+            _ => "Waiting for payOS to confirm the payment."
         }
     };
 }

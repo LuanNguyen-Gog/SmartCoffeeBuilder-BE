@@ -39,7 +39,7 @@ public static class EngagementAuthorization
                     e.ServiceProviderProfile.AccountId),
                 predicate: e => e.Id == projectWorkingId))
             .FirstOrDefault()
-            ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {projectWorkingId}.");
+            ?? throw new KeyNotFoundException($"No project provider found with id {projectWorkingId}.");
 
         if (parties.OwnerAccountId == accountId) return EngagementActor.Owner;
         if (parties.ProviderAccountId == accountId) return EngagementActor.Provider;
@@ -49,7 +49,7 @@ public static class EngagementAuthorization
         if (account?.Role == AccountRole.admin) return EngagementActor.Admin;
 
         throw new UnauthorizedAccessException(
-            "Tài nguyên này thuộc về một hợp tác mà tài khoản đang đăng nhập không tham gia.");
+            "This resource belongs to an engagement that the signed-in account is not part of.");
     }
 
     /// <summary>Admin luôn được phép; còn lại phải nằm trong danh sách vai trò cho phép.</summary>
@@ -58,9 +58,9 @@ public static class EngagementAuthorization
     {
         if (actual == EngagementActor.Admin || allowed.Contains(actual)) return;
 
-        var who = string.Join(" hoặc ", allowed.Select(
-            a => a == EngagementActor.Owner ? "chủ quán" : "nhà cung cấp"));
-        throw new UnauthorizedAccessException($"Chỉ {who} của hợp tác này mới được {action}.");
+        var who = string.Join(" or ", allowed.Select(
+            a => a == EngagementActor.Owner ? "the shop owner" : "the provider"));
+        throw new UnauthorizedAccessException($"Only {who} of this engagement may {action}.");
     }
 
     /// <summary>

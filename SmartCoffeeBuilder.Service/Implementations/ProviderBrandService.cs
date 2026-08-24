@@ -41,18 +41,18 @@ public class ProviderBrandService : IProviderBrandService
         Guid accountId, Guid serviceProviderProfileId, UpdateProviderBrandRequest request)
     {
         var provider = await LoadAsync(serviceProviderProfileId);
-        await EnsureCanWriteAsync(accountId, provider, "sửa thông tin thương hiệu của hồ sơ này");
+        await EnsureCanWriteAsync(accountId, provider, "edit this profile's brand information");
 
         if (request.FoundedYear is int year)
         {
             var thisYear = DateTime.UtcNow.Year;
             if (year < 1900 || year > thisYear)
-                throw new ArgumentException($"Năm thành lập phải nằm trong khoảng 1900–{thisYear}.");
+                throw new ArgumentException($"The founding year must be between 1900 and {thisYear}.");
             provider.FoundedYear = year;
         }
         if (request.EmployeeCount is int count)
         {
-            if (count <= 0) throw new ArgumentException("Số nhân sự phải lớn hơn 0.");
+            if (count <= 0) throw new ArgumentException("The headcount must be greater than 0.");
             provider.EmployeeCount = count;
         }
 
@@ -99,7 +99,7 @@ public class ProviderBrandService : IProviderBrandService
         Guid accountId, Guid serviceProviderProfileId, ProviderSocialLinkRequest request)
     {
         var provider = await LoadAsync(serviceProviderProfileId);
-        await EnsureCanWriteAsync(accountId, provider, "thêm kênh thương hiệu cho hồ sơ này");
+        await EnsureCanWriteAsync(accountId, provider, "add a brand channel to this profile");
 
         var platform = ParsePlatform(request.Platform);
         EnsureUrlValid(request.Url);
@@ -110,7 +110,7 @@ public class ProviderBrandService : IProviderBrandService
         if (await repo.CountAsync(
                 l => l.ServiceProviderProfileId == provider.Id && l.Platform == platform) > 0)
             throw new InvalidOperationException(
-                $"Hồ sơ này đã khai kênh '{platform}' — sửa dòng cũ thay vì thêm trùng.");
+                $"This profile already lists the '{platform}' channel — edit the existing row instead of adding a duplicate.");
 
         var existing = await repo.GetListAsync(
             selector: l => l.SortOrder, predicate: l => l.ServiceProviderProfileId == provider.Id);
@@ -138,10 +138,10 @@ public class ProviderBrandService : IProviderBrandService
     {
         var repo = _unitOfWork.GetRepository<ProviderSocialLink>();
         var link = await repo.SingleOrDefaultAsync(predicate: l => l.Id == linkId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy kênh thương hiệu với id {linkId}.");
+            ?? throw new KeyNotFoundException($"No brand channel found with id {linkId}.");
 
         var provider = await LoadAsync(link.ServiceProviderProfileId);
-        await EnsureCanWriteAsync(accountId, provider, "sửa kênh thương hiệu của hồ sơ này");
+        await EnsureCanWriteAsync(accountId, provider, "edit this profile's brand channel");
 
         var platform = ParsePlatform(request.Platform);
         EnsureUrlValid(request.Url);
@@ -149,7 +149,7 @@ public class ProviderBrandService : IProviderBrandService
         if (platform != link.Platform
             && await repo.CountAsync(l => l.ServiceProviderProfileId == provider.Id
                                           && l.Platform == platform && l.Id != link.Id) > 0)
-            throw new InvalidOperationException($"Hồ sơ này đã khai kênh '{platform}'.");
+            throw new InvalidOperationException($"This profile already lists the '{platform}' channel.");
 
         link.Platform = platform;
         link.Url = request.Url.Trim();
@@ -167,11 +167,11 @@ public class ProviderBrandService : IProviderBrandService
     {
         var repo = _unitOfWork.GetRepository<ProviderSocialLink>();
         var link = await repo.SingleOrDefaultAsync(predicate: l => l.Id == linkId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy kênh thương hiệu với id {linkId}.");
+            ?? throw new KeyNotFoundException($"No brand channel found with id {linkId}.");
 
         await EnsureCanWriteAsync(
             accountId, await LoadAsync(link.ServiceProviderProfileId),
-            "xoá kênh thương hiệu của hồ sơ này");
+            "delete this profile's brand channel");
 
         repo.Delete(link);
         await _unitOfWork.CommitAsync();
@@ -183,10 +183,10 @@ public class ProviderBrandService : IProviderBrandService
         Guid accountId, Guid serviceProviderProfileId, ProviderServiceAreaRequest request)
     {
         var provider = await LoadAsync(serviceProviderProfileId);
-        await EnsureCanWriteAsync(accountId, provider, "thêm khu vực phục vụ cho hồ sơ này");
+        await EnsureCanWriteAsync(accountId, provider, "add a service area to this profile");
 
         if (string.IsNullOrWhiteSpace(request.Province))
-            throw new ArgumentException("Khu vực phục vụ phải có tỉnh/thành phố.");
+            throw new ArgumentException("A service area must have a province or city.");
 
         var province = request.Province.Trim();
         var district = string.IsNullOrWhiteSpace(request.District) ? null : request.District.Trim();
@@ -195,7 +195,7 @@ public class ProviderBrandService : IProviderBrandService
         if (await repo.CountAsync(a => a.ServiceProviderProfileId == provider.Id
                                        && a.Province == province && a.District == district) > 0)
             throw new InvalidOperationException(
-                $"Hồ sơ này đã khai khu vực '{district ?? province}'.");
+                $"This profile already lists the '{district ?? province}' area.");
 
         var existing = await repo.GetListAsync(
             selector: a => a.SortOrder, predicate: a => a.ServiceProviderProfileId == provider.Id);
@@ -222,11 +222,11 @@ public class ProviderBrandService : IProviderBrandService
     {
         var repo = _unitOfWork.GetRepository<ProviderServiceArea>();
         var area = await repo.SingleOrDefaultAsync(predicate: a => a.Id == areaId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy khu vực phục vụ với id {areaId}.");
+            ?? throw new KeyNotFoundException($"No service area found with id {areaId}.");
 
         await EnsureCanWriteAsync(
             accountId, await LoadAsync(area.ServiceProviderProfileId),
-            "xoá khu vực phục vụ của hồ sơ này");
+            "delete this profile's service area");
 
         repo.Delete(area);
         await _unitOfWork.CommitAsync();
@@ -238,7 +238,7 @@ public class ProviderBrandService : IProviderBrandService
         Guid accountId, Guid serviceProviderProfileId, ProviderCertificateRequest request)
     {
         var provider = await LoadAsync(serviceProviderProfileId);
-        await EnsureCanWriteAsync(accountId, provider, "thêm chứng chỉ cho hồ sơ này");
+        await EnsureCanWriteAsync(accountId, provider, "add a certificate to this profile");
 
         EnsureCertificateValid(request);
 
@@ -276,10 +276,10 @@ public class ProviderBrandService : IProviderBrandService
     {
         var repo = _unitOfWork.GetRepository<ProviderCertificate>();
         var certificate = await repo.SingleOrDefaultAsync(predicate: c => c.Id == certificateId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy chứng chỉ với id {certificateId}.");
+            ?? throw new KeyNotFoundException($"No certificate found with id {certificateId}.");
 
         var provider = await LoadAsync(certificate.ServiceProviderProfileId);
-        await EnsureCanWriteAsync(accountId, provider, "sửa chứng chỉ của hồ sơ này");
+        await EnsureCanWriteAsync(accountId, provider, "edit this profile's certificate");
 
         EnsureCertificateValid(request);
 
@@ -316,11 +316,11 @@ public class ProviderBrandService : IProviderBrandService
     {
         var repo = _unitOfWork.GetRepository<ProviderCertificate>();
         var certificate = await repo.SingleOrDefaultAsync(predicate: c => c.Id == certificateId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy chứng chỉ với id {certificateId}.");
+            ?? throw new KeyNotFoundException($"No certificate found with id {certificateId}.");
 
         await EnsureCanWriteAsync(
             accountId, await LoadAsync(certificate.ServiceProviderProfileId),
-            "xoá chứng chỉ của hồ sơ này");
+            "delete this profile's certificate");
 
         var objectName = certificate.FileUrl;
 
@@ -335,11 +335,11 @@ public class ProviderBrandService : IProviderBrandService
     {
         var repo = _unitOfWork.GetRepository<ProviderCertificate>();
         var certificate = await repo.SingleOrDefaultAsync(predicate: c => c.Id == certificateId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy chứng chỉ với id {certificateId}.");
+            ?? throw new KeyNotFoundException($"No certificate found with id {certificateId}.");
 
         // CHỈ admin — provider tự xác minh giấy tờ của mình thì cờ này vô nghĩa.
         if (!await IsAdminAsync(accountId))
-            throw new UnauthorizedAccessException("Chỉ admin mới xác minh được giấy tờ năng lực.");
+            throw new UnauthorizedAccessException("Only an admin can verify credential documents.");
 
         certificate.IsVerified = isVerified;
         certificate.UpdatedAt = DateTime.UtcNow;
@@ -354,7 +354,7 @@ public class ProviderBrandService : IProviderBrandService
 
     private async Task<Entities.ServiceProviderProfile> LoadAsync(Guid id) =>
         await _repository.SingleOrDefaultAsync(predicate: p => p.Id == id && p.DeletedAt == null)
-        ?? throw new KeyNotFoundException($"Không tìm thấy service provider với id {id}.");
+        ?? throw new KeyNotFoundException($"No service provider found with id {id}.");
 
     private async Task<Entities.ServiceProviderProfile> LoadGraphAsync(Guid id) =>
         await _repository.SingleOrDefaultAsync(
@@ -362,7 +362,7 @@ public class ProviderBrandService : IProviderBrandService
             include: q => q.Include(p => p.SocialLinks)
                            .Include(p => p.ServiceAreas)
                            .Include(p => p.Certificates))
-        ?? throw new KeyNotFoundException($"Không tìm thấy service provider với id {id}.");
+        ?? throw new KeyNotFoundException($"No service provider found with id {id}.");
 
     /// <summary>
     /// Chỉ chính chủ hồ sơ (hoặc admin) mới ghi được. Role gate ở controller KHÔNG thay được check
@@ -375,7 +375,7 @@ public class ProviderBrandService : IProviderBrandService
         if (provider.AccountId == accountId) return;
         if (await IsAdminAsync(accountId)) return;
 
-        throw new UnauthorizedAccessException($"Chỉ nhà cung cấp sở hữu hồ sơ mới được {action}.");
+        throw new UnauthorizedAccessException($"Only the provider who owns this profile may {action}.");
     }
 
     private async Task<bool> IsAdminAsync(Guid accountId)
@@ -397,11 +397,11 @@ public class ProviderBrandService : IProviderBrandService
     private static void EnsureCertificateValid(ProviderCertificateRequest r)
     {
         if (string.IsNullOrWhiteSpace(r.Name))
-            throw new ArgumentException("Chứng chỉ phải có tên.");
+            throw new ArgumentException("A certificate must have a name.");
 
         if (r.IssuedAt is DateOnly issued && r.ExpiresAt is DateOnly expires && expires < issued)
             throw new ArgumentException(
-                $"Ngày hết hạn '{expires:yyyy-MM-dd}' nằm trước ngày cấp '{issued:yyyy-MM-dd}'.");
+                $"The expiry date '{expires:yyyy-MM-dd}' falls before the issue date '{issued:yyyy-MM-dd}'.");
     }
 
     /// <summary>
@@ -412,11 +412,11 @@ public class ProviderBrandService : IProviderBrandService
     private static void EnsureUrlValid(string url)
     {
         if (string.IsNullOrWhiteSpace(url))
-            throw new ArgumentException("Kênh thương hiệu phải có URL.");
+            throw new ArgumentException("A brand channel must have a URL.");
 
         if (!Uri.TryCreate(url.Trim(), UriKind.Absolute, out var parsed)
             || (parsed.Scheme != Uri.UriSchemeHttp && parsed.Scheme != Uri.UriSchemeHttps))
-            throw new ArgumentException($"URL '{url}' không hợp lệ — phải bắt đầu bằng http:// hoặc https://.");
+            throw new ArgumentException($"URL '{url}' is not valid — it must start with http:// or https://.");
     }
 
     private static SocialPlatform ParsePlatform(string raw)
@@ -425,7 +425,7 @@ public class ProviderBrandService : IProviderBrandService
             return parsed;
 
         throw new ArgumentException(
-            $"Nền tảng '{raw}' không hợp lệ. Nhận: {string.Join(", ", Enum.GetNames<SocialPlatform>())}.");
+            $"Platform '{raw}' is not valid. Accepted: {string.Join(", ", Enum.GetNames<SocialPlatform>())}.");
     }
 
     private static CertificateKind ParseKind(string raw)
@@ -434,6 +434,6 @@ public class ProviderBrandService : IProviderBrandService
             return parsed;
 
         throw new ArgumentException(
-            $"Loại giấy tờ '{raw}' không hợp lệ. Nhận: {string.Join(", ", Enum.GetNames<CertificateKind>())}.");
+            $"Document kind '{raw}' is not valid. Accepted: {string.Join(", ", Enum.GetNames<CertificateKind>())}.");
     }
 }

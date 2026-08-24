@@ -37,7 +37,7 @@ public class SiteProfileService : ISiteProfileService
 
         var profile = await LoadGraphAsync(p => p.ProjectShopOwnerId == projectShopOwnerId)
             ?? throw new KeyNotFoundException(
-                $"Dự án {projectShopOwnerId} chưa khai hồ sơ thông số mặt bằng.");
+                $"Project {projectShopOwnerId} has no site profile yet.");
 
         return SiteProfileResponse.From(profile);
     }
@@ -45,7 +45,7 @@ public class SiteProfileService : ISiteProfileService
     public async Task<SiteProfileResponse> GetByIdAsync(Guid accountId, Guid id)
     {
         var profile = await LoadGraphAsync(p => p.Id == id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy hồ sơ mặt bằng với id {id}.");
+            ?? throw new KeyNotFoundException($"No site profile found with id {id}.");
 
         await EnsureProjectVisibleAsync(accountId, profile.ProjectShopOwnerId);
         return SiteProfileResponse.From(profile);
@@ -55,16 +55,16 @@ public class SiteProfileService : ISiteProfileService
     {
         // Quyền TRƯỚC check trùng — cùng lý do đã ghi ở DesignBriefService.CreateAsync: check trùng
         // chạy trước thì người ngoài phân biệt được dự án nào đã khai (409) / chưa khai (401).
-        await EnsureCanWriteAsync(accountId, request.ProjectShopOwnerId, "khai hồ sơ mặt bằng cho dự án này");
+        await EnsureCanWriteAsync(accountId, request.ProjectShopOwnerId, "create a site profile for this project");
 
         if (await _repository.CountAsync(p => p.ProjectShopOwnerId == request.ProjectShopOwnerId) > 0)
             throw new InvalidOperationException(
-                $"Dự án {request.ProjectShopOwnerId} đã có hồ sơ mặt bằng — sửa bản cũ thay vì tạo bản thứ hai.");
+                $"Project {request.ProjectShopOwnerId} already has a site profile — edit the existing one instead of creating a second.");
 
         EnsureDimensionsValid(request.LengthM, request.WidthM, request.FrontageWidthM,
             request.CeilingHeightM, request.RoadWidthM);
         if (request.FloorCount is int fc && fc <= 0)
-            throw new ArgumentException("FloorCount phải lớn hơn 0 — mặt bằng luôn có ít nhất tầng trệt.");
+            throw new ArgumentException("FloorCount must be greater than 0 — a site always has at least a ground floor.");
 
         var now = DateTime.UtcNow;
         var profile = new Entities.SiteProfile
@@ -97,7 +97,7 @@ public class SiteProfileService : ISiteProfileService
             foreach (var f in request.Floors)
             {
                 if (!seen.Add(f.FloorNo))
-                    throw new ArgumentException($"Tầng số {f.FloorNo} bị khai hai lần trong cùng một yêu cầu.");
+                    throw new ArgumentException($"Floor {f.FloorNo} is declared twice in the same request.");
                 await _unitOfWork.GetRepository<SiteFloor>().InsertAsync(BuildFloor(profile.Id, f, now));
             }
             await _unitOfWork.CommitAsync();
@@ -124,9 +124,9 @@ public class SiteProfileService : ISiteProfileService
     public async Task<SiteProfileResponse> UpdateAsync(Guid accountId, Guid id, UpdateSiteProfileRequest request)
     {
         var profile = await _repository.SingleOrDefaultAsync(predicate: p => p.Id == id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy hồ sơ mặt bằng với id {id}.");
+            ?? throw new KeyNotFoundException($"No site profile found with id {id}.");
 
-        await EnsureCanWriteAsync(accountId, profile.ProjectShopOwnerId, "sửa hồ sơ mặt bằng này");
+        await EnsureCanWriteAsync(accountId, profile.ProjectShopOwnerId, "edit this site profile");
 
         EnsureDimensionsValid(request.LengthM, request.WidthM, request.FrontageWidthM,
             request.CeilingHeightM, request.RoadWidthM);
@@ -140,7 +140,7 @@ public class SiteProfileService : ISiteProfileService
         if (request.FloorCount.HasValue)
         {
             if (request.FloorCount.Value <= 0)
-                throw new ArgumentException("FloorCount phải lớn hơn 0 — mặt bằng luôn có ít nhất tầng trệt.");
+                throw new ArgumentException("FloorCount must be greater than 0 — a site always has at least a ground floor.");
             profile.FloorCount = request.FloorCount;
         }
         if (request.HasMezzanine.HasValue) profile.HasMezzanine = request.HasMezzanine.Value;
@@ -157,9 +157,9 @@ public class SiteProfileService : ISiteProfileService
     public async Task DeleteAsync(Guid accountId, Guid id)
     {
         var profile = await _repository.SingleOrDefaultAsync(predicate: p => p.Id == id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy hồ sơ mặt bằng với id {id}.");
+            ?? throw new KeyNotFoundException($"No site profile found with id {id}.");
 
-        await EnsureCanWriteAsync(accountId, profile.ProjectShopOwnerId, "xoá hồ sơ mặt bằng này");
+        await EnsureCanWriteAsync(accountId, profile.ProjectShopOwnerId, "delete this site profile");
 
         // Tầng và ô cửa cascade theo FK ở DB — không cần xoá tay.
         _repository.Delete(profile);
@@ -186,7 +186,7 @@ public class SiteProfileService : ISiteProfileService
     public async Task<SiteProfileResponse> ApproveMeasurementsAsync(Guid accountId, Guid id)
     {
         var profile = await LoadGraphAsync(p => p.Id == id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy hồ sơ mặt bằng với id {id}.");
+            ?? throw new KeyNotFoundException($"No site profile found with id {id}.");
 
         // CHỈ chủ dự án — hẹp hơn EnsureCanWriteAsync một bậc. Provider ghi được số đo (họ cầm
         // thước) nhưng không tự duyệt số của chính mình vào thông số dự án.
@@ -199,18 +199,18 @@ public class SiteProfileService : ISiteProfileService
 
         if (areas.Count == 0)
             throw new InvalidOperationException(
-                "Chưa tầng nào khai diện tích — không có số đo để duyệt. " +
-                "Điền diện tích cho ít nhất một tầng trước khi đồng bộ sang dự án.");
+                "No floor has an area yet — there are no measurements to approve. " +
+                "Fill in the area for at least one floor before syncing to the project.");
 
         var project = await _unitOfWork.GetRepository<ProjectShopOwner>()
             .SingleOrDefaultAsync(predicate: p => p.Id == profile.ProjectShopOwnerId && p.DeletedAt == null)
-            ?? throw new KeyNotFoundException($"Không tìm thấy dự án {profile.ProjectShopOwnerId}.");
+            ?? throw new KeyNotFoundException($"Project {profile.ProjectShopOwnerId} was not found.");
 
         // Dự án đã đóng thì thông số chốt luôn — khớp guard của ProjectShopOwnerService.UpdateAsync,
         // không thì đây thành đường vòng sửa được dự án đã completed/cancelled.
         if (project.Status is ProjectStatus.completed or ProjectStatus.cancelled)
             throw new InvalidOperationException(
-                $"Dự án đang ở trạng thái '{project.Status}' — không cập nhật thông số nữa.");
+                $"The project is in status '{project.Status}' — its specifications can no longer be updated.");
 
         project.AreaM2 = decimal.Round(areas.Sum(), 2);
         project.UpdatedAt = DateTime.UtcNow;
@@ -225,13 +225,13 @@ public class SiteProfileService : ISiteProfileService
 
     public async Task<SiteFloorResponse> AddFloorAsync(Guid accountId, Guid siteProfileId, SiteFloorRequest request)
     {
-        var profile = await LoadForWriteAsync(accountId, siteProfileId, "thêm tầng cho mặt bằng này");
+        var profile = await LoadForWriteAsync(accountId, siteProfileId, "add a floor to this site");
 
         var duplicated = await _unitOfWork.GetRepository<SiteFloor>()
             .CountAsync(f => f.SiteProfileId == profile.Id && f.FloorNo == request.FloorNo) > 0;
         if (duplicated)
             throw new InvalidOperationException(
-                $"Mặt bằng này đã khai tầng số {request.FloorNo} — sửa dòng cũ thay vì thêm trùng.");
+                $"This site already has floor {request.FloorNo} — edit the existing row instead of adding a duplicate.");
 
         var floor = BuildFloor(profile.Id, request, DateTime.UtcNow);
         await _unitOfWork.GetRepository<SiteFloor>().InsertAsync(floor);
@@ -244,9 +244,9 @@ public class SiteProfileService : ISiteProfileService
     {
         var repo = _unitOfWork.GetRepository<SiteFloor>();
         var floor = await repo.SingleOrDefaultAsync(predicate: f => f.Id == floorId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy tầng với id {floorId}.");
+            ?? throw new KeyNotFoundException($"No floor found with id {floorId}.");
 
-        await LoadForWriteAsync(accountId, floor.SiteProfileId, "sửa tầng của mặt bằng này");
+        await LoadForWriteAsync(accountId, floor.SiteProfileId, "edit a floor of this site");
         EnsureFloorValid(request);
 
         if (floor.FloorNo != request.FloorNo)
@@ -254,7 +254,7 @@ public class SiteProfileService : ISiteProfileService
             var duplicated = await repo.CountAsync(
                 f => f.SiteProfileId == floor.SiteProfileId && f.FloorNo == request.FloorNo && f.Id != floor.Id) > 0;
             if (duplicated)
-                throw new InvalidOperationException($"Mặt bằng này đã có tầng số {request.FloorNo}.");
+                throw new InvalidOperationException($"This site already has floor {request.FloorNo}.");
             floor.FloorNo = request.FloorNo;
         }
 
@@ -275,9 +275,9 @@ public class SiteProfileService : ISiteProfileService
     {
         var repo = _unitOfWork.GetRepository<SiteFloor>();
         var floor = await repo.SingleOrDefaultAsync(predicate: f => f.Id == floorId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy tầng với id {floorId}.");
+            ?? throw new KeyNotFoundException($"No floor found with id {floorId}.");
 
-        await LoadForWriteAsync(accountId, floor.SiteProfileId, "xoá tầng của mặt bằng này");
+        await LoadForWriteAsync(accountId, floor.SiteProfileId, "delete a floor of this site");
 
         // Ô cửa gắn vào tầng này KHÔNG bị xoá — FK là SET NULL, chúng vẫn thuộc mặt bằng.
         repo.Delete(floor);
@@ -289,7 +289,7 @@ public class SiteProfileService : ISiteProfileService
     public async Task<SiteOpeningResponse> AddOpeningAsync(
         Guid accountId, Guid siteProfileId, SiteOpeningRequest request)
     {
-        var profile = await LoadForWriteAsync(accountId, siteProfileId, "thêm cửa/ban công cho mặt bằng này");
+        var profile = await LoadForWriteAsync(accountId, siteProfileId, "add a door/balcony to this site");
 
         var floors = await _unitOfWork.GetRepository<SiteFloor>()
             .GetListAsync(predicate: f => f.SiteProfileId == profile.Id);
@@ -312,9 +312,9 @@ public class SiteProfileService : ISiteProfileService
     {
         var repo = _unitOfWork.GetRepository<SiteOpening>();
         var opening = await repo.SingleOrDefaultAsync(predicate: o => o.Id == openingId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy cửa/ban công với id {openingId}.");
+            ?? throw new KeyNotFoundException($"No door/balcony found with id {openingId}.");
 
-        await LoadForWriteAsync(accountId, opening.SiteProfileId, "sửa cửa/ban công của mặt bằng này");
+        await LoadForWriteAsync(accountId, opening.SiteProfileId, "edit a door/balcony of this site");
         EnsureOpeningValid(request);
 
         var floors = await _unitOfWork.GetRepository<SiteFloor>()
@@ -340,9 +340,9 @@ public class SiteProfileService : ISiteProfileService
     {
         var repo = _unitOfWork.GetRepository<SiteOpening>();
         var opening = await repo.SingleOrDefaultAsync(predicate: o => o.Id == openingId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy cửa/ban công với id {openingId}.");
+            ?? throw new KeyNotFoundException($"No door/balcony found with id {openingId}.");
 
-        await LoadForWriteAsync(accountId, opening.SiteProfileId, "xoá cửa/ban công của mặt bằng này");
+        await LoadForWriteAsync(accountId, opening.SiteProfileId, "delete a door/balcony of this site");
 
         repo.Delete(opening);
         await _unitOfWork.CommitAsync();
@@ -364,7 +364,7 @@ public class SiteProfileService : ISiteProfileService
     private async Task<Entities.SiteProfile> LoadForWriteAsync(Guid accountId, Guid siteProfileId, string action)
     {
         var profile = await _repository.SingleOrDefaultAsync(predicate: p => p.Id == siteProfileId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy hồ sơ mặt bằng với id {siteProfileId}.");
+            ?? throw new KeyNotFoundException($"No site profile found with id {siteProfileId}.");
 
         await EnsureCanWriteAsync(accountId, profile.ProjectShopOwnerId, action);
         return profile;
@@ -390,7 +390,7 @@ public class SiteProfileService : ISiteProfileService
         if (visible || await IsAdminAsync(accountId)) return;
 
         throw new UnauthorizedAccessException(
-            "Hồ sơ mặt bằng này thuộc một dự án mà tài khoản đang đăng nhập không tham gia.");
+            "This site profile belongs to a project that the signed-in account is not part of.");
     }
 
     /// <summary>
@@ -411,7 +411,7 @@ public class SiteProfileService : ISiteProfileService
         if (allowed || await IsAdminAsync(accountId)) return;
 
         throw new UnauthorizedAccessException(
-            $"Chỉ chủ dự án hoặc nhà cung cấp đang thực hiện dự án mới được {action}.");
+            $"Only the project owner or the provider working on the project may {action}.");
     }
 
     /// <summary>
@@ -429,7 +429,7 @@ public class SiteProfileService : ISiteProfileService
         if (isOwner || await IsAdminAsync(accountId)) return;
 
         throw new UnauthorizedAccessException(
-            "Chỉ chủ dự án mới được duyệt số đo khảo sát vào thông số dự án.");
+            "Only the project owner may approve survey measurements into the project specifications.");
     }
 
     private async Task<bool> IsAdminAsync(Guid accountId)
@@ -485,11 +485,11 @@ public class SiteProfileService : ISiteProfileService
         if (r.SiteFloorId is Guid id)
             return floors.Any(f => f.Id == id)
                 ? id
-                : throw new ArgumentException($"Tầng {id} không thuộc mặt bằng này.");
+                : throw new ArgumentException($"Floor {id} does not belong to this site.");
 
         if (r.FloorNo is int no)
             return floors.FirstOrDefault(f => f.FloorNo == no)?.Id
-                ?? throw new ArgumentException($"Mặt bằng này chưa khai tầng số {no}.");
+                ?? throw new ArgumentException($"This site has no floor {no}.");
 
         return null;
     }
@@ -497,19 +497,19 @@ public class SiteProfileService : ISiteProfileService
     private static void EnsureFloorValid(SiteFloorRequest r)
     {
         if (r.AreaM2 is decimal a && a <= 0)
-            throw new ArgumentException($"Diện tích tầng {r.FloorNo} phải lớn hơn 0.");
+            throw new ArgumentException($"The area of floor {r.FloorNo} must be greater than 0.");
         if (r.CeilingHeightM is decimal h && h <= 0)
-            throw new ArgumentException($"Chiều cao tầng {r.FloorNo} phải lớn hơn 0.");
+            throw new ArgumentException($"The height of floor {r.FloorNo} must be greater than 0.");
     }
 
     private static void EnsureOpeningValid(SiteOpeningRequest r)
     {
         if (r.Quantity <= 0)
-            throw new ArgumentException("Quantity của một ô cửa phải lớn hơn 0.");
+            throw new ArgumentException("The quantity of an opening must be greater than 0.");
         if (r.WidthM is decimal w && w <= 0)
-            throw new ArgumentException("Chiều rộng ô cửa phải lớn hơn 0.");
+            throw new ArgumentException("The opening width must be greater than 0.");
         if (r.HeightM is decimal h && h <= 0)
-            throw new ArgumentException("Chiều cao ô cửa phải lớn hơn 0.");
+            throw new ArgumentException("The opening height must be greater than 0.");
     }
 
     /// <summary>Mọi số đo đều là chiều dài vật lý — âm hoặc 0 là dữ liệu sai, không phải "chưa biết".</summary>
@@ -517,7 +517,7 @@ public class SiteProfileService : ISiteProfileService
     {
         foreach (var v in values)
             if (v is decimal d && d <= 0)
-                throw new ArgumentException("Các số đo mặt bằng phải lớn hơn 0 — bỏ trống nếu chưa đo.");
+                throw new ArgumentException("Site measurements must be greater than 0 — leave them empty if not measured yet.");
     }
 
     private static Orientation? ParseOrientation(string? raw)
@@ -526,7 +526,7 @@ public class SiteProfileService : ISiteProfileService
         if (Enum.TryParse<Orientation>(raw.Trim(), ignoreCase: true, out var parsed)) return parsed;
 
         throw new ArgumentException(
-            $"Hướng '{raw}' không hợp lệ. Nhận: {string.Join(", ", Enum.GetNames<Orientation>())}.");
+            $"Orientation '{raw}' is not valid. Accepted: {string.Join(", ", Enum.GetNames<Orientation>())}.");
     }
 
     private static SiteOpeningType ParseOpeningType(string raw)
@@ -535,6 +535,6 @@ public class SiteProfileService : ISiteProfileService
             return parsed;
 
         throw new ArgumentException(
-            $"Loại ô mở '{raw}' không hợp lệ. Nhận: {string.Join(", ", Enum.GetNames<SiteOpeningType>())}.");
+            $"Opening type '{raw}' is not valid. Accepted: {string.Join(", ", Enum.GetNames<SiteOpeningType>())}.");
     }
 }

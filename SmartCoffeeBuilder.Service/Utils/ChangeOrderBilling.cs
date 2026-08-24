@@ -75,7 +75,7 @@ public static class ChangeOrderBilling
             SortOrder = existingSort.Count == 0 ? 1 : existingSort.Max() + 1,
             Name = order.Title,
             Amount = order.Amount,
-            Note = $"Khoản phát sinh đã duyệt. Lý do: {order.Reason}",
+            Note = $"Approved change order. Reason: {order.Reason}",
             Status = PaymentBatchStatus.pending,
             CreatedAt = now,
             UpdatedAt = now

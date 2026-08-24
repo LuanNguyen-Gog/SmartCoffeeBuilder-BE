@@ -25,7 +25,7 @@ public class OtpController : ControllerBase
     public async Task<IActionResult> Send([FromBody] SendOtpRequest request)
     {
         await _otpService.SendOtpAsync(request.Email);
-        return Ok(new { message = "Đã gửi mã OTP tới email." });
+        return Ok(new { message = "An OTP has been sent to your email." });
     }
 
     [HttpPost("verify")]
@@ -36,8 +36,8 @@ public class OtpController : ControllerBase
             return Problem(
                 statusCode: StatusCodes.Status400BadRequest,
                 title: "Bad Request",
-                detail: "Mã OTP không đúng hoặc đã hết hạn.");
+                detail: "The OTP is incorrect or has expired.");
 
-        return Ok(new { message = "Xác thực OTP thành công." });
+        return Ok(new { message = "OTP verified successfully." });
     }
 }

@@ -7,6 +7,7 @@ using SmartCoffeeBuilder.Service.ApiResponse;
 using SmartCoffeeBuilder.Service.DTOs.Requests.Issue;
 using SmartCoffeeBuilder.Service.DTOs.Responses.Issue;
 using SmartCoffeeBuilder.Service.Interfaces;
+using SmartCoffeeBuilder.Service.Utils;
 
 namespace SmartCoffeeBuilder.Service.Implementations;
 
@@ -31,7 +32,7 @@ public class IssueService : IIssueService
         if (!string.IsNullOrWhiteSpace(status))
         {
             if (!Enum.TryParse<IssueStatus>(status, ignoreCase: true, out var parsed))
-                throw new ArgumentException($"Status '{status}' không hợp lệ. Cho phép: open, in_progress, resolved, closed.");
+                throw new ArgumentException($"Status '{status}' is not valid. Allowed: open, in_progress, resolved, closed.");
             st = parsed;
         }
 
@@ -55,7 +56,7 @@ public class IssueService : IIssueService
         var issue = await _repository.SingleOrDefaultAsync(
             predicate: e => e.Id == id,
             include: q => q.Include(e => e.IssueType))
-            ?? throw new KeyNotFoundException($"Không tìm thấy issue với id {id}.");
+            ?? throw new KeyNotFoundException($"No issue found with id {id}.");
 
         return IssueResponse.From(issue);
     }
@@ -64,26 +65,26 @@ public class IssueService : IIssueService
     {
         var engagement = await _unitOfWork.GetRepository<ProjectWorking>()
             .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectWorkingId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {request.ProjectWorkingId}.");
+            ?? throw new KeyNotFoundException($"No project provider found with id {request.ProjectWorkingId}.");
 
         var issueType = await _unitOfWork.GetRepository<IssueType>()
             .SingleOrDefaultAsync(predicate: t => t.Id == request.IssueTypeId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy issue type với id {request.IssueTypeId}.");
+            ?? throw new KeyNotFoundException($"No issue type found with id {request.IssueTypeId}.");
 
         if (request.ConstructionItemId != null)
         {
             var item = await _unitOfWork.GetRepository<ConstructionItem>()
                 .SingleOrDefaultAsync(predicate: e => e.Id == request.ConstructionItemId)
-                ?? throw new KeyNotFoundException($"Không tìm thấy construction item với id {request.ConstructionItemId}.");
+                ?? throw new KeyNotFoundException($"No construction item found with id {request.ConstructionItemId}.");
             if (item.ProjectWorkingId != engagement.Id)
-                throw new InvalidOperationException("Construction item phải thuộc cùng engagement với issue.");
+                throw new InvalidOperationException("The construction item must belong to the same engagement as the issue.");
         }
 
         if (request.CreatedBy != null)
         {
             _ = await _unitOfWork.GetRepository<Account>()
                 .SingleOrDefaultAsync(predicate: a => a.Id == request.CreatedBy)
-                ?? throw new KeyNotFoundException($"Không tìm thấy account với id {request.CreatedBy}.");
+                ?? throw new KeyNotFoundException($"No account found with id {request.CreatedBy}.");
         }
 
         var issue = new Issue
@@ -116,16 +117,16 @@ public class IssueService : IIssueService
         var issue = await _repository.SingleOrDefaultAsync(
             predicate: e => e.Id == id,
             include: q => q.Include(e => e.IssueType))
-            ?? throw new KeyNotFoundException($"Không tìm thấy issue với id {id}.");
+            ?? throw new KeyNotFoundException($"No issue found with id {id}.");
 
         if (issue.Status == IssueStatus.closed)
-            throw new InvalidOperationException("Issue đã 'closed' — không chỉnh sửa được nữa.");
+            throw new InvalidOperationException("This issue is already 'closed' — it can no longer be edited.");
 
         if (request.IssueTypeId.HasValue && request.IssueTypeId.Value != issue.IssueTypeId)
         {
             var issueType = await _unitOfWork.GetRepository<IssueType>()
                 .SingleOrDefaultAsync(predicate: t => t.Id == request.IssueTypeId.Value)
-                ?? throw new KeyNotFoundException($"Không tìm thấy issue type với id {request.IssueTypeId.Value}.");
+                ?? throw new KeyNotFoundException($"No issue type found with id {request.IssueTypeId.Value}.");
             issue.IssueTypeId = issueType.Id;
             issue.IssueType = issueType;
         }
@@ -165,12 +166,12 @@ public class IssueService : IIssueService
     public async Task<IssueResponse> UpdateStatusAsync(Guid id, UpdateIssueStatusRequest request)
     {
         if (!Enum.TryParse<IssueStatus>(request.Status, ignoreCase: true, out var target))
-            throw new ArgumentException($"Status '{request.Status}' không hợp lệ. Cho phép: open, in_progress, resolved, closed.");
+            throw new ArgumentException($"Status '{request.Status}' is not valid. Allowed: open, in_progress, resolved, closed.");
 
         var issue = await _repository.SingleOrDefaultAsync(
             predicate: e => e.Id == id,
             include: q => q.Include(e => e.IssueType))
-            ?? throw new KeyNotFoundException($"Không tìm thấy issue với id {id}.");
+            ?? throw new KeyNotFoundException($"No issue found with id {id}.");
 
         // open → in_progress → resolved → closed (chỉ tiến, không lùi).
         var allowed = issue.Status switch
@@ -181,11 +182,11 @@ public class IssueService : IIssueService
             _ => false
         };
         if (!allowed)
-            throw new InvalidOperationException($"Không thể chuyển issue từ '{issue.Status}' sang '{target}'.");
+            throw new InvalidOperationException($"An issue cannot move from '{issue.Status}' to '{target}'.");
 
         issue.Status = target;
         if (target == IssueStatus.resolved && issue.ActualAt == null)
-            issue.ActualAt = DateOnly.FromDateTime(DateTime.UtcNow);
+            issue.ActualAt = VietnamTime.Today;
         issue.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(issue);
@@ -197,7 +198,7 @@ public class IssueService : IIssueService
     public async Task DeleteAsync(Guid id)
     {
         var issue = await _repository.SingleOrDefaultAsync(predicate: e => e.Id == id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy issue với id {id}.");
+            ?? throw new KeyNotFoundException($"No issue found with id {id}.");
 
         _repository.Delete(issue);
         await _unitOfWork.CommitAsync();

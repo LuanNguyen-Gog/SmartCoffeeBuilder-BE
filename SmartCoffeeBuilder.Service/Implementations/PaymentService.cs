@@ -45,15 +45,15 @@ public class PaymentService : IPaymentService
     {
         var plan = await _unitOfWork.GetRepository<SubscriptionPlan>()
                 .SingleOrDefaultAsync(predicate: p => p.Id == request.PlanId && p.IsActive)
-            ?? throw new KeyNotFoundException($"Không tìm thấy gói subscription với id {request.PlanId}.");
+            ?? throw new KeyNotFoundException($"No subscription plan found with id {request.PlanId}.");
 
         var account = await _unitOfWork.GetRepository<Account>()
                 .SingleOrDefaultAsync(predicate: a => a.Id == accountId && a.DeletedAt == null)
-            ?? throw new KeyNotFoundException($"Không tìm thấy tài khoản với id {accountId}.");
+            ?? throw new KeyNotFoundException($"No account found with id {accountId}.");
 
         if (account.Role != plan.TargetRole)
             throw new InvalidOperationException(
-                $"Gói '{plan.Name}' dành cho role '{plan.TargetRole}', tài khoản hiện tại là '{account.Role}'.");
+                $"Plan '{plan.Name}' is for role '{plan.TargetRole}', but the current account is '{account.Role}'.");
 
         var expirationSeconds = _configuration.GetValue("PayOs:ExpirationSeconds", 900);
 
@@ -113,7 +113,7 @@ public class PaymentService : IPaymentService
             _unitOfWork.GetRepository<Subscription>().Update(subscription);
             await _unitOfWork.CommitAsync();
             _logger.LogError(ex, "payOS createPaymentLink failed for account {AccountId}, plan {PlanId}", accountId, plan.Id);
-            throw new InvalidOperationException("Không thể tạo liên kết thanh toán payOS. Vui lòng thử lại sau.");
+            throw new InvalidOperationException("Could not create the payOS payment link. Please try again later.");
         }
 
         var transaction = new PaymentTransaction
@@ -127,7 +127,7 @@ public class PaymentService : IPaymentService
             CheckoutUrl = link.checkoutUrl,
             QrCode = link.qrCode,
             Amount = plan.Price,
-            Description = $"Thanh toán gói {plan.Name}",
+            Description = $"Payment for plan {plan.Name}",
             Status = PaymentTransactionStatus.pending
         };
         await _unitOfWork.GetRepository<PaymentTransaction>().InsertAsync(transaction);
@@ -153,18 +153,18 @@ public class PaymentService : IPaymentService
     public async Task<CreatePaymentResponse> CreatePostBoostPaymentAsync(Guid accountId, CreatePostBoostRequest request)
     {
         if (request.Days < 1 || request.Days > 90)
-            throw new ArgumentException("Số ngày đẩy bài phải từ 1 đến 90.");
+            throw new ArgumentException("The number of boost days must be between 1 and 90.");
 
         var post = await _unitOfWork.GetRepository<Post>().SingleOrDefaultAsync(
                 predicate: p => p.Id == request.PostId,
                 include: q => q.Include(p => p.ProjectShopOwner).ThenInclude(pr => pr.Owner))
-            ?? throw new KeyNotFoundException($"Không tìm thấy bài đăng với id {request.PostId}.");
+            ?? throw new KeyNotFoundException($"No post found with id {request.PostId}.");
 
         if (post.ProjectShopOwner.Owner.AccountId != accountId)
-            throw new InvalidOperationException("Chỉ chủ quán sở hữu bài đăng mới mua được lượt đẩy bài.");
+            throw new InvalidOperationException("Only the shop owner who owns the post can purchase a boost.");
 
         if (post.Status != PostStatus.open)
-            throw new InvalidOperationException($"Bài đăng đang ở trạng thái '{post.Status}', chỉ đẩy được bài đang mở.");
+            throw new InvalidOperationException($"The post is in status '{post.Status}'; only an open post can be boosted.");
 
         var expirationSeconds = _configuration.GetValue("PayOs:ExpirationSeconds", 900);
         var platform = ParsePlatform(request.Platform);
@@ -193,7 +193,7 @@ public class PaymentService : IPaymentService
             orderCode: orderCode,
             amount: (int)amount,
             description: description,
-            items: new List<ItemData> { new($"Đẩy bài {request.Days} ngày", 1, (int)amount) },
+            items: new List<ItemData> { new($"Boost post for {request.Days} day(s)", 1, (int)amount) },
             returnUrl: returnUrl,
             cancelUrl: cancelUrl,
             expiredAt: expiredAt);
@@ -206,7 +206,7 @@ public class PaymentService : IPaymentService
         catch (Exception ex)
         {
             _logger.LogError(ex, "payOS createPaymentLink failed for post boost. Account {AccountId}, post {PostId}", accountId, post.Id);
-            throw new InvalidOperationException("Không thể tạo liên kết thanh toán payOS. Vui lòng thử lại sau.");
+            throw new InvalidOperationException("Could not create the payOS payment link. Please try again later.");
         }
 
         var transaction = new PaymentTransaction
@@ -221,7 +221,7 @@ public class PaymentService : IPaymentService
             CheckoutUrl = link.checkoutUrl,
             QrCode = link.qrCode,
             Amount = amount,
-            Description = $"Đẩy bài đăng #{post.Id} nổi bật {request.Days} ngày",
+            Description = $"Feature post #{post.Id} for {request.Days} day(s)",
             Status = PaymentTransactionStatus.pending
         };
         await _unitOfWork.GetRepository<PaymentTransaction>().InsertAsync(transaction);
@@ -268,13 +268,13 @@ public class PaymentService : IPaymentService
     public async Task<PaymentStatusResponse> GetPaymentStatusAsync(Guid accountId, long? orderCode, string? paymentLinkId)
     {
         if (orderCode == null && string.IsNullOrWhiteSpace(paymentLinkId))
-            throw new ArgumentException("Cần cung cấp orderCode hoặc paymentLinkId.");
+            throw new ArgumentException("Either orderCode or paymentLinkId is required.");
 
         var transaction = await FindTransactionAsync(orderCode, paymentLinkId)
-            ?? throw new KeyNotFoundException("Không tìm thấy giao dịch thanh toán.");
+            ?? throw new KeyNotFoundException("No payment transaction was found.");
 
         if (transaction.AccountId != accountId)
-            throw new UnauthorizedAccessException("Bạn không có quyền xem giao dịch này.");
+            throw new UnauthorizedAccessException("You do not have permission to view this transaction.");
 
         return PaymentStatusResponse.From(transaction);
     }
@@ -282,10 +282,10 @@ public class PaymentService : IPaymentService
     public async Task<PaymentStatusResponse> CancelPaymentAsync(Guid accountId, long orderCode)
     {
         var transaction = await FindTransactionAsync(orderCode, null)
-            ?? throw new KeyNotFoundException($"Không tìm thấy giao dịch với orderCode {orderCode}.");
+            ?? throw new KeyNotFoundException($"No transaction found with orderCode {orderCode}.");
 
         if (transaction.AccountId != accountId)
-            throw new UnauthorizedAccessException("Bạn không có quyền huỷ giao dịch này.");
+            throw new UnauthorizedAccessException("You do not have permission to cancel this transaction.");
 
         // Đã ở trạng thái cuối → idempotent, trả nguyên trạng (FE có thể gọi lại nhiều lần).
         if (transaction.Status != PaymentTransactionStatus.pending)
@@ -324,12 +324,12 @@ public class PaymentService : IPaymentService
         try
         {
             var payOs = CreatePayOsClient();
-            await payOs.cancelPaymentLink(orderCode, "Người dùng huỷ giao dịch.");
+            await payOs.cancelPaymentLink(orderCode, "Cancelled by the user.");
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex,
-                "payOS cancelPaymentLink thất bại cho orderCode {OrderCode} (giao dịch vẫn được đánh dấu huỷ nội bộ, cần đối soát thủ công nếu user vẫn trả được tiền).",
+                "payOS cancelPaymentLink failed for orderCode {OrderCode} (the transaction is still marked cancelled internally; manual reconciliation is needed if the user can still pay).",
                 orderCode);
         }
 
@@ -349,7 +349,7 @@ public class PaymentService : IPaymentService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "payOS webhook signature verification failed.");
-            throw new ArgumentException("Webhook không hợp lệ (sai chữ ký).");
+            throw new ArgumentException("The webhook is not valid (bad signature).");
         }
 
         var transaction = await FindTransactionAsync(data.orderCode, data.paymentLinkId);
@@ -358,7 +358,7 @@ public class PaymentService : IPaymentService
             // payOS gửi payload test (orderCode=123) khi đăng ký webhook URL — phải trả 200.
             _logger.LogInformation(
                 "payOS webhook verified but no matching transaction. OrderCode {OrderCode}", data.orderCode);
-            return "Webhook hợp lệ nhưng không khớp giao dịch nội bộ.";
+            return "The webhook is valid but does not match any internal transaction.";
         }
 
         var isPaid = webhook.success
@@ -372,10 +372,10 @@ public class PaymentService : IPaymentService
         if (isPaid && data.amount != (int)transaction.Amount)
         {
             _logger.LogError(
-                "payOS webhook LỆCH SỐ TIỀN — KHÔNG kích hoạt quyền lợi. OrderCode {OrderCode}, payOS báo {WebhookAmount}, hệ thống ghi {ExpectedAmount}. Cần đối soát thủ công.",
+                "payOS webhook AMOUNT MISMATCH — benefits NOT activated. OrderCode {OrderCode}, payOS reports {WebhookAmount}, the system recorded {ExpectedAmount}. Manual reconciliation required.",
                 transaction.OrderCode, data.amount, transaction.Amount);
 
-            return "Số tiền không khớp với giao dịch nội bộ — giao dịch được giữ lại để đối soát thủ công.";
+            return "The amount does not match the internal transaction — the transaction is held for manual reconciliation.";
         }
 
         // KHÔNG early-return dựa trên transaction.Status đọc được ở trên — giá trị này có thể stale
@@ -394,7 +394,7 @@ public class PaymentService : IPaymentService
     public async Task ConfirmWebhookAsync(string webhookUrl)
     {
         if (string.IsNullOrWhiteSpace(webhookUrl))
-            throw new ArgumentException("Webhook URL không được để trống.");
+            throw new ArgumentException("The webhook URL cannot be empty.");
 
         var payOs = CreatePayOsClient();
         try
@@ -404,7 +404,7 @@ public class PaymentService : IPaymentService
         catch (Exception ex)
         {
             _logger.LogError(ex, "payOS confirmWebhook failed for {WebhookUrl}", webhookUrl);
-            throw new InvalidOperationException("Không thể xác nhận webhook URL với payOS.");
+            throw new InvalidOperationException("Could not confirm the webhook URL with payOS.");
         }
     }
 
@@ -494,14 +494,14 @@ public class PaymentService : IPaymentService
         }
 
         if (!claimed)
-            return "Giao dịch đã được xử lý trước đó.";
+            return "The transaction was already processed.";
 
         if (!isPaid)
-            return "Đã ghi nhận giao dịch thất bại.";
+            return "The failed transaction has been recorded.";
 
         return transaction.Purpose == PaymentPurpose.post_boost
-            ? "Thanh toán thành công — bài đăng đã được đẩy nổi bật."
-            : "Thanh toán thành công — subscription đã được kích hoạt.";
+            ? "Payment successful — the post has been boosted to featured."
+            : "Payment successful — the subscription has been activated.";
     }
 
     /// <summary>
@@ -514,7 +514,7 @@ public class PaymentService : IPaymentService
         var now = DateTime.UtcNow;
         var subscription = transaction.Subscription
             ?? throw new InvalidOperationException(
-                $"Giao dịch #{transaction.Id} purpose subscription nhưng không gắn subscription.");
+                $"Transaction #{transaction.Id} has purpose subscription but no subscription attached.");
 
         var currentActiveEnd = await _unitOfWork.GetRepository<Subscription>().SingleOrDefaultAsync(
             selector: s => (DateTime?)s.EndDate,
@@ -546,7 +546,7 @@ public class PaymentService : IPaymentService
         {
             // Bài đăng đã bị xoá trước khi webhook về — vẫn ghi nhận giao dịch paid để đối soát.
             _logger.LogWarning(
-                "payOS webhook paid cho post boost nhưng post không còn. Transaction #{Id}", transaction.Id);
+                "payOS webhook reported paid for a post boost but the post no longer exists. Transaction #{Id}", transaction.Id);
             return;
         }
 
@@ -659,7 +659,7 @@ public class PaymentService : IPaymentService
                 return candidate;
         }
 
-        throw new InvalidOperationException("Không sinh được orderCode duy nhất cho payOS sau 5 lần thử.");
+        throw new InvalidOperationException("Could not generate a unique orderCode for payOS after 5 attempts.");
     }
 
     private static string TruncateForPayOs(string value) =>
@@ -687,7 +687,7 @@ public class PaymentService : IPaymentService
             "web" => PaymentPlatform.web,
             "mobile" => PaymentPlatform.mobile,
             _ => throw new ArgumentException(
-                $"Platform '{platform}' không hợp lệ, chỉ nhận 'web' hoặc 'mobile'.")
+                $"Platform '{platform}' is not valid; only 'web' or 'mobile' are accepted.")
         };
     }
 
@@ -712,7 +712,7 @@ public class PaymentService : IPaymentService
             || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
         {
             throw new InvalidOperationException(
-                $"Cấu hình {key} phải là URL http/https tuyệt đối (payOS không nhận deep link dạng 'app://'). Giá trị hiện tại: '{value}'.");
+                $"Configuration {key} must be an absolute http/https URL (payOS does not accept deep links such as 'app://'). Current value: '{value}'.");
         }
 
         return value;

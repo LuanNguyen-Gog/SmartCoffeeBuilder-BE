@@ -170,7 +170,7 @@ public class ConversationService : IConversationService
         // Phân quyền: chỉ creator mới xoá được thread (tránh xoá nhầm thread người khác tạo).
         if (conversation.CreatedBy != accountId)
             throw new UnauthorizedAccessException(
-                "Chỉ người tạo thread mới có quyền xoá — thành viên khác không thể xoá thread của bạn.");
+                "Only the thread's creator may delete it — other members cannot delete your thread.");
 
         _unitOfWork.GetRepository<ConversationModel>().Delete(conversation);
         await _unitOfWork.CommitAsync();
@@ -186,7 +186,7 @@ public class ConversationService : IConversationService
         return await _unitOfWork.GetRepository<ConversationModel>().SingleOrDefaultAsync(
             predicate: c => c.Id == conversationId,
             include: q => q.Include(c => c.CreatedByAccount))
-            ?? throw new KeyNotFoundException($"Không tìm thấy conversation với id {conversationId}.");
+            ?? throw new KeyNotFoundException($"No conversation found with id {conversationId}.");
     }
 
     /// <summary>
@@ -200,7 +200,7 @@ public class ConversationService : IConversationService
         var pw = await _unitOfWork.GetRepository<ProjectWorkingModel>().SingleOrDefaultAsync(
             predicate: p => p.Id == projectWorkingId,
             include: q => q.Include(p => p.ProjectShopOwner).ThenInclude(s => s.Owner))
-            ?? throw new KeyNotFoundException($"Không tìm thấy engagement với id {projectWorkingId}.");
+            ?? throw new KeyNotFoundException($"No engagement found with id {projectWorkingId}.");
 
         // Owner: luôn là member.
         if (pw.ProjectShopOwner.Owner.AccountId == accountId)
@@ -213,7 +213,7 @@ public class ConversationService : IConversationService
                             && p.Status == ProviderStatus.accepted);
         if (!otherPws.Any())
             throw new UnauthorizedAccessException(
-                "Account không thuộc engagement này — không có quyền truy cập thread chat.");
+                "This account is not part of the engagement — it cannot access the chat thread.");
 
         return pw;
     }

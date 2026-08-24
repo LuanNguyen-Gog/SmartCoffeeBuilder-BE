@@ -94,11 +94,11 @@ public class NotificationService : INotificationService
         var noti = await _repository.SingleOrDefaultAsync(
             predicate: n => n.Id == id && n.AccountId == accountId,
             include: q => q.Include(n => n.Account))
-            ?? throw new KeyNotFoundException($"Không tìm thấy notification với id {id}.");
+            ?? throw new KeyNotFoundException($"No notification found with id {id}.");
 
         var email = noti.Account?.Email;
         if (string.IsNullOrWhiteSpace(email))
-            throw new InvalidOperationException("Account của notification không có email để gửi lại.");
+            throw new InvalidOperationException("The notification's account has no email to resend to.");
 
         // Resend là hành động chủ động — để lỗi email nổi lên (500) cho người gọi biết.
         await SendEmailAsync(email, noti.Type, noti.Title, noti.Content);
@@ -116,7 +116,7 @@ public class NotificationService : INotificationService
     /// </summary>
     private async Task<Notification> LoadOwnNotificationAsync(Guid accountId, Guid id) =>
         await _repository.SingleOrDefaultAsync(predicate: n => n.Id == id && n.AccountId == accountId)
-        ?? throw new KeyNotFoundException($"Không tìm thấy notification với id {id}.");
+        ?? throw new KeyNotFoundException($"No notification found with id {id}.");
 
     // ──────────────────────────────── Domain triggers ────────────────────────────────
 
@@ -131,17 +131,17 @@ public class NotificationService : INotificationService
         var ownerAccount = app?.Post?.ProjectShopOwner?.Owner?.Account;
         if (app is null || ownerAccount is null)
         {
-            _logger.LogWarning("Bỏ qua noti application_received: không resolve được owner cho application #{Id}.", applicationId);
+            _logger.LogWarning("Skipping application_received notification: could not resolve the owner for application #{Id}.", applicationId);
             return;
         }
 
-        var providerName = app.ServiceProviderProfile?.DisplayName ?? "Một nhà cung cấp";
-        var projectName = app.Post?.ProjectShopOwner?.Name ?? "dự án của bạn";
-        var postTitle = app.Post?.Title ?? "bài đăng";
+        var providerName = app.ServiceProviderProfile?.DisplayName ?? "A provider";
+        var projectName = app.Post?.ProjectShopOwner?.Name ?? "your project";
+        var postTitle = app.Post?.Title ?? "the post";
 
-        var title = "Hồ sơ ứng tuyển mới cho dự án của bạn";
-        var content = $"Nhà cung cấp \"{providerName}\" vừa ứng tuyển vào bài đăng \"{postTitle}\" " +
-                      $"thuộc dự án \"{projectName}\". Vui lòng xem xét và phản hồi hồ sơ.";
+        var title = "New application for your project";
+        var content = $"Provider \"{providerName}\" has applied to post \"{postTitle}\" " +
+                      $"in project \"{projectName}\". Please review and respond to the application.";
 
         await CreateAndDispatchAsync(
             ownerAccount.Id, ownerAccount.Email, NotificationTypes.ApplicationReceived,
@@ -159,27 +159,27 @@ public class NotificationService : INotificationService
         var providerAccount = app?.ServiceProviderProfile?.Account;
         if (app is null || providerAccount is null)
         {
-            _logger.LogWarning("Bỏ qua noti application decision: không resolve được provider cho application #{Id}.", applicationId);
+            _logger.LogWarning("Skipping application decision notification: could not resolve the provider for application #{Id}.", applicationId);
             return;
         }
 
-        var projectName = app.Post?.ProjectShopOwner?.Name ?? "dự án";
-        var postTitle = app.Post?.Title ?? "bài đăng";
+        var projectName = app.Post?.ProjectShopOwner?.Name ?? "the project";
+        var postTitle = app.Post?.Title ?? "the post";
 
         string type, title, content;
         if (accepted)
         {
             type = NotificationTypes.ApplicationAccepted;
-            title = "Hồ sơ ứng tuyển của bạn đã được chấp nhận";
-            content = $"Chúc mừng! Hồ sơ ứng tuyển của bạn cho bài đăng \"{postTitle}\" (dự án \"{projectName}\") " +
-                      "đã được chủ quán chấp nhận. Hai bên có thể bắt đầu triển khai công việc.";
+            title = "Your application has been accepted";
+            content = $"Congratulations! Your application for post \"{postTitle}\" (project \"{projectName}\") " +
+                      "has been accepted by the shop owner. Both sides can now start the work.";
         }
         else
         {
             type = NotificationTypes.ApplicationRejected;
-            title = "Hồ sơ ứng tuyển của bạn chưa được chọn";
-            content = $"Rất tiếc, hồ sơ ứng tuyển của bạn cho bài đăng \"{postTitle}\" (dự án \"{projectName}\") " +
-                      "chưa được chọn lần này. Cảm ơn bạn đã quan tâm.";
+            title = "Your application was not selected";
+            content = $"Unfortunately, your application for post \"{postTitle}\" (project \"{projectName}\") " +
+                      "was not selected this time. Thank you for your interest.";
         }
 
         await CreateAndDispatchAsync(
@@ -194,24 +194,24 @@ public class NotificationService : INotificationService
         if (engagement is null || providerAccount is null)
         {
             _logger.LogWarning(
-                "Bỏ qua noti engagement_invited: không resolve được provider cho engagement #{Id}.",
+                "Skipping engagement_invited notification: could not resolve the provider for engagement #{Id}.",
                 projectWorkingId);
             return;
         }
 
         var shopName = engagement.ProjectShopOwner?.Owner?.ShopName;
-        var ownerLabel = string.IsNullOrWhiteSpace(shopName) ? "Một chủ quán" : $"\"{shopName}\"";
-        var projectName = engagement.ProjectShopOwner?.Name ?? "một dự án";
+        var ownerLabel = string.IsNullOrWhiteSpace(shopName) ? "A shop owner" : $"\"{shopName}\"";
+        var projectName = engagement.ProjectShopOwner?.Name ?? "a project";
 
         var note = string.IsNullOrWhiteSpace(engagement.RequestMessage)
             ? string.Empty
-            : $" Lời nhắn: \"{engagement.RequestMessage}\".";
+            : $" Message: \"{engagement.RequestMessage}\".";
 
         await CreateAndDispatchAsync(
             providerAccount.Id, providerAccount.Email, NotificationTypes.EngagementInvited,
-            title: "Bạn nhận được lời mời hợp tác trực tiếp",
-            content: $"{ownerLabel} vừa mời bạn hợp tác ({engagement.ContractType}) cho dự án \"{projectName}\".{note} " +
-                     "Vui lòng phản hồi (nhận hoặc từ chối) lời mời.",
+            title: "You have received a direct engagement invitation",
+            content: $"{ownerLabel} has invited you to work together ({engagement.ContractType}) on project \"{projectName}\".{note} " +
+                     "Please respond to the invitation (accept or decline).",
             referenceType: EngagementReference, referenceId: engagement.Id);
     }
 
@@ -222,28 +222,28 @@ public class NotificationService : INotificationService
         if (engagement is null || ownerAccount is null)
         {
             _logger.LogWarning(
-                "Bỏ qua noti engagement_invite decision: không resolve được owner cho engagement #{Id}.",
+                "Skipping engagement_invite decision notification: could not resolve the owner for engagement #{Id}.",
                 projectWorkingId);
             return;
         }
 
-        var providerName = engagement.ServiceProviderProfile?.DisplayName ?? "Nhà cung cấp";
-        var projectName = engagement.ProjectShopOwner?.Name ?? "dự án của bạn";
+        var providerName = engagement.ServiceProviderProfile?.DisplayName ?? "The provider";
+        var projectName = engagement.ProjectShopOwner?.Name ?? "your project";
 
         string type, title, content;
         if (accepted)
         {
             type = NotificationTypes.EngagementInviteAccepted;
-            title = "Nhà cung cấp đã nhận lời mời hợp tác";
-            content = $"\"{providerName}\" đã đồng ý lời mời hợp tác ({engagement.ContractType}) " +
-                      $"cho dự án \"{projectName}\". Hai bên có thể bắt đầu (ký hợp đồng, khảo sát...).";
+            title = "The provider accepted your engagement invitation";
+            content = $"\"{providerName}\" accepted the engagement invitation ({engagement.ContractType}) " +
+                      $"for project \"{projectName}\". Both sides can now begin (sign the contract, run the survey...).";
         }
         else
         {
             type = NotificationTypes.EngagementInviteRejected;
-            title = "Nhà cung cấp đã từ chối lời mời hợp tác";
-            content = $"\"{providerName}\" đã từ chối lời mời hợp tác ({engagement.ContractType}) " +
-                      $"cho dự án \"{projectName}\". Bạn có thể mời một nhà cung cấp khác.";
+            title = "The provider declined your engagement invitation";
+            content = $"\"{providerName}\" declined the engagement invitation ({engagement.ContractType}) " +
+                      $"for project \"{projectName}\". You can invite another provider.";
         }
 
         await CreateAndDispatchAsync(
@@ -258,23 +258,23 @@ public class NotificationService : INotificationService
         if (engagement is null || ownerAccount is null)
         {
             _logger.LogWarning(
-                "Bỏ qua noti engagement_completion_requested: không resolve được owner cho engagement #{Id}.",
+                "Skipping engagement_completion_requested notification: could not resolve the owner for engagement #{Id}.",
                 projectWorkingId);
             return;
         }
 
-        var providerName = engagement.ServiceProviderProfile?.DisplayName ?? "Nhà cung cấp";
-        var projectName = engagement.ProjectShopOwner?.Name ?? "dự án của bạn";
+        var providerName = engagement.ServiceProviderProfile?.DisplayName ?? "The provider";
+        var projectName = engagement.ProjectShopOwner?.Name ?? "your project";
 
         var note = string.IsNullOrWhiteSpace(engagement.CompletionRequestNote)
             ? string.Empty
-            : $" Ghi chú bàn giao: \"{engagement.CompletionRequestNote}\".";
+            : $" Handover note: \"{engagement.CompletionRequestNote}\".";
 
         await CreateAndDispatchAsync(
             ownerAccount.Id, ownerAccount.Email, NotificationTypes.EngagementCompletionRequested,
-            title: "Nhà cung cấp báo hoàn thành, chờ bạn nghiệm thu",
-            content: $"\"{providerName}\" vừa báo đã hoàn thành phần việc ({engagement.ContractType}) " +
-                     $"thuộc dự án \"{projectName}\".{note} Vui lòng kiểm tra và bấm nghiệm thu để hoàn tất hợp tác.",
+            title: "The provider reported completion and is awaiting your acceptance",
+            content: $"\"{providerName}\" has reported completing their part of the work ({engagement.ContractType}) " +
+                     $"in project \"{projectName}\".{note} Please review it and click accept to finalise the engagement.",
             referenceType: EngagementReference, referenceId: engagement.Id);
     }
 
@@ -285,18 +285,18 @@ public class NotificationService : INotificationService
         if (engagement is null || providerAccount is null)
         {
             _logger.LogWarning(
-                "Bỏ qua noti engagement_completed: không resolve được provider cho engagement #{Id}.",
+                "Skipping engagement_completed notification: could not resolve the provider for engagement #{Id}.",
                 projectWorkingId);
             return;
         }
 
-        var projectName = engagement.ProjectShopOwner?.Name ?? "dự án";
+        var projectName = engagement.ProjectShopOwner?.Name ?? "the project";
 
         await CreateAndDispatchAsync(
             providerAccount.Id, providerAccount.Email, NotificationTypes.EngagementCompleted,
-            title: "Công việc của bạn đã được nghiệm thu",
-            content: $"Chủ quán đã nghiệm thu phần việc ({engagement.ContractType}) của bạn tại dự án " +
-                     $"\"{projectName}\". Hợp tác hoàn tất — chủ quán có thể gửi đánh giá cho bạn từ lúc này.",
+            title: "Your work has been accepted",
+            content: $"The shop owner has accepted your part of the work ({engagement.ContractType}) in project " +
+                     $"\"{projectName}\". The engagement is complete — the shop owner can now leave you a review.",
             referenceType: EngagementReference, referenceId: engagement.Id);
     }
 
@@ -305,7 +305,7 @@ public class NotificationService : INotificationService
         var engagement = await LoadEngagementWithPartiesAsync(projectWorkingId);
         if (engagement is null)
         {
-            _logger.LogWarning("Bỏ qua noti engagement_terminated: không tìm thấy engagement #{Id}.", projectWorkingId);
+            _logger.LogWarning("Skipping engagement_terminated notification: engagement #{Id} was not found.", projectWorkingId);
             return;
         }
 
@@ -316,19 +316,19 @@ public class NotificationService : INotificationService
         if (recipient is null)
         {
             _logger.LogWarning(
-                "Bỏ qua noti engagement_terminated: không resolve được người nhận cho engagement #{Id}.",
+                "Skipping engagement_terminated notification: could not resolve the recipient for engagement #{Id}.",
                 projectWorkingId);
             return;
         }
 
-        var projectName = engagement.ProjectShopOwner?.Name ?? "dự án";
-        var actor = terminatedByOwner ? "Chủ quán" : "Nhà cung cấp";
+        var projectName = engagement.ProjectShopOwner?.Name ?? "the project";
+        var actor = terminatedByOwner ? "The shop owner" : "The provider";
 
         await CreateAndDispatchAsync(
             recipient.Id, recipient.Email, NotificationTypes.EngagementTerminated,
-            title: "Hợp tác đã bị huỷ ngang",
-            content: $"{actor} đã huỷ ngang hợp tác ({engagement.ContractType}) tại dự án \"{projectName}\". " +
-                     "Các công việc liên quan của hợp tác này dừng lại từ thời điểm hiện tại.",
+            title: "The engagement was terminated early",
+            content: $"{actor} terminated the engagement ({engagement.ContractType}) in project \"{projectName}\". " +
+                     "All related work in this engagement stops as of now.",
             referenceType: EngagementReference, referenceId: engagement.Id);
     }
 
@@ -340,14 +340,14 @@ public class NotificationService : INotificationService
 
         var note = string.IsNullOrWhiteSpace(ctx.Engagement.TerminationRequestNote)
             ? string.Empty
-            : $" Lý do: \"{ctx.Engagement.TerminationRequestNote}\".";
+            : $" Reason: \"{ctx.Engagement.TerminationRequestNote}\".";
 
         await CreateAndDispatchAsync(
             ctx.Recipient.Id, ctx.Recipient.Email, NotificationTypes.EngagementTerminationRequested,
-            title: "Đề nghị huỷ ngang hợp tác, chờ bạn phản hồi",
-            content: $"{ctx.RequesterLabel} đề nghị huỷ ngang hợp tác ({ctx.ContractType}) tại dự án " +
-                     $"\"{ctx.ProjectName}\".{note} Hợp tác VẪN đang chạy cho tới khi bạn đồng ý — " +
-                     "vui lòng vào hợp tác để đồng ý hoặc từ chối đề nghị này.",
+            title: "Early termination requested, awaiting your response",
+            content: $"{ctx.RequesterLabel} has requested to terminate the engagement ({ctx.ContractType}) early in project " +
+                     $"\"{ctx.ProjectName}\".{note} The engagement IS STILL running until you agree — " +
+                     "please open the engagement to accept or decline this request.",
             referenceType: EngagementReference, referenceId: projectWorkingId);
     }
 
@@ -360,14 +360,14 @@ public class NotificationService : INotificationService
 
         var (type, title, content) = approved
             ? (NotificationTypes.EngagementTerminationApproved,
-               "Hợp tác đã kết thúc theo thoả thuận hai bên",
-               $"{ctx.CounterpartLabel} đã đồng ý đề nghị huỷ ngang của bạn. Hợp tác ({ctx.ContractType}) " +
-               $"tại dự án \"{ctx.ProjectName}\" kết thúc từ thời điểm hiện tại. Hai bên có thể bắt đầu lại " +
-               "bằng một lời mời hợp tác mới hoặc qua bài đăng tuyển.")
+               "The engagement ended by mutual agreement",
+               $"{ctx.CounterpartLabel} accepted your early termination request. The engagement ({ctx.ContractType}) " +
+               $"in project \"{ctx.ProjectName}\" ends as of now. Both sides can start again " +
+               "with a new engagement invitation or through a recruitment post.")
             : (NotificationTypes.EngagementTerminationRejected,
-               "Đề nghị huỷ ngang không được chấp thuận",
-               $"{ctx.CounterpartLabel} không đồng ý huỷ ngang hợp tác ({ctx.ContractType}) tại dự án " +
-               $"\"{ctx.ProjectName}\". Hợp tác vẫn tiếp tục — hai bên nên trao đổi lại để thống nhất.");
+               "The early termination request was declined",
+               $"{ctx.CounterpartLabel} did not agree to terminate the engagement ({ctx.ContractType}) early in project " +
+               $"\"{ctx.ProjectName}\". The engagement continues — the two sides should talk it over and reach an agreement.");
 
         await CreateAndDispatchAsync(
             ctx.Recipient.Id, ctx.Recipient.Email, type, title, content,
@@ -382,9 +382,9 @@ public class NotificationService : INotificationService
 
         await CreateAndDispatchAsync(
             ctx.Recipient.Id, ctx.Recipient.Email, NotificationTypes.EngagementTerminationCancelled,
-            title: "Đề nghị huỷ ngang đã được rút lại",
-            content: $"{ctx.RequesterLabel} đã rút lại đề nghị huỷ ngang hợp tác ({ctx.ContractType}) tại dự án " +
-                     $"\"{ctx.ProjectName}\". Bạn không cần phản hồi nữa, hợp tác tiếp tục như bình thường.",
+            title: "The early termination request was withdrawn",
+            content: $"{ctx.RequesterLabel} has withdrawn the request to terminate the engagement ({ctx.ContractType}) early in project " +
+                     $"\"{ctx.ProjectName}\". You no longer need to respond; the engagement continues as normal.",
             referenceType: EngagementReference, referenceId: projectWorkingId);
     }
 
@@ -415,7 +415,7 @@ public class NotificationService : INotificationService
         if (ownerAccount is null)
         {
             _logger.LogWarning(
-                "Bỏ qua noti project_ready_to_close: không resolve được owner cho dự án #{Id}.",
+                "Skipping project_ready_to_close notification: could not resolve the owner for project #{Id}.",
                 projectShopOwnerId);
             return;
         }
@@ -423,13 +423,13 @@ public class NotificationService : INotificationService
         // KHÔNG chặn theo "đã có noti chưa đọc": owner có thể mời thêm provider sau khi được nhắc,
         // lúc đó lời nhắc cũ thành sai và phải có lời nhắc mới khi hợp tác mới khép lại. Mỗi lần
         // gửi ứng với đúng một lần dự án chuyển sang trạng thái đóng được, nên không sinh trùng.
-        var plural = completedCount > 1 ? $"cả {completedCount} hợp tác" : "hợp tác";
+        var plural = completedCount > 1 ? $"all {completedCount} engagements" : "the engagement";
 
         await CreateAndDispatchAsync(
             ownerAccount.Id, ownerAccount.Email, NotificationTypes.ProjectReadyToClose,
-            title: "Dự án đã xong, chờ bạn đóng",
-            content: $"Dự án \"{project.Name}\" đã nghiệm thu xong {plural} và không còn hợp tác nào " +
-                     "đang chạy. Vào dự án bấm \"Hoàn thành dự án\" để đóng lại và kết thúc.",
+            title: "The project is finished and waiting for you to close it",
+            content: $"Project \"{project.Name}\" has finished acceptance for {plural} and no engagement is " +
+                     "still running. Open the project and click \"Complete project\" to close and finish it.",
             referenceType: ProjectReference, referenceId: projectShopOwnerId);
     }
 
@@ -440,14 +440,14 @@ public class NotificationService : INotificationService
 
         var project = await _unitOfWork.GetRepository<ProjectShopOwner>()
             .SingleOrDefaultAsync(predicate: p => p.Id == projectShopOwnerId);
-        var projectName = project?.Name ?? "dự án";
+        var projectName = project?.Name ?? "the project";
 
         var engagements = await _unitOfWork.GetRepository<ProjectWorking>().GetListAsync(
             predicate: e => affectedProjectWorkingIds.Contains(e.Id),
             include: q => q.Include(e => e.ServiceProviderProfile).ThenInclude(p => p.Account));
 
         var type = cancelled ? NotificationTypes.ProjectCancelled : NotificationTypes.ProjectCompleted;
-        var title = cancelled ? "Dự án đã bị huỷ" : "Dự án đã hoàn thành";
+        var title = cancelled ? "The project was cancelled" : "The project is complete";
 
         // Một provider có thể có nhiều engagement trong cùng dự án — chỉ gửi 1 noti cho mỗi tài khoản.
         var recipients = engagements
@@ -459,8 +459,8 @@ public class NotificationService : INotificationService
         foreach (var account in recipients)
         {
             var content = cancelled
-                ? $"Chủ quán đã huỷ dự án \"{projectName}\". Các hợp tác đang mở của bạn tại dự án này đã được đóng lại."
-                : $"Dự án \"{projectName}\" đã được chủ quán đóng và hoàn thành. Cảm ơn bạn đã đồng hành.";
+                ? $"The shop owner cancelled project \"{projectName}\". Your open engagements in this project have been closed."
+                : $"Project \"{projectName}\" has been closed and completed by the shop owner. Thank you for working with us.";
 
             await CreateAndDispatchAsync(
                 account.Id, account.Email, type, title, content,
@@ -480,7 +480,7 @@ public class NotificationService : INotificationService
         if (item is null || ownerAccount is null)
         {
             _logger.LogWarning(
-                "Bỏ qua noti construction_overdue: không resolve được owner cho hạng mục #{Id}.",
+                "Skipping construction_overdue notification: could not resolve the owner for construction item #{Id}.",
                 constructionItemId);
             return false;
         }
@@ -499,17 +499,17 @@ public class NotificationService : INotificationService
 
         // Số ngày trễ đếm theo giờ VN cho khớp con số owner tự nhẩm trên lịch của họ.
         var daysLate = VietnamTime.Today.DayNumber - due.DayNumber;
-        var providerName = item.ProjectWorking?.ServiceProviderProfile?.DisplayName ?? "Nhà cung cấp";
-        var projectName = item.ProjectWorking?.ProjectShopOwner?.Name ?? "dự án của bạn";
+        var providerName = item.ProjectWorking?.ServiceProviderProfile?.DisplayName ?? "The provider";
+        var projectName = item.ProjectWorking?.ProjectShopOwner?.Name ?? "your project";
 
         await CreateAndDispatchAsync(
             ownerAccount.Id, ownerAccount.Email, NotificationTypes.ConstructionOverdue,
-            title: $"Hạng mục \"{item.Name}\" đang trễ tiến độ",
-            content: $"Hạng mục \"{item.Name}\" thuộc dự án \"{projectName}\" có hạn hoàn thành " +
-                     $"{due:dd/MM/yyyy} nhưng đến nay vẫn chưa xong (trễ {daysLate} ngày). " +
-                     $"Nhà cung cấp phụ trách: \"{providerName}\". " +
-                     "Bạn nên trao đổi trực tiếp với nhà cung cấp về tiến độ; hệ thống không giữ " +
-                     "tiền và không tự khấu trừ, mọi điều chỉnh thanh toán do hai bên tự thoả thuận.",
+            title: $"Construction item \"{item.Name}\" is behind schedule",
+            content: $"Construction item \"{item.Name}\" in project \"{projectName}\" was due on " +
+                     $"{due:dd/MM/yyyy} but is still not finished ({daysLate} day(s) late). " +
+                     $"Provider in charge: \"{providerName}\". " +
+                     "You should talk to the provider directly about the schedule; the system does not hold " +
+                     "funds and makes no automatic deductions — any payment adjustment is agreed between the two parties.",
             referenceType: ConstructionItemReference, referenceId: item.Id);
 
         return true;
@@ -541,7 +541,7 @@ public class NotificationService : INotificationService
         var engagement = await LoadEngagementWithPartiesAsync(projectWorkingId);
         if (engagement is null)
         {
-            _logger.LogWarning("Bỏ qua noti {Type}: không tìm thấy engagement #{Id}.", logFor, projectWorkingId);
+            _logger.LogWarning("Skipping {Type} notification: engagement #{Id} was not found.", logFor, projectWorkingId);
             return null;
         }
 
@@ -553,20 +553,20 @@ public class NotificationService : INotificationService
         if (recipient is null)
         {
             _logger.LogWarning(
-                "Bỏ qua noti {Type}: không resolve được người nhận cho engagement #{Id}.", logFor, projectWorkingId);
+                "Skipping {Type} notification: could not resolve the recipient for engagement #{Id}.", logFor, projectWorkingId);
             return null;
         }
 
-        var ownerLabel = "Chủ quán";
+        var ownerLabel = "The shop owner";
         var providerLabel = engagement.ServiceProviderProfile?.DisplayName is { Length: > 0 } name
-            ? $"Nhà cung cấp \"{name}\""
-            : "Nhà cung cấp";
+            ? $"Provider \"{name}\""
+            : "The provider";
 
         return new TerminationNotificationContext(
             engagement, recipient,
             RequesterLabel: requestedByOwner ? ownerLabel : providerLabel,
             CounterpartLabel: requestedByOwner ? providerLabel : ownerLabel,
-            ProjectName: engagement.ProjectShopOwner?.Name ?? "dự án",
+            ProjectName: engagement.ProjectShopOwner?.Name ?? "the project",
             ContractType: engagement.ContractType.ToString());
     }
 
@@ -611,7 +611,7 @@ public class NotificationService : INotificationService
         {
             // KHÔNG throw — noti record đã lưu, có thể resend qua endpoint /resend.
             _logger.LogError(ex,
-                "Gửi email noti '{Type}' tới {Email} thất bại (noti #{Id}). Có thể gửi lại sau.",
+                "Failed to send '{Type}' notification email to {Email} (notification #{Id}). It can be resent later.",
                 type, email, noti.Id);
         }
     }

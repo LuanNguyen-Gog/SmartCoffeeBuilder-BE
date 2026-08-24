@@ -30,7 +30,7 @@ public class ServiceProviderProfileService : IServiceProviderProfileService
         if (!string.IsNullOrWhiteSpace(capability))
         {
             if (!Enum.TryParse<Capability>(capability, ignoreCase: true, out var parsed))
-                throw new ArgumentException($"Capability '{capability}' không hợp lệ. Cho phép: designer, constructor, both.");
+                throw new ArgumentException($"Capability '{capability}' is not valid. Allowed: designer, constructor, both.");
             cap = parsed;
         }
 
@@ -54,7 +54,7 @@ public class ServiceProviderProfileService : IServiceProviderProfileService
     public async Task<ServiceProviderProfileResponse> GetByIdAsync(Guid id)
     {
         var provider = await _repository.SingleOrDefaultAsync(predicate: p => p.Id == id && p.DeletedAt == null)
-            ?? throw new KeyNotFoundException($"Không tìm thấy service provider với id {id}.");
+            ?? throw new KeyNotFoundException($"No service provider found with id {id}.");
 
         return ServiceProviderProfileResponse.From(provider);
     }
@@ -63,20 +63,20 @@ public class ServiceProviderProfileService : IServiceProviderProfileService
     {
         var account = await _unitOfWork.GetRepository<AccountEntity>()
             .SingleOrDefaultAsync(predicate: a => a.Id == request.AccountId && a.DeletedAt == null)
-            ?? throw new KeyNotFoundException($"Không tìm thấy account với id {request.AccountId}.");
+            ?? throw new KeyNotFoundException($"No account found with id {request.AccountId}.");
 
         if (account.Role != AccountRole.provider)
-            throw new ArgumentException("Account phải có role 'provider' để tạo service provider.");
+            throw new ArgumentException("The account must have role 'provider' to create a service provider profile.");
 
         if (!Enum.TryParse<ProviderType>(request.ProviderType, ignoreCase: true, out var providerType))
-            throw new ArgumentException($"ProviderType '{request.ProviderType}' không hợp lệ. Cho phép: individual, company.");
+            throw new ArgumentException($"ProviderType '{request.ProviderType}' is not valid. Allowed: individual, company.");
 
         if (!Enum.TryParse<Capability>(request.Capability, ignoreCase: true, out var capability))
-            throw new ArgumentException($"Capability '{request.Capability}' không hợp lệ. Cho phép: designer, constructor, both.");
+            throw new ArgumentException($"Capability '{request.Capability}' is not valid. Allowed: designer, constructor, both.");
 
         var existing = await _repository.SingleOrDefaultAsync(predicate: p => p.AccountId == request.AccountId);
         if (existing != null)
-            throw new InvalidOperationException("Account này đã có hồ sơ service provider.");
+            throw new InvalidOperationException("This account already has a service provider profile.");
 
         var provider = new ServiceProviderProfileEntity
         {
@@ -104,21 +104,21 @@ public class ServiceProviderProfileService : IServiceProviderProfileService
     {
         var provider = await _repository.GetByIdAsync(id);
         if (provider == null || provider.DeletedAt != null)
-            throw new KeyNotFoundException($"Không tìm thấy service provider với id {id}.");
+            throw new KeyNotFoundException($"No service provider found with id {id}.");
 
         if (request.DisplayName != null) provider.DisplayName = request.DisplayName;
 
         if (!string.IsNullOrWhiteSpace(request.ProviderType))
         {
             if (!Enum.TryParse<ProviderType>(request.ProviderType, ignoreCase: true, out var providerType))
-                throw new ArgumentException($"ProviderType '{request.ProviderType}' không hợp lệ. Cho phép: individual, company.");
+                throw new ArgumentException($"ProviderType '{request.ProviderType}' is not valid. Allowed: individual, company.");
             provider.ProviderType = providerType;
         }
 
         if (!string.IsNullOrWhiteSpace(request.Capability))
         {
             if (!Enum.TryParse<Capability>(request.Capability, ignoreCase: true, out var capability))
-                throw new ArgumentException($"Capability '{request.Capability}' không hợp lệ. Cho phép: designer, constructor, both.");
+                throw new ArgumentException($"Capability '{request.Capability}' is not valid. Allowed: designer, constructor, both.");
             provider.Capability = capability;
         }
 
@@ -139,14 +139,14 @@ public class ServiceProviderProfileService : IServiceProviderProfileService
     {
         var provider = await _repository.GetByIdAsync(id);
         if (provider == null || provider.DeletedAt != null)
-            throw new KeyNotFoundException($"Không tìm thấy service provider với id {id}.");
+            throw new KeyNotFoundException($"No service provider found with id {id}.");
 
         var activeEngagements = await _unitOfWork.GetRepository<SmartCoffeeBuilder.Repository.Models.ProjectWorking>()
             .CountAsync(e => e.ServiceProviderProfileId == id
                              && (e.Status == ProviderStatus.requested || e.Status == ProviderStatus.accepted));
         if (activeEngagements > 0)
             throw new InvalidOperationException(
-                $"Provider còn {activeEngagements} engagement đang hoạt động — đóng/huỷ hết trước khi xoá hồ sơ.");
+                $"This provider still has {activeEngagements} active engagement(s) — close or cancel all of them before deleting the profile.");
 
         provider.DeletedAt = DateTime.UtcNow;
         _repository.Update(provider);

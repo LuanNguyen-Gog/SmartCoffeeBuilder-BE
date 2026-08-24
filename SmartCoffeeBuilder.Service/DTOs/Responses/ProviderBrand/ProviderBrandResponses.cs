@@ -149,7 +149,7 @@ public class ProviderCertificateResponse
         FileViewUrl = MediaUrl.Resolve(e.FileUrl),
         IsVerified = e.IsVerified,
         IsExpired = e.ExpiresAt is DateOnly exp
-            ? exp < DateOnly.FromDateTime(DateTime.UtcNow)
+            ? exp < VietnamTime.Today
             : null,
         SortOrder = e.SortOrder
     };

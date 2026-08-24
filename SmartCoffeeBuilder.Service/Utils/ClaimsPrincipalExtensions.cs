@@ -19,7 +19,7 @@ public static class ClaimsPrincipalExtensions
         var raw = user.FindFirst(ClaimTypes.NameIdentifier)?.Value
                   ?? user.FindFirst("sub")?.Value;
         if (!Guid.TryParse(raw, out var accountId))
-            throw new UnauthorizedAccessException("Token không chứa account id hợp lệ.");
+            throw new UnauthorizedAccessException("The token does not contain a valid account id.");
         return accountId;
     }
 }

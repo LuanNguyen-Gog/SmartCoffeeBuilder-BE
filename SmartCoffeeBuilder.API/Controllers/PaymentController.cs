@@ -121,6 +121,6 @@ public class PaymentController : ControllerBase
     public async Task<IActionResult> ConfirmWebhook([FromBody] ConfirmWebhookRequest request)
     {
         await _paymentService.ConfirmWebhookAsync(request.WebhookUrl);
-        return Ok(new { message = "Xác nhận webhook URL với payOS thành công." });
+        return Ok(new { message = "Webhook URL confirmed with payOS successfully." });
     }
 }

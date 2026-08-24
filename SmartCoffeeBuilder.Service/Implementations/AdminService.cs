@@ -7,6 +7,7 @@ using SmartCoffeeBuilder.Repository.Models.Enums;
 using SmartCoffeeBuilder.Service.ApiResponse;
 using SmartCoffeeBuilder.Service.DTOs.Responses.Admin;
 using SmartCoffeeBuilder.Service.Interfaces;
+using SmartCoffeeBuilder.Service.Utils;
 
 namespace SmartCoffeeBuilder.Service.Implementations;
 
@@ -101,7 +102,7 @@ public class AdminService : IAdminService
     {
         groupBy = string.IsNullOrWhiteSpace(groupBy) ? "month" : groupBy.Trim().ToLowerInvariant();
         if (groupBy != "day" && groupBy != "month")
-            throw new ArgumentException("groupBy chỉ nhận 'day' hoặc 'month'.");
+            throw new ArgumentException("groupBy only accepts 'day' or 'month'.");
 
         var fromUtc = ToUtc(from);
         var toUtc = ToUtc(to);
@@ -127,8 +128,10 @@ public class AdminService : IAdminService
                 .Select(g => new RevenueByPurpose { Purpose = g.Key.ToString(), Amount = g.Sum(x => x.Amount), Count = g.Count() })
                 .OrderByDescending(x => x.Amount)
                 .ToList(),
+            // Nhãn kỳ gom theo NGÀY/THÁNG giờ VN: CreatedAt là UTC, một giao dịch lúc 02:00 sáng
+            // giờ VN còn nằm ở ngày hôm trước theo UTC và sẽ rơi nhầm sang cột trước đó của báo cáo.
             Series = rows
-                .GroupBy(r => r.CreatedAt.ToString(fmt, CultureInfo.InvariantCulture))
+                .GroupBy(r => (r.CreatedAt + VietnamTime.Offset).ToString(fmt, CultureInfo.InvariantCulture))
                 .Select(g => new RevenuePeriodPoint { Period = g.Key, Amount = g.Sum(x => x.Amount), Count = g.Count() })
                 .OrderBy(x => x.Period)
                 .ToList()
@@ -143,7 +146,7 @@ public class AdminService : IAdminService
         if (!string.IsNullOrWhiteSpace(status))
         {
             if (!Enum.TryParse<PaymentTransactionStatus>(status, ignoreCase: true, out var parsed))
-                throw new ArgumentException($"Status '{status}' không hợp lệ. Cho phép: pending, paid, cancelled, failed.");
+                throw new ArgumentException($"Status '{status}' is not valid. Allowed: pending, paid, cancelled, failed.");
             statusFilter = parsed;
         }
 
@@ -151,7 +154,7 @@ public class AdminService : IAdminService
         if (!string.IsNullOrWhiteSpace(purpose))
         {
             if (!Enum.TryParse<PaymentPurpose>(purpose, ignoreCase: true, out var parsed))
-                throw new ArgumentException($"Purpose '{purpose}' không hợp lệ. Cho phép: subscription, post_boost.");
+                throw new ArgumentException($"Purpose '{purpose}' is not valid. Allowed: subscription, post_boost.");
             purposeFilter = parsed;
         }
 
@@ -174,9 +177,19 @@ public class AdminService : IAdminService
 
     // ──────────────────────────────── Helpers ────────────────────────────────
 
-    /// <summary>Timestamptz của Postgres yêu cầu DateTime Kind=Utc — coi input là UTC.</summary>
-    private static DateTime? ToUtc(DateTime? value) =>
-        value.HasValue ? DateTime.SpecifyKind(value.Value, DateTimeKind.Utc) : null;
+    /// <summary>
+    /// Timestamptz của Postgres yêu cầu DateTime Kind=Utc. Admin gõ mốc lọc theo GIỜ VN, nên một
+    /// giá trị không kèm offset (Kind=Unspecified, vd "2026-08-01") được hiểu là 00:00 giờ VN rồi
+    /// quy về UTC — coi nó là UTC sẵn thì cả kỳ báo cáo bị đẩy lệch 7 tiếng. Giá trị client gửi
+    /// kèm "Z" hoặc offset đã là một thời điểm xác định, giữ nguyên.
+    /// </summary>
+    private static DateTime? ToUtc(DateTime? value) => value switch
+    {
+        null => null,
+        { Kind: DateTimeKind.Utc } => value,
+        { Kind: DateTimeKind.Local } => value.Value.ToUniversalTime(),
+        _ => DateTime.SpecifyKind(value.Value - VietnamTime.Offset, DateTimeKind.Utc)
+    };
 
     /// <summary>Gom nhóm theo trạng thái ngay trên DB (GROUP BY status) rồi dựng CountByStatus.</summary>
     private static async Task<CountByStatus> ToCountByStatusAsync<TStatus>(IQueryable<TStatus> statusQuery)

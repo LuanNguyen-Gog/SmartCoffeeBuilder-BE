@@ -117,7 +117,7 @@ public class DesignController : ControllerBase
         [FromForm] string? caption = null)
     {
         if (file == null || file.Length == 0)
-            throw new ArgumentException("Chưa chọn file hoặc file rỗng.");
+            throw new ArgumentException("No file selected, or the file is empty.");
 
         var accountId = User.GetAccountId();
 

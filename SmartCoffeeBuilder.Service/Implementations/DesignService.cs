@@ -37,7 +37,7 @@ public class DesignService : IDesignService
         if (!string.IsNullOrWhiteSpace(status))
         {
             if (!Enum.TryParse<DesignStatus>(status, ignoreCase: true, out var parsedStatus))
-                throw new ArgumentException($"Status '{status}' không hợp lệ.");
+                throw new ArgumentException($"Status '{status}' is not valid.");
             st = parsedStatus;
         }
 
@@ -45,7 +45,7 @@ public class DesignService : IDesignService
         if (!string.IsNullOrWhiteSpace(type))
         {
             if (!Enum.TryParse<DesignType>(type, ignoreCase: true, out var parsedType))
-                throw new ArgumentException($"Type '{type}' không hợp lệ.");
+                throw new ArgumentException($"Type '{type}' is not valid.");
             tp = parsedType;
         }
 
@@ -72,7 +72,7 @@ public class DesignService : IDesignService
 
     public async Task<DesignResponse> GetByIdAsync(Guid accountId, Guid id)
     {
-        var design = await LoadForActionAsync(accountId, id, "xem bản thiết kế",
+        var design = await LoadForActionAsync(accountId, id, "view designs",
             EngagementActor.Owner, EngagementActor.Provider);
         return DesignResponse.From(design);
     }
@@ -81,30 +81,30 @@ public class DesignService : IDesignService
     {
         var engagement = await _unitOfWork.GetRepository<ProjectWorking>()
             .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectWorkingId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {request.ProjectWorkingId}.");
+            ?? throw new KeyNotFoundException($"No project provider found with id {request.ProjectWorkingId}.");
 
         // Quyền trước guard nghiệp vụ: người ngoài không dò được trạng thái engagement qua câu lỗi.
         var actor = await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, engagement.Id);
-        EngagementAuthorization.EnsureActor(actor, "tạo bản thiết kế", EngagementActor.Provider);
+        EngagementAuthorization.EnsureActor(actor, "create a design", EngagementActor.Provider);
 
         if (engagement.ContractType == ServiceKind.construction)
             throw new InvalidOperationException(
-                "Engagement có contract type 'construction' — không có giai đoạn thiết kế.");
+                "This engagement has contract type 'construction' — it has no design phase.");
 
         if (engagement.Status != ProviderStatus.accepted)
             throw new InvalidOperationException(
-                $"Engagement đang ở trạng thái '{engagement.Status}' — chỉ tạo design khi engagement 'accepted'.");
+                $"The engagement is in status '{engagement.Status}' — a design can only be created while the engagement is 'accepted'.");
 
         // v5: "đã ký mới được làm" — guard qua contract confirmed, không check provider_status.
         var hasConfirmedContract = await _unitOfWork.GetRepository<Contract>()
             .CountAsync(c => c.ProjectWorkingId == engagement.Id && c.Status == ContractStatus.confirmed) > 0;
         if (!hasConfirmedContract)
             throw new InvalidOperationException(
-                "Engagement chưa có contract 'confirmed' — ký hợp đồng trước khi tạo design.");
+                "The engagement has no 'confirmed' contract — sign the contract before creating a design.");
 
         if (!Enum.TryParse<DesignType>(request.Type, ignoreCase: true, out var type))
             throw new ArgumentException(
-                $"Type '{request.Type}' không hợp lệ. Cho phép: concept, layout_2d, render_3d, technical_drawing.");
+                $"Type '{request.Type}' is not valid. Allowed: concept, layout_2d, render_3d, technical_drawing.");
 
         var design = new Design
         {
@@ -127,18 +127,18 @@ public class DesignService : IDesignService
 
     public async Task<DesignResponse> UpdateAsync(Guid accountId, Guid id, UpdateDesignRequest request)
     {
-        var design = await LoadForActionAsync(accountId, id, "sửa bản thiết kế", EngagementActor.Provider);
+        var design = await LoadForActionAsync(accountId, id, "edit a design", EngagementActor.Provider);
 
         if (design.Status is not (DesignStatus.in_progress or DesignStatus.revision))
             throw new InvalidOperationException(
-                $"Design đang ở trạng thái '{design.Status}' — chỉ chỉnh sửa khi 'in_progress' hoặc 'revision'.");
+                $"The design is in status '{design.Status}' — it can only be edited while 'in_progress' or 'revision'.");
 
         if (request.Title != null) design.Title = request.Title;
         if (request.Type != null)
         {
             if (!Enum.TryParse<DesignType>(request.Type, ignoreCase: true, out var type))
                 throw new ArgumentException(
-                    $"Type '{request.Type}' không hợp lệ. Cho phép: concept, layout_2d, render_3d, technical_drawing.");
+                    $"Type '{request.Type}' is not valid. Allowed: concept, layout_2d, render_3d, technical_drawing.");
             design.Type = type;
         }
         // Mô tả thay đổi so với bản trước — provider điền trước khi submit (review 3). Cột này bị
@@ -158,14 +158,14 @@ public class DesignService : IDesignService
     /// </summary>
     public async Task<DesignResponse> SubmitAsync(Guid id, Guid accountId)
     {
-        var design = await LoadForActionAsync(accountId, id, "nộp bản thiết kế", EngagementActor.Provider);
+        var design = await LoadForActionAsync(accountId, id, "submit a design", EngagementActor.Provider);
 
         if (design.Status != DesignStatus.in_progress)
             throw new InvalidOperationException(
-                $"Chỉ submit được design đang 'in_progress' (hiện tại: '{design.Status}').");
+                $"Only a design that is 'in_progress' can be submitted (currently: '{design.Status}').");
 
         if (design.DesignImages.Count == 0)
-            throw new InvalidOperationException("Design chưa có ảnh nào — thêm ảnh trước khi submit.");
+            throw new InvalidOperationException("This design has no images yet — add images before submitting.");
 
         design.Status = DesignStatus.submitted;
         design.UpdatedAt = DateTime.UtcNow;
@@ -186,15 +186,15 @@ public class DesignService : IDesignService
     /// </summary>
     public async Task<DesignResponse> ApproveAsync(Guid id, Guid accountId)
     {
-        var design = await LoadForActionAsync(accountId, id, "duyệt bản thiết kế", EngagementActor.Owner);
+        var design = await LoadForActionAsync(accountId, id, "approve a design", EngagementActor.Owner);
 
         if (design.Status != DesignStatus.submitted)
             throw new InvalidOperationException(
-                $"Chỉ approve được design đang 'submitted' (hiện tại: '{design.Status}').");
+                $"Only a design that is 'submitted' can be approved (currently: '{design.Status}').");
 
         // 'approved' là dữ liệu mà guard nghiệm thu engagement tin vào, nên checklist nghiệm thu
         // của bản vẽ phải đạt trước khi duyệt (review 3).
-        await ChecklistGate.EnsureDesignPassedAsync(_unitOfWork, design.Id, "chưa duyệt được bản thiết kế");
+        await ChecklistGate.EnsureDesignPassedAsync(_unitOfWork, design.Id, "approve this design yet");
 
         design.Status = DesignStatus.approved;
         design.UpdatedAt = DateTime.UtcNow;
@@ -221,11 +221,11 @@ public class DesignService : IDesignService
         Guid accountId, Guid id, RequestDesignRevisionRequest request)
     {
         var design = await LoadForActionAsync(
-            accountId, id, "yêu cầu chỉnh sửa bản thiết kế", EngagementActor.Owner);
+            accountId, id, "request a design revision", EngagementActor.Owner);
 
         if (design.Status != DesignStatus.submitted)
             throw new InvalidOperationException(
-                $"Chỉ yêu cầu revision được design đang 'submitted' (hiện tại: '{design.Status}').");
+                $"A revision can only be requested on a design that is 'submitted' (currently: '{design.Status}').");
 
         var terms = await RevisionPolicy.ResolveAsync(_unitOfWork, design.ProjectWorkingId);
 
@@ -240,12 +240,12 @@ public class DesignService : IDesignService
         // Không có báo giá chốt free_revision_count thì không gate gì cả (terms.IsUnlimited).
         if (exceedsQuota && !request.AcceptExtraFee)
             throw new InvalidOperationException(
-                $"Hợp tác này đã dùng hết {terms.FreeRevisionCount} lần sửa thiết kế miễn phí theo báo giá đã chốt. " +
-                $"Vòng sửa thứ {revisionNo} sẽ phát sinh chi phí " +
+                $"This engagement has used up all {terms.FreeRevisionCount} free design revisions from the agreed quotation. " +
+                $"Revision round {revisionNo} will incur a fee " +
                 (terms.ExtraRevisionFee is decimal fee
                     ? $"{fee:N0} VND. "
-                    : "do hai bên thoả thuận (nhà cung cấp chưa công bố đơn giá). ") +
-                "Gửi lại với acceptExtraFee = true nếu chấp nhận.");
+                    : "agreed between the two parties (the provider has not published a rate). ") +
+                "Resend with acceptExtraFee = true if you accept.");
 
         design.Status = DesignStatus.revision;
         design.Reason = request.Reason;
@@ -271,7 +271,7 @@ public class DesignService : IDesignService
                 ProjectWorkingId = design.ProjectWorkingId,
                 DesignId = design.Id,
                 Kind = ChangeOrderKind.extra_revision,
-                Title = $"Phí sửa thiết kế lần {revisionNo}",
+                Title = $"Design revision fee, round {revisionNo}",
                 Reason = request.Reason,
                 Amount = terms.ExtraRevisionFee ?? 0m,
                 RevisionNo = revisionNo,
@@ -315,11 +315,11 @@ public class DesignService : IDesignService
     public async Task<DesignResponse> StartRevisionAsync(Guid accountId, Guid id)
     {
         var design = await LoadForActionAsync(
-            accountId, id, "bắt đầu sửa bản thiết kế", EngagementActor.Provider);
+            accountId, id, "start revising a design", EngagementActor.Provider);
 
         if (design.Status != DesignStatus.revision)
             throw new InvalidOperationException(
-                $"Chỉ bắt đầu sửa được design đang 'revision' (hiện tại: '{design.Status}').");
+                $"Only a design that is 'revision' can be started (currently: '{design.Status}').");
 
         design.Status = DesignStatus.in_progress;
         design.Version += 0.1m;
@@ -336,17 +336,17 @@ public class DesignService : IDesignService
         string? caption = null, Guid? uploadedBy = null)
     {
         var design = await LoadForActionAsync(
-            accountId, designId, "thêm file vào bản thiết kế", EngagementActor.Provider);
+            accountId, designId, "add a file to a design", EngagementActor.Provider);
 
         if (design.Status == DesignStatus.approved)
-            throw new InvalidOperationException("Design đã được approve — không thêm file được nữa.");
+            throw new InvalidOperationException("This design is already approved — no more files can be added.");
 
         Account? uploader = null;
         if (uploadedBy != null)
         {
             uploader = await _unitOfWork.GetRepository<Account>()
                 .SingleOrDefaultAsync(predicate: a => a.Id == uploadedBy)
-                ?? throw new KeyNotFoundException($"Không tìm thấy account với id {uploadedBy}.");
+                ?? throw new KeyNotFoundException($"No account found with id {uploadedBy}.");
         }
 
         // Nhận cả ảnh render lẫn file bản vẽ (pdf/office). Lưu theo "{role}/{accountId}" của người
@@ -376,13 +376,13 @@ public class DesignService : IDesignService
     public async Task RemoveFileAsync(Guid accountId, Guid designId, Guid imageId)
     {
         var design = await LoadForActionAsync(
-            accountId, designId, "xoá file của bản thiết kế", EngagementActor.Provider);
+            accountId, designId, "delete a design file", EngagementActor.Provider);
 
         if (design.Status == DesignStatus.approved)
-            throw new InvalidOperationException("Design đã được approve — không xóa file được nữa.");
+            throw new InvalidOperationException("This design is already approved — files can no longer be deleted.");
 
         var image = design.DesignImages.FirstOrDefault(i => i.Id == imageId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy file với id {imageId} trong design {designId}.");
+            ?? throw new KeyNotFoundException($"No file found with id {imageId} in design {designId}.");
 
         _unitOfWork.GetRepository<DesignImage>().Delete(image);
         design.UpdatedAt = DateTime.UtcNow;
@@ -420,7 +420,7 @@ public class DesignService : IDesignService
         return await _repository.SingleOrDefaultAsync(
             predicate: d => d.Id == id,
             include: q => q.Include(d => d.DesignImages))
-            ?? throw new KeyNotFoundException($"Không tìm thấy design với id {id}.");
+            ?? throw new KeyNotFoundException($"No design found with id {id}.");
     }
 
     // ───────── Design versioning (snapshot khi submit / approve / request-revision) ─────────
@@ -429,7 +429,7 @@ public class DesignService : IDesignService
         Guid accountId, Guid designId, int pageNumber = 1, int pageSize = 20)
     {
         // Xác nhận design tồn tại + người gọi là một bên của engagement — sai id trả 404.
-        _ = await LoadForActionAsync(accountId, designId, "xem lịch sử bản thiết kế",
+        _ = await LoadForActionAsync(accountId, designId, "view design history",
             EngagementActor.Owner, EngagementActor.Provider);
 
         // Full history: mỗi submit/approve đều sinh 1 bản — phân trang để không load hết khi version nhiều.
@@ -450,7 +450,7 @@ public class DesignService : IDesignService
     public async Task<DesignVersionResponse> GetVersionByIdAsync(
         Guid accountId, Guid designId, Guid versionId)
     {
-        _ = await LoadForActionAsync(accountId, designId, "xem lịch sử bản thiết kế",
+        _ = await LoadForActionAsync(accountId, designId, "view design history",
             EngagementActor.Owner, EngagementActor.Provider);
 
         var version = await _unitOfWork.GetRepository<DesignVersion>()
@@ -458,7 +458,7 @@ public class DesignService : IDesignService
                 predicate: v => v.Id == versionId && v.DesignId == designId,
                 include: q => q.Include(v => v.Images))
             ?? throw new KeyNotFoundException(
-                $"Không tìm thấy design version với id {versionId} trong design {designId}.");
+                $"No design version found with id {versionId} in design {designId}.");
 
         return DesignVersionResponse.From(version);
     }

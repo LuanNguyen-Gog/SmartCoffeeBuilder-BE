@@ -37,7 +37,7 @@ public class ConstructionTaskService : IConstructionTaskService
         if (!string.IsNullOrWhiteSpace(status))
         {
             if (!Enum.TryParse<ItemStatus>(status, ignoreCase: true, out var parsed))
-                throw new ArgumentException($"Status '{status}' không hợp lệ. Cho phép: pending, in_progress, completed.");
+                throw new ArgumentException($"Status '{status}' is not valid. Allowed: pending, in_progress, completed.");
             st = parsed;
         }
 
@@ -70,7 +70,7 @@ public class ConstructionTaskService : IConstructionTaskService
 
     public async Task<ConstructionTaskResponse> GetByIdAsync(Guid accountId, Guid id)
     {
-        var task = await LoadForActionAsync(accountId, id, "xem task thi công",
+        var task = await LoadForActionAsync(accountId, id, "view construction tasks",
             EngagementActor.Owner, EngagementActor.Provider);
 
         return ConstructionTaskResponse.From(task);
@@ -81,18 +81,18 @@ public class ConstructionTaskService : IConstructionTaskService
     {
         var item = await _unitOfWork.GetRepository<ConstructionItem>()
             .SingleOrDefaultAsync(predicate: e => e.Id == request.ConstructionItemId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy construction item với id {request.ConstructionItemId}.");
+            ?? throw new KeyNotFoundException($"No construction item found with id {request.ConstructionItemId}.");
 
         // Quyền trước guard nghiệp vụ: người ngoài không được dò trạng thái milestone qua câu lỗi.
         var actor = await EngagementAuthorization.ResolveActorAsync(
             _unitOfWork, accountId, item.ProjectWorkingId);
-        EngagementAuthorization.EnsureActor(actor, "tạo task thi công", EngagementActor.Provider);
+        EngagementAuthorization.EnsureActor(actor, "create a construction task", EngagementActor.Provider);
 
         if (item.Status == ItemStatus.completed)
-            throw new InvalidOperationException("Milestone đã 'completed' — không thêm task được nữa.");
+            throw new InvalidOperationException("This milestone is already 'completed' — no more tasks can be added.");
 
-        ConstructionSchedule.EnsureEstimateNotInPast(request.EstimateAt, "task");
-        ConstructionSchedule.EnsureRangeOrdered(request.StartAt, request.EstimateAt, "task");
+        ConstructionSchedule.EnsureEstimateNotInPast(request.EstimateAt, "the task");
+        ConstructionSchedule.EnsureRangeOrdered(request.StartAt, request.EstimateAt, "the task");
         EnsureCostNotNegative(request.EstimatedLaborCost, nameof(request.EstimatedLaborCost));
 
         var task = new ConstructionTask
@@ -121,21 +121,21 @@ public class ConstructionTaskService : IConstructionTaskService
     public async Task<ConstructionTaskResponse> UpdateAsync(
         Guid accountId, Guid id, UpdateConstructionTaskRequest request)
     {
-        var task = await LoadForActionAsync(accountId, id, "sửa task thi công", EngagementActor.Provider);
+        var task = await LoadForActionAsync(accountId, id, "edit a construction task", EngagementActor.Provider);
 
         if (task.Status == ItemStatus.completed)
-            throw new InvalidOperationException("Task đã 'completed' — không chỉnh sửa được nữa.");
+            throw new InvalidOperationException("This task is already 'completed' — it can no longer be edited.");
 
         // Chỉ soi giá trị MỚI: hạn cũ đã lỡ trôi vào quá khứ vẫn sửa được các trường khác.
         if (request.EstimateAt.HasValue)
-            ConstructionSchedule.EnsureEstimateNotInPast(request.EstimateAt, "task");
+            ConstructionSchedule.EnsureEstimateNotInPast(request.EstimateAt, "the task");
 
         // So trên giá trị SAU KHI GHÉP với bản ghi hiện tại — xem ghi chú ở ConstructionItemService.
         ConstructionSchedule.EnsureRangeOrdered(
-            request.StartAt ?? task.StartAt, request.EstimateAt ?? task.EstimateAt, "task");
+            request.StartAt ?? task.StartAt, request.EstimateAt ?? task.EstimateAt, "the task");
         ConstructionSchedule.EnsureRangeOrdered(
             request.ActualStartAt ?? task.ActualStartAt, request.ActualAt ?? task.ActualAt,
-            "task (thực tế)");
+            "the task (actual)");
 
         EnsureCostNotNegative(request.EstimatedLaborCost, nameof(request.EstimatedLaborCost));
         EnsureCostNotNegative(request.ActualLaborCost, nameof(request.ActualLaborCost));
@@ -173,10 +173,10 @@ public class ConstructionTaskService : IConstructionTaskService
         Guid accountId, Guid id, UpdateConstructionTaskStatusRequest request)
     {
         if (!Enum.TryParse<ItemStatus>(request.Status, ignoreCase: true, out var target))
-            throw new ArgumentException($"Status '{request.Status}' không hợp lệ. Cho phép: pending, in_progress, completed.");
+            throw new ArgumentException($"Status '{request.Status}' is not valid. Allowed: pending, in_progress, completed.");
 
         var task = await LoadForActionAsync(
-            accountId, id, "cập nhật tiến độ task thi công", EngagementActor.Provider);
+            accountId, id, "update construction task progress", EngagementActor.Provider);
 
         // pending → in_progress → completed (chỉ tiến, không lùi).
         var allowed = task.Status switch
@@ -186,15 +186,15 @@ public class ConstructionTaskService : IConstructionTaskService
             _ => false
         };
         if (!allowed)
-            throw new InvalidOperationException($"Không thể chuyển task từ '{task.Status}' sang '{target}'.");
+            throw new InvalidOperationException($"A task cannot move from '{task.Status}' to '{target}'.");
 
         task.Status = target;
 
         // Mốc thực tế tự đóng theo trạng thái (xem ConstructionItemService.UpdateStatusAsync).
         if (target == ItemStatus.in_progress && task.ActualStartAt == null)
-            task.ActualStartAt = DateOnly.FromDateTime(DateTime.UtcNow);
+            task.ActualStartAt = VietnamTime.Today;
         if (target == ItemStatus.completed && task.ActualAt == null)
-            task.ActualAt = DateOnly.FromDateTime(DateTime.UtcNow);
+            task.ActualAt = VietnamTime.Today;
         if (target == ItemStatus.completed && task.ActualStartAt == null)
             task.ActualStartAt = task.ActualAt;
         task.UpdatedAt = DateTime.UtcNow;
@@ -207,7 +207,7 @@ public class ConstructionTaskService : IConstructionTaskService
 
     public async Task DeleteAsync(Guid accountId, Guid id)
     {
-        var task = await LoadForActionAsync(accountId, id, "xoá task thi công", EngagementActor.Provider);
+        var task = await LoadForActionAsync(accountId, id, "delete a construction task", EngagementActor.Provider);
 
         _repository.Delete(task);
         await _unitOfWork.CommitAsync();
@@ -226,7 +226,7 @@ public class ConstructionTaskService : IConstructionTaskService
         var task = await _repository.SingleOrDefaultAsync(
             predicate: e => e.Id == id,
             include: q => q.Include(e => e.ConstructionItem))
-            ?? throw new KeyNotFoundException($"Không tìm thấy construction task với id {id}.");
+            ?? throw new KeyNotFoundException($"No construction task found with id {id}.");
 
         var actor = await EngagementAuthorization.ResolveActorAsync(
             _unitOfWork, accountId, task.ConstructionItem.ProjectWorkingId);
@@ -240,6 +240,6 @@ public class ConstructionTaskService : IConstructionTaskService
     private static void EnsureCostNotNegative(decimal? value, string fieldName)
     {
         if (value is decimal v && v < 0)
-            throw new ArgumentException($"{fieldName} không được âm — bỏ trống nếu chưa có số liệu.");
+            throw new ArgumentException($"{fieldName} cannot be negative — leave it empty if there is no figure yet.");
     }
 }

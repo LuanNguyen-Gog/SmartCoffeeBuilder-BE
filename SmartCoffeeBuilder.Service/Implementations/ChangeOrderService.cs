@@ -75,11 +75,11 @@ public class ChangeOrderService : IChangeOrderService
             _unitOfWork, accountId, request.ProjectWorkingId);
 
         if (string.IsNullOrWhiteSpace(request.Title))
-            throw new ArgumentException("Khoản phát sinh phải có tiêu đề.");
+            throw new ArgumentException("A change order must have a title.");
         if (string.IsNullOrWhiteSpace(request.Reason))
-            throw new ArgumentException("Khoản phát sinh phải có lý do — đây là thứ bên kia đọc để duyệt.");
+            throw new ArgumentException("A change order must have a reason — this is what the other party reads before approving.");
         if (request.Amount < 0)
-            throw new ArgumentException("Số tiền phát sinh không được âm.");
+            throw new ArgumentException("The change order amount cannot be negative.");
 
         await EnsureReferencesBelongToEngagementAsync(
             request.ProjectWorkingId, request.DesignId, request.ConstructionItemId);
@@ -114,28 +114,28 @@ public class ChangeOrderService : IChangeOrderService
         var actor = await EngagementAuthorization.ResolveActorAsync(
             _unitOfWork, accountId, order.ProjectWorkingId);
 
-        EnsureIsRequester(order, actor, "sửa khoản phát sinh này");
+        EnsureIsRequester(order, actor, "edit this change order");
 
         if (order.Status != ChangeOrderStatus.pending)
             throw new InvalidOperationException(
-                $"Khoản phát sinh đã '{order.Status}' — không sửa được nữa. Lập khoản mới nếu cần đổi.");
+                $"This change order is already '{order.Status}' — it can no longer be edited. Create a new one if something must change.");
 
         if (request.Title != null)
         {
             if (string.IsNullOrWhiteSpace(request.Title))
-                throw new ArgumentException("Khoản phát sinh phải có tiêu đề.");
+                throw new ArgumentException("A change order must have a title.");
             order.Title = request.Title.Trim();
         }
         if (request.Reason != null)
         {
             if (string.IsNullOrWhiteSpace(request.Reason))
-                throw new ArgumentException("Khoản phát sinh phải có lý do.");
+                throw new ArgumentException("A change order must have a reason.");
             order.Reason = request.Reason;
         }
         if (request.Amount.HasValue)
         {
             if (request.Amount.Value < 0)
-                throw new ArgumentException("Số tiền phát sinh không được âm.");
+                throw new ArgumentException("The change order amount cannot be negative.");
             order.Amount = request.Amount.Value;
         }
         if (request.Kind != null) order.Kind = ParseKind(request.Kind);
@@ -162,7 +162,7 @@ public class ChangeOrderService : IChangeOrderService
         Guid accountId, Guid id, RejectChangeOrderRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.RejectReason))
-            throw new ArgumentException("Từ chối khoản phát sinh phải kèm lý do.");
+            throw new ArgumentException("Rejecting a change order requires a reason.");
 
         return await RespondAsync(accountId, id, ChangeOrderStatus.rejected, request.RejectReason);
     }
@@ -173,11 +173,11 @@ public class ChangeOrderService : IChangeOrderService
         var actor = await EngagementAuthorization.ResolveActorAsync(
             _unitOfWork, accountId, order.ProjectWorkingId);
 
-        EnsureIsRequester(order, actor, "rút lại khoản phát sinh này");
+        EnsureIsRequester(order, actor, "withdraw this change order");
 
         if (order.Status != ChangeOrderStatus.pending)
             throw new InvalidOperationException(
-                $"Khoản phát sinh đã '{order.Status}' — không rút lại được, nó là vết của một quyết định.");
+                $"This change order is already '{order.Status}' — it cannot be withdrawn; it is the record of a decision.");
 
         _repository.Delete(order);
         await _unitOfWork.CommitAsync();
@@ -241,7 +241,7 @@ public class ChangeOrderService : IChangeOrderService
     {
         var design = await _unitOfWork.GetRepository<Design>()
             .SingleOrDefaultAsync(predicate: d => d.Id == designId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy design với id {designId}.");
+            ?? throw new KeyNotFoundException($"No design found with id {designId}.");
 
         await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, design.ProjectWorkingId);
 
@@ -279,12 +279,12 @@ public class ChangeOrderService : IChangeOrderService
 
         if (order.Status != ChangeOrderStatus.pending)
             throw new InvalidOperationException(
-                $"Khoản phát sinh này đã '{order.Status}' — mỗi khoản chỉ phản hồi được một lần.");
+                $"This change order is already '{order.Status}' — each one can only be responded to once.");
 
         // Bên lập KHÔNG tự duyệt khoản của mình. Admin đi xuyên như mọi chỗ khác trong hệ thống.
         if (actor != EngagementActor.Admin && ToParty(actor) == order.RequestedByParty)
             throw new UnauthorizedAccessException(
-                "Khoản phát sinh do chính bên bạn lập — phải bên còn lại của hợp tác duyệt hoặc từ chối.");
+                "This change order was raised by your own side — the other party in the engagement must approve or reject it.");
 
         order.Status = decision;
         order.RejectReason = decision == ChangeOrderStatus.rejected ? rejectReason : null;
@@ -308,7 +308,7 @@ public class ChangeOrderService : IChangeOrderService
 
     private async Task<Entities.ChangeOrder> LoadAsync(Guid id) =>
         await _repository.SingleOrDefaultAsync(predicate: c => c.Id == id)
-        ?? throw new KeyNotFoundException($"Không tìm thấy khoản phát sinh với id {id}.");
+        ?? throw new KeyNotFoundException($"No change order found with id {id}.");
 
     /// <summary>
     /// Đợt thanh toán của từng khoản phát sinh, tra theo lô. Mỗi khoản sinh nhiều nhất một đợt
@@ -339,14 +339,14 @@ public class ChangeOrderService : IChangeOrderService
         {
             var ok = await _unitOfWork.GetRepository<Design>()
                 .CountAsync(d => d.Id == did && d.ProjectWorkingId == projectWorkingId) > 0;
-            if (!ok) throw new ArgumentException($"Design {did} không thuộc hợp tác này.");
+            if (!ok) throw new ArgumentException($"Design {did} does not belong to this engagement.");
         }
 
         if (constructionItemId is Guid cid)
         {
             var ok = await _unitOfWork.GetRepository<ConstructionItem>()
                 .CountAsync(c => c.Id == cid && c.ProjectWorkingId == projectWorkingId) > 0;
-            if (!ok) throw new ArgumentException($"Hạng mục {cid} không thuộc hợp tác này.");
+            if (!ok) throw new ArgumentException($"Construction item {cid} does not belong to this engagement.");
         }
     }
 
@@ -355,7 +355,7 @@ public class ChangeOrderService : IChangeOrderService
         if (actor == EngagementActor.Admin) return;
         if (ToParty(actor) == order.RequestedByParty) return;
 
-        throw new UnauthorizedAccessException($"Chỉ bên đã lập khoản phát sinh mới được {action}.");
+        throw new UnauthorizedAccessException($"Only the party that raised the change order may {action}.");
     }
 
     private static EngagementParty ToParty(EngagementActor actor) => actor switch
@@ -366,7 +366,7 @@ public class ChangeOrderService : IChangeOrderService
         // Admin không phải một bên của hợp tác — gọi hàm này với Admin là lỗi lập trình, không
         // phải lỗi người dùng. EnsureIsRequester/RespondAsync đã chặn admin trước khi tới đây.
         _ => throw new InvalidOperationException(
-            "Admin không phải một bên của hợp tác — không quy về owner/provider được.")
+            "An admin is not a party to the engagement — they cannot be resolved to owner or provider.")
     };
 
     private static ChangeOrderKind ParseKind(string raw)
@@ -375,7 +375,7 @@ public class ChangeOrderService : IChangeOrderService
             return parsed;
 
         throw new ArgumentException(
-            $"Loại phát sinh '{raw}' không hợp lệ. Nhận: {string.Join(", ", Enum.GetNames<ChangeOrderKind>())}.");
+            $"Change order kind '{raw}' is not valid. Accepted: {string.Join(", ", Enum.GetNames<ChangeOrderKind>())}.");
     }
 
     private static ChangeOrderStatus? ParseStatusFilter(string? raw)
@@ -384,6 +384,6 @@ public class ChangeOrderService : IChangeOrderService
         if (Enum.TryParse<ChangeOrderStatus>(raw.Trim(), ignoreCase: true, out var parsed)) return parsed;
 
         throw new ArgumentException(
-            $"Trạng thái '{raw}' không hợp lệ. Nhận: {string.Join(", ", Enum.GetNames<ChangeOrderStatus>())}.");
+            $"Status '{raw}' is not valid. Accepted: {string.Join(", ", Enum.GetNames<ChangeOrderStatus>())}.");
     }
 }

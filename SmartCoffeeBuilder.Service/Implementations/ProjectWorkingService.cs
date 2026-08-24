@@ -43,7 +43,7 @@ public class ProjectWorkingService : IProjectWorkingService
         if (!string.IsNullOrWhiteSpace(status))
         {
             if (!Enum.TryParse<ProviderStatus>(status, ignoreCase: true, out var parsed))
-                throw new ArgumentException($"Status '{status}' không hợp lệ.");
+                throw new ArgumentException($"Status '{status}' is not valid.");
             st = parsed;
         }
 
@@ -77,7 +77,7 @@ public class ProjectWorkingService : IProjectWorkingService
         if (!string.IsNullOrWhiteSpace(contractType))
         {
             if (!Enum.TryParse<ServiceKind>(contractType, ignoreCase: true, out var parsedKind))
-                throw new ArgumentException($"ContractType '{contractType}' không hợp lệ. Cho phép: design, construction, both.");
+                throw new ArgumentException($"ContractType '{contractType}' is not valid. Allowed: design, construction, both.");
             kind = parsedKind;
         }
 
@@ -110,7 +110,7 @@ public class ProjectWorkingService : IProjectWorkingService
         foreach (var raw in statuses.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
             if (!Enum.TryParse<ProviderStatus>(raw, ignoreCase: true, out var parsed))
-                throw new ArgumentException($"Status '{raw}' không hợp lệ. Cho phép: requested, accepted, rejected, completed, terminated.");
+                throw new ArgumentException($"Status '{raw}' is not valid. Allowed: requested, accepted, rejected, completed, terminated.");
             if (!result.Contains(parsed)) result.Add(parsed);
         }
 
@@ -126,7 +126,7 @@ public class ProjectWorkingService : IProjectWorkingService
             include: q => q.Include(e => e.ProjectShopOwner)
                            .Include(e => e.ServiceProviderProfile)
                            .Include(e => e.Contracts))
-            ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {id}.");
+            ?? throw new KeyNotFoundException($"No project provider found with id {id}.");
 
         return ProjectWorkingResponse.From(engagement);
     }
@@ -138,7 +138,7 @@ public class ProjectWorkingService : IProjectWorkingService
             .SingleOrDefaultAsync(
                 predicate: p => p.Id == request.ProjectShopOwnerId && p.DeletedAt == null,
                 include: q => q.Include(p => p.Owner))
-            ?? throw new KeyNotFoundException($"Không tìm thấy project với id {request.ProjectShopOwnerId}.");
+            ?? throw new KeyNotFoundException($"No project found with id {request.ProjectShopOwnerId}.");
 
         // Quyền TRƯỚC mọi check nghiệp vụ. Đây là engagement CHƯA tồn tại nên không dùng
         // EngagementAuthorization được — chủ thể phải xét theo DỰ ÁN. Role gate 'owner' không
@@ -146,29 +146,29 @@ public class ProjectWorkingService : IProjectWorkingService
         // và chiếm luôn chỗ design/construction của họ (xem ProjectSlotRules).
         if (project.Owner?.AccountId != accountId)
             throw new UnauthorizedAccessException(
-                "Chỉ chủ quán của dự án này mới được gửi lời mời thuê trực tiếp.");
+                "Only the shop owner of this project may send a direct hire invitation.");
 
         if (project.Status is ProjectStatus.completed or ProjectStatus.cancelled)
-            throw new InvalidOperationException($"ProjectShopOwner đang ở trạng thái '{project.Status}', không thể thuê provider.");
+            throw new InvalidOperationException($"ProjectShopOwner is in status '{project.Status}'; a provider cannot be hired.");
 
         var provider = await _unitOfWork.GetRepository<ServiceProviderProfile>()
             .SingleOrDefaultAsync(predicate: s => s.Id == request.ServiceProviderProfileId && s.DeletedAt == null)
-            ?? throw new KeyNotFoundException($"Không tìm thấy service provider với id {request.ServiceProviderProfileId}.");
+            ?? throw new KeyNotFoundException($"No service provider found with id {request.ServiceProviderProfileId}.");
 
         if (!Enum.TryParse<ServiceKind>(request.ContractType, ignoreCase: true, out var contractType))
-            throw new ArgumentException($"ContractType '{request.ContractType}' không hợp lệ. Cho phép: design, construction, both.");
+            throw new ArgumentException($"ContractType '{request.ContractType}' is not valid. Allowed: design, construction, both.");
 
         var capabilityMatches = provider.Capability == Capability.both
             || (contractType == ServiceKind.design && provider.Capability == Capability.designer)
             || (contractType == ServiceKind.construction && provider.Capability == Capability.constructor);
         if (!capabilityMatches)
             throw new InvalidOperationException(
-                $"ServiceProviderProfile capability '{provider.Capability}' không phù hợp với contract type '{contractType}'.");
+                $"ServiceProviderProfile capability '{provider.Capability}' does not match contract type '{contractType}'.");
 
         var duplicated = await _repository.CountAsync(
             e => e.ProjectShopOwnerId == project.Id && e.ServiceProviderProfileId == provider.Id && ActiveStatuses.Contains(e.Status)) > 0;
         if (duplicated)
-            throw new InvalidOperationException("ServiceProviderProfile này đã có engagement đang hoạt động với project.");
+            throw new InvalidOperationException("This ServiceProviderProfile already has an active engagement with the project.");
 
         // Mỗi dự án chỉ có MỘT chỗ design và MỘT chỗ construction — xem ProjectSlotRules.
         // Capability 'both' không phá luật này: muốn vào dự án đã có designer thì phải mời với
@@ -177,7 +177,7 @@ public class ProjectWorkingService : IProjectWorkingService
             selector: e => e.ContractType,
             predicate: e => e.ProjectShopOwnerId == project.Id && ActiveStatuses.Contains(e.Status));
         ProjectSlotRules.EnsureSlotFree(
-            activeKinds, contractType, $"mời provider với phạm vi '{contractType}'");
+            activeKinds, contractType, $"invite a provider with scope '{contractType}'");
 
         var engagement = new ProjectWorking
         {
@@ -225,7 +225,7 @@ public class ProjectWorkingService : IProjectWorkingService
         Guid accountId, Guid id, UpdateProjectWorkingStatusRequest request)
     {
         if (!Enum.TryParse<ProviderStatus>(request.Status, ignoreCase: true, out var target))
-            throw new ArgumentException($"Status '{request.Status}' không hợp lệ.");
+            throw new ArgumentException($"Status '{request.Status}' is not valid.");
 
         // Huỷ ngang KHÔNG đi thẳng qua state machine nữa — phải qua luồng đồng thuận hai bên.
         if (target == ProviderStatus.terminated)
@@ -242,7 +242,7 @@ public class ProjectWorkingService : IProjectWorkingService
     {
         var engagement = await LoadForActionAsync(id);
         var actor = await ResolveActorAsync(accountId, engagement);
-        EnsureActor(actor, "đề nghị huỷ ngang engagement", EngagementActor.Owner, EngagementActor.Provider);
+        EnsureActor(actor, "request early termination of the engagement", EngagementActor.Owner, EngagementActor.Provider);
         EnsureTerminable(engagement);
 
         // Admin không phải một "bên" của engagement — can thiệp hành chính thì huỷ thẳng.
@@ -252,8 +252,8 @@ public class ProjectWorkingService : IProjectWorkingService
         if (engagement.TerminationRequestedAt != null)
             throw new InvalidOperationException(
                 engagement.TerminationRequestedBy == party
-                    ? "Bạn đã gửi đề nghị huỷ ngang cho hợp tác này — đang chờ bên kia phản hồi."
-                    : "Bên kia đã đề nghị huỷ ngang — hãy đồng ý hoặc từ chối đề nghị đó thay vì gửi đề nghị mới.");
+                    ? "You have already sent an early termination request for this engagement — it is awaiting the other side's response."
+                    : "The other side has already requested early termination — accept or decline that request instead of sending a new one.");
 
         engagement.TerminationRequestedAt = DateTime.UtcNow;
         engagement.TerminationRequestedBy = party;
@@ -275,7 +275,7 @@ public class ProjectWorkingService : IProjectWorkingService
     {
         var engagement = await LoadForActionAsync(id);
         var actor = await ResolveActorAsync(accountId, engagement);
-        EnsureActor(actor, "phản hồi đề nghị huỷ ngang", EngagementActor.Owner, EngagementActor.Provider);
+        EnsureActor(actor, "respond to an early termination request", EngagementActor.Owner, EngagementActor.Provider);
         EnsureTerminable(engagement);
 
         var requester = EnsurePendingTerminationRequest(engagement);
@@ -283,8 +283,8 @@ public class ProjectWorkingService : IProjectWorkingService
         // Người đề nghị không tự duyệt đề nghị của chính mình (admin phản hồi thay được).
         if (ToParty(actor) is EngagementParty party && party == requester)
             throw new InvalidOperationException(
-                "Bạn là bên gửi đề nghị huỷ ngang — chỉ bên còn lại mới được đồng ý hoặc từ chối. " +
-                "Muốn dừng lại thì rút đề nghị (DELETE /termination-request).");
+                "You are the party that sent the early termination request — only the other side may accept or decline. " +
+                "To stop, withdraw the request (DELETE /termination-request).");
 
         var now = DateTime.UtcNow;
         if (request.Approve)
@@ -316,14 +316,14 @@ public class ProjectWorkingService : IProjectWorkingService
     {
         var engagement = await LoadForActionAsync(id);
         var actor = await ResolveActorAsync(accountId, engagement);
-        EnsureActor(actor, "rút lại đề nghị huỷ ngang", EngagementActor.Owner, EngagementActor.Provider);
+        EnsureActor(actor, "withdraw an early termination request", EngagementActor.Owner, EngagementActor.Provider);
         EnsureTerminable(engagement);
 
         var requester = EnsurePendingTerminationRequest(engagement);
 
         if (ToParty(actor) is EngagementParty party && party != requester)
             throw new InvalidOperationException(
-                "Chỉ bên đã gửi đề nghị mới rút lại được — bạn có thể từ chối đề nghị này thay vì rút.");
+                "Only the party that sent the request may withdraw it — you can decline this request instead.");
 
         ClearTerminationRequest(engagement);
         engagement.UpdatedAt = DateTime.UtcNow;
@@ -342,7 +342,7 @@ public class ProjectWorkingService : IProjectWorkingService
     {
         var engagement = await LoadForActionAsync(id);
         var actor = await ResolveActorAsync(accountId, engagement);
-        EnsureActor(actor, "huỷ ngang engagement", EngagementActor.Owner, EngagementActor.Provider);
+        EnsureActor(actor, "terminate the engagement early", EngagementActor.Owner, EngagementActor.Provider);
         EnsureTerminable(engagement);
 
         // Admin can thiệp hành chính — huỷ thẳng, không cần đồng thuận.
@@ -383,7 +383,7 @@ public class ProjectWorkingService : IProjectWorkingService
     {
         if (engagement.Status != ProviderStatus.accepted)
             throw new InvalidOperationException(
-                $"Engagement đang ở trạng thái '{engagement.Status}' — chỉ huỷ ngang được hợp tác 'accepted'.");
+                $"The engagement is in status '{engagement.Status}' — only an 'accepted' engagement can be terminated early.");
     }
 
     /// <summary>Phải có đề nghị đang treo mới phản hồi/rút được. Trả về bên đã gửi đề nghị.</summary>
@@ -391,7 +391,7 @@ public class ProjectWorkingService : IProjectWorkingService
     {
         if (engagement.TerminationRequestedAt == null
             || engagement.TerminationRequestedBy is not EngagementParty requester)
-            throw new InvalidOperationException("Hợp tác này không có đề nghị huỷ ngang nào đang chờ xử lý.");
+            throw new InvalidOperationException("This engagement has no pending early termination request.");
 
         return requester;
     }
@@ -422,14 +422,14 @@ public class ProjectWorkingService : IProjectWorkingService
         var engagement = await LoadForActionAsync(id);
 
         var actor = await ResolveActorAsync(accountId, engagement);
-        EnsureActor(actor, "báo hoàn thành phần việc", EngagementActor.Provider);
+        EnsureActor(actor, "report the work as complete", EngagementActor.Provider);
 
         if (engagement.Status != ProviderStatus.accepted)
             throw new InvalidOperationException(
-                $"Engagement đang ở trạng thái '{engagement.Status}' — chỉ báo hoàn thành khi engagement 'accepted'.");
+                $"The engagement is in status '{engagement.Status}' — completion can only be reported while the engagement is 'accepted'.");
 
         await EnsureConfirmedContractAsync(engagement);
-        await EnsureDeliverablesReadyAsync(engagement, "chưa thể báo hoàn thành");
+        await EnsureDeliverablesReadyAsync(engagement, "report completion yet");
 
         // Gửi lại được (cập nhật ghi chú + mốc thời gian) khi owner chưa nghiệm thu.
         engagement.CompletionRequestedAt = DateTime.UtcNow;
@@ -456,23 +456,23 @@ public class ProjectWorkingService : IProjectWorkingService
             // Nhận/từ chối lời mời là quyết định của provider được mời.
             case ProviderStatus.accepted:
             case ProviderStatus.rejected:
-                EnsureActor(actor, $"chuyển engagement sang '{target}'", EngagementActor.Provider);
+                EnsureActor(actor, $"move the engagement to '{target}'", EngagementActor.Provider);
                 break;
 
             // Nghiệm thu là hành động của owner (v5) — mở khoá review.
             case ProviderStatus.completed:
-                EnsureActor(actor, "nghiệm thu engagement", EngagementActor.Owner);
+                EnsureActor(actor, "accept the engagement's work", EngagementActor.Owner);
                 break;
 
             // Huỷ ngang KHÔNG đi qua đây nữa: cần đồng thuận hai bên (RequestTermination →
             // RespondTermination). UpdateStatusAsync đã chuyển hướng, nên tới được đây là gọi sai.
             case ProviderStatus.terminated:
                 throw new InvalidOperationException(
-                    "Huỷ ngang cần đồng thuận hai bên — dùng POST /{id}/termination-request rồi để bên còn lại " +
-                    "phản hồi qua POST /{id}/termination-response.");
+                    "Early termination requires both parties to agree — use POST /{id}/termination-request and let the other side " +
+                    "respond through POST /{id}/termination-response.");
 
             default:
-                throw new ArgumentException($"Status '{target}' không phải trạng thái đích hợp lệ.");
+                throw new ArgumentException($"Status '{target}' is not a valid target status.");
         }
 
         ValidateTransition(engagement, target);
@@ -489,7 +489,7 @@ public class ProjectWorkingService : IProjectWorkingService
             // Chỉ xét phần việc CỦA CHÍNH engagement này — phía kia xong hay chưa không liên quan.
             // Designer được nghiệm thu và nhận review ngay khi bản vẽ duyệt, không phải chờ công
             // trình xây xong. Ràng buộc "đủ cả hai phía" nằm ở bước đóng dự án (ProjectClosureRules).
-            await EnsureDeliverablesReadyAsync(engagement, "chưa thể nghiệm thu");
+            await EnsureDeliverablesReadyAsync(engagement, "accept the work yet");
         }
 
         engagement.Status = target;
@@ -525,7 +525,7 @@ public class ProjectWorkingService : IProjectWorkingService
             include: q => q.Include(e => e.ProjectShopOwner).ThenInclude(p => p.Owner)
                            .Include(e => e.ServiceProviderProfile)
                            .Include(e => e.Contracts))
-        ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {id}.");
+        ?? throw new KeyNotFoundException($"No project provider found with id {id}.");
 
     private async Task EnsureConfirmedContractAsync(ProjectWorking engagement)
     {
@@ -533,7 +533,7 @@ public class ProjectWorkingService : IProjectWorkingService
             .CountAsync(c => c.ProjectWorkingId == engagement.Id && c.Status == ContractStatus.confirmed) > 0;
         if (!hasConfirmedContract)
             throw new InvalidOperationException(
-                "Engagement chưa có contract 'confirmed' — chưa bắt đầu thực hiện nên không thể nghiệm thu.");
+                "The engagement has no 'confirmed' contract — work has not started, so it cannot be accepted.");
     }
 
     /// <summary>
@@ -552,7 +552,7 @@ public class ProjectWorkingService : IProjectWorkingService
                 d => d.ProjectWorkingId == engagement.Id && d.Status == DesignStatus.approved);
             if (approved == 0)
                 throw new InvalidOperationException(
-                    $"Chưa có bản design nào được duyệt ('approved') — {blockedAction}.");
+                    $"No design has been approved yet ('approved') — {blockedAction}.");
         }
 
         if (engagement.ContractType is ServiceKind.construction or ServiceKind.both)
@@ -561,13 +561,13 @@ public class ProjectWorkingService : IProjectWorkingService
             var total = await itemRepo.CountAsync(i => i.ProjectWorkingId == engagement.Id);
             if (total == 0)
                 throw new InvalidOperationException(
-                    $"Chưa có hạng mục thi công nào — {blockedAction}.");
+                    $"There are no construction items yet — {blockedAction}.");
 
             var unfinished = await itemRepo.CountAsync(
                 i => i.ProjectWorkingId == engagement.Id && i.Status != ItemStatus.completed);
             if (unfinished > 0)
                 throw new InvalidOperationException(
-                    $"Còn {unfinished} hạng mục thi công chưa 'completed' — {blockedAction}.");
+                    $"{unfinished} construction item(s) are not 'completed' yet — {blockedAction}.");
         }
 
         // Chốt cuối: mọi mục nghiệm thu BẮT BUỘC của engagement (cả design lẫn thi công) phải đạt.
@@ -582,7 +582,7 @@ public class ProjectWorkingService : IProjectWorkingService
                 predicate: e => e.Id == id,
                 include: q => q.Include(e => e.ProjectShopOwner).ThenInclude(p => p.Owner)
                                .Include(e => e.ServiceProviderProfile))
-            ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {id}.");
+            ?? throw new KeyNotFoundException($"No project provider found with id {id}.");
 
         // Quyền TRƯỚC trạng thái: EnsureEngagementViewable chỉ xét engagement đang ở status nào,
         // KHÔNG xét người gọi là ai — chạy một mình thì cứ dò id là đọc được brief dự án bất kỳ.
@@ -592,7 +592,7 @@ public class ProjectWorkingService : IProjectWorkingService
         var brief = await _unitOfWork.GetRepository<DesignBrief>().SingleOrDefaultAsync(
             predicate: b => b.ProjectShopOwnerId == engagement.ProjectShopOwnerId,
             orderBy: q => q.OrderByDescending(b => b.CreatedAt))
-            ?? throw new KeyNotFoundException("ProjectShopOwner chưa có brief — owner cần tạo brief trước.");
+            ?? throw new KeyNotFoundException("ProjectShopOwner has no brief — the owner must create a brief first.");
 
         return DesignBriefResponse.From(brief);
     }
@@ -603,7 +603,7 @@ public class ProjectWorkingService : IProjectWorkingService
             predicate: e => e.Id == id,
             include: q => q.Include(e => e.ProjectShopOwner).ThenInclude(p => p.Owner)
                            .Include(e => e.ServiceProviderProfile))
-            ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {id}.");
+            ?? throw new KeyNotFoundException($"No project provider found with id {id}.");
 
         // Quyền trước trạng thái — xem ghi chú ở GetBriefAsync. Overview còn nặng hơn brief: nó trả
         // kèm toàn bộ kết quả AI 'completed' và bản vẽ 'approved' của dự án.
@@ -651,7 +651,7 @@ public class ProjectWorkingService : IProjectWorkingService
     {
         if (engagement.Status is ProviderStatus.rejected or ProviderStatus.terminated)
             throw new InvalidOperationException(
-                $"Engagement đang ở trạng thái '{engagement.Status}' — không còn quyền xem thông tin dự án.");
+                $"The engagement is in status '{engagement.Status}' — you no longer have access to the project's information.");
     }
 
     // v5 — provider_status là trạng thái QUAN HỆ, không phải tiến độ:
@@ -670,7 +670,7 @@ public class ProjectWorkingService : IProjectWorkingService
 
         if (!allowed)
             throw new InvalidOperationException(
-                $"Không thể chuyển từ '{current}' sang '{target}' (contract type: {engagement.ContractType}).");
+                $"Cannot move from '{current}' to '{target}' (contract type: {engagement.ContractType}).");
     }
 
     // ───────── Phân quyền theo vai trò trong chính engagement ─────────
@@ -693,7 +693,7 @@ public class ProjectWorkingService : IProjectWorkingService
         if (account?.Role == AccountRole.admin) return EngagementActor.Admin;
 
         throw new UnauthorizedAccessException(
-            "Tài khoản đang đăng nhập không phải owner hay provider của engagement này.");
+            "The signed-in account is neither the owner nor the provider of this engagement.");
     }
 
     /// <summary>
@@ -712,7 +712,7 @@ public class ProjectWorkingService : IProjectWorkingService
     {
         if (actual == EngagementActor.Admin || allowed.Contains(actual)) return;
 
-        var who = string.Join(" hoặc ", allowed.Select(a => a == EngagementActor.Owner ? "owner" : "provider"));
-        throw new UnauthorizedAccessException($"Chỉ {who} của engagement mới được {action}.");
+        var who = string.Join(" or ", allowed.Select(a => a == EngagementActor.Owner ? "owner" : "provider"));
+        throw new UnauthorizedAccessException($"Only {who} of the engagement may {action}.");
     }
 }

@@ -55,21 +55,21 @@ public class GcsFileStorageService : IFileStorageService
         string folderPath, bool imageOnly = false)
     {
         if (sizeBytes <= 0)
-            throw new ArgumentException("File rỗng.");
+            throw new ArgumentException("The file is empty.");
         if (sizeBytes > _maxFileSizeBytes)
-            throw new ArgumentException($"File vượt quá giới hạn {_maxFileSizeBytes / 1024 / 1024}MB.");
+            throw new ArgumentException($"The file exceeds the {_maxFileSizeBytes / 1024 / 1024}MB limit.");
 
         var extension = Path.GetExtension(fileName).ToLowerInvariant();
         var allowed = imageOnly ? ImageExtensions : [.. ImageExtensions, .. DocumentExtensions];
         if (!allowed.Contains(extension))
             throw new ArgumentException(
-                $"Định dạng '{extension}' không được hỗ trợ. Cho phép: {string.Join(", ", allowed)}.");
+                $"Format '{extension}' is not supported. Allowed: {string.Join(", ", allowed)}.");
 
         if (string.IsNullOrWhiteSpace(folderPath))
-            throw new ArgumentException("FolderPath không được rỗng.");
+            throw new ArgumentException("FolderPath cannot be empty.");
         var safeFolder = folderPath.Trim().Trim('/').ToLowerInvariant();
         if (!safeFolder.All(c => char.IsLetterOrDigit(c) || c is '-' or '_' or '/'))
-            throw new ArgumentException("FolderPath chỉ được chứa chữ, số, '-', '_' và '/'.");
+            throw new ArgumentException("FolderPath may only contain letters, digits, '-', '_' and '/'.");
 
         var objectName = $"{safeFolder}/{DateTime.UtcNow:yyyy/MM}/{Guid.NewGuid():N}{extension}";
 
@@ -116,8 +116,8 @@ public class GcsFileStorageService : IFileStorageService
 
         if (!await ExistsAsync(objectName))
             throw new ArgumentException(
-                $"{fieldName} '{objectNameOrUrl}' không tồn tại trên bucket — " +
-                "upload qua api/files trước rồi gửi objectName mà API trả về.");
+                $"{fieldName} '{objectNameOrUrl}' does not exist in the bucket — " +
+                "upload it through api/files first, then send the objectName the API returns.");
 
         return objectName;
     }
@@ -133,7 +133,7 @@ public class GcsFileStorageService : IFileStorageService
     public async Task<FileDownloadResult> DownloadAsync(string objectName)
     {
         if (string.IsNullOrWhiteSpace(objectName))
-            throw new ArgumentException("ObjectName không được rỗng.");
+            throw new ArgumentException("ObjectName cannot be empty.");
 
         try
         {
@@ -154,14 +154,14 @@ public class GcsFileStorageService : IFileStorageService
         }
         catch (Google.GoogleApiException ex) when (ex.HttpStatusCode == System.Net.HttpStatusCode.NotFound)
         {
-            throw new KeyNotFoundException($"Không tìm thấy file '{objectName}' trong bucket.");
+            throw new KeyNotFoundException($"File '{objectName}' was not found in the bucket.");
         }
     }
 
     public async Task DeleteAsync(string objectName)
     {
         if (string.IsNullOrWhiteSpace(objectName))
-            throw new ArgumentException("ObjectName không được rỗng.");
+            throw new ArgumentException("ObjectName cannot be empty.");
 
         try
         {
@@ -169,7 +169,7 @@ public class GcsFileStorageService : IFileStorageService
         }
         catch (Google.GoogleApiException ex) when (ex.HttpStatusCode == System.Net.HttpStatusCode.NotFound)
         {
-            throw new KeyNotFoundException($"Không tìm thấy file '{objectName}' trong bucket.");
+            throw new KeyNotFoundException($"File '{objectName}' was not found in the bucket.");
         }
     }
 }

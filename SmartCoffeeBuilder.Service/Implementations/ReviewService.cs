@@ -47,7 +47,7 @@ public class ReviewService : IReviewService
         var review = await _repository.SingleOrDefaultAsync(
             predicate: r => r.Id == id,
             include: q => q.Include(r => r.ReviewScores).Include(r => r.ProjectWorking))
-            ?? throw new KeyNotFoundException($"Không tìm thấy review với id {id}.");
+            ?? throw new KeyNotFoundException($"No review found with id {id}.");
 
         return ReviewResponse.From(review);
     }
@@ -56,7 +56,7 @@ public class ReviewService : IReviewService
     {
         _ = await _unitOfWork.GetRepository<ServiceProviderProfile>()
             .SingleOrDefaultAsync(predicate: s => s.Id == serviceProviderProfileId && s.DeletedAt == null)
-            ?? throw new KeyNotFoundException($"Không tìm thấy service provider với id {serviceProviderProfileId}.");
+            ?? throw new KeyNotFoundException($"No service provider found with id {serviceProviderProfileId}.");
 
         var reviews = await _repository.GetListAsync(
             predicate: r => r.ProjectWorking.ServiceProviderProfileId == serviceProviderProfileId,
@@ -84,23 +84,23 @@ public class ReviewService : IReviewService
     {
         var engagement = await _unitOfWork.GetRepository<ProjectWorking>()
             .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectWorkingId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {request.ProjectWorkingId}.");
+            ?? throw new KeyNotFoundException($"No project provider found with id {request.ProjectWorkingId}.");
 
         // Quyền TRƯỚC mọi check trạng thái — role gate 'owner' không phân biệt được owner NÀO,
         // thiếu chỗ này thì owner bất kỳ chấm điểm hộ được engagement của người khác, và điểm đó
         // chảy thẳng vào rating trung bình của provider.
         EngagementAuthorization.EnsureActor(
             await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, engagement.Id),
-            "đánh giá hợp tác này", EngagementActor.Owner);
+            "review this engagement", EngagementActor.Owner);
 
         // v5: review chỉ mở khoá sau khi owner nghiệm thu (provider_status = completed).
         if (engagement.Status != ProviderStatus.completed)
             throw new InvalidOperationException(
-                $"Engagement đang ở trạng thái '{engagement.Status}' — chỉ review được sau khi owner nghiệm thu ('completed').");
+                $"The engagement is in status '{engagement.Status}' — it can only be reviewed after the owner accepts the work ('completed').");
 
         var alreadyReviewed = await _repository.CountAsync(r => r.ProjectWorkingId == engagement.Id) > 0;
         if (alreadyReviewed)
-            throw new InvalidOperationException("Engagement này đã có review — mỗi engagement chỉ review 1 lần, dùng PUT để sửa.");
+            throw new InvalidOperationException("This engagement already has a review — each engagement can only be reviewed once; use PUT to edit it.");
 
         var scores = ParseScores(request.Scores);
 
@@ -130,11 +130,11 @@ public class ReviewService : IReviewService
         var review = await _repository.SingleOrDefaultAsync(
             predicate: r => r.Id == id,
             include: q => q.Include(r => r.ReviewScores).Include(r => r.ProjectWorking))
-            ?? throw new KeyNotFoundException($"Không tìm thấy review với id {id}.");
+            ?? throw new KeyNotFoundException($"No review found with id {id}.");
 
         EngagementAuthorization.EnsureActor(
             await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, review.ProjectWorkingId),
-            "sửa đánh giá này", EngagementActor.Owner);
+            "edit this review", EngagementActor.Owner);
 
         if (request.OverallRating.HasValue) review.OverallRating = request.OverallRating.Value;
         if (request.Comment != null) review.Comment = request.Comment;
@@ -165,12 +165,12 @@ public class ReviewService : IReviewService
         var review = await _repository.SingleOrDefaultAsync(
             predicate: r => r.Id == id,
             include: q => q.Include(r => r.ProjectWorking))
-            ?? throw new KeyNotFoundException($"Không tìm thấy review với id {id}.");
+            ?? throw new KeyNotFoundException($"No review found with id {id}.");
 
         // Admin đi xuyên EnsureActor — gỡ đánh giá vi phạm là việc quản trị hợp lệ.
         EngagementAuthorization.EnsureActor(
             await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, review.ProjectWorkingId),
-            "xoá đánh giá này", EngagementActor.Owner);
+            "delete this review", EngagementActor.Owner);
 
         var providerId = review.ProjectWorking.ServiceProviderProfileId;
 
@@ -194,11 +194,11 @@ public class ReviewService : IReviewService
         {
             if (!Enum.TryParse<ReviewDimension>(s.Dimension?.Trim(), ignoreCase: true, out var dimension))
                 throw new ArgumentException(
-                    $"Dimension '{s.Dimension}' không hợp lệ. Cho phép: " +
+                    $"Dimension '{s.Dimension}' is not valid. Allowed: " +
                     $"{string.Join(", ", Enum.GetNames<ReviewDimension>())}.");
 
             if (!seen.Add(dimension))
-                throw new ArgumentException($"Dimension '{dimension}' bị lặp — mỗi tiêu chí chỉ chấm 1 điểm.");
+                throw new ArgumentException($"Dimension '{dimension}' is duplicated — each criterion can only be scored once.");
 
             parsed.Add((dimension, s.Score));
         }
@@ -219,10 +219,10 @@ public class ReviewService : IReviewService
         // CHỈ provider của engagement — owner tự "phản hồi" đánh giá của chính mình thì cột này vô nghĩa.
         EngagementAuthorization.EnsureActor(
             await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, review.ProjectWorkingId),
-            "phản hồi đánh giá này", EngagementActor.Provider);
+            "reply to this review", EngagementActor.Provider);
 
         if (string.IsNullOrWhiteSpace(request.Reply))
-            throw new ArgumentException("Phản hồi không được để trống — dùng DELETE để gỡ phản hồi.");
+            throw new ArgumentException("The reply cannot be empty — use DELETE to remove a reply.");
 
         review.ProviderReply = request.Reply.Trim();
         review.RepliedBy = accountId;
@@ -242,7 +242,7 @@ public class ReviewService : IReviewService
 
         EngagementAuthorization.EnsureActor(
             await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, review.ProjectWorkingId),
-            "gỡ phản hồi của đánh giá này", EngagementActor.Provider);
+            "remove the reply to this review", EngagementActor.Provider);
 
         review.ProviderReply = null;
         review.RepliedBy = null;
@@ -260,14 +260,14 @@ public class ReviewService : IReviewService
         Guid accountId, Guid id, ReviewImageRequest request)
     {
         var review = await _repository.SingleOrDefaultAsync(predicate: r => r.Id == id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy review với id {id}.");
+            ?? throw new KeyNotFoundException($"No review found with id {id}.");
 
         EngagementAuthorization.EnsureActor(
             await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, review.ProjectWorkingId),
-            "đính ảnh vào đánh giá này", EngagementActor.Owner);
+            "attach an image to this review", EngagementActor.Owner);
 
         var objectName = await _fileStorage.NormalizeForStorageAsync(request.ImageUrl, "imageUrl")
-            ?? throw new ArgumentException("Ảnh đánh giá phải có imageUrl.");
+            ?? throw new ArgumentException("A review image must have an imageUrl.");
 
         var repo = _unitOfWork.GetRepository<ReviewImage>();
         var existing = await repo.GetListAsync(
@@ -294,12 +294,12 @@ public class ReviewService : IReviewService
         var image = await repo.SingleOrDefaultAsync(
             predicate: i => i.Id == imageId,
             include: q => q.Include(i => i.Review))
-            ?? throw new KeyNotFoundException($"Không tìm thấy ảnh đánh giá với id {imageId}.");
+            ?? throw new KeyNotFoundException($"No review image found with id {imageId}.");
 
         EngagementAuthorization.EnsureActor(
             await EngagementAuthorization.ResolveActorAsync(
                 _unitOfWork, accountId, image.Review.ProjectWorkingId),
-            "xoá ảnh của đánh giá này", EngagementActor.Owner);
+            "delete an image of this review", EngagementActor.Owner);
 
         var objectName = image.ImageUrl;
 
@@ -315,7 +315,7 @@ public class ReviewService : IReviewService
             predicate: r => r.Id == id,
             include: q => q.Include(r => r.ReviewScores).Include(r => r.Images)
                            .Include(r => r.ProjectWorking))
-        ?? throw new KeyNotFoundException($"Không tìm thấy review với id {id}.");
+        ?? throw new KeyNotFoundException($"No review found with id {id}.");
 
     /// <summary>
     /// Tính lại <c>service_providers.avg_rating</c> và <c>review_count</c> từ bảng <c>reviews</c>.
