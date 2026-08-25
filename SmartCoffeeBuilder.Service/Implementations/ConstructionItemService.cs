@@ -70,7 +70,12 @@ public class ConstructionItemService : IConstructionItemService
             //
             // ThenBy Id là chốt chặn cuối: hai hạng mục cùng ngày vẫn phải ra cùng một thứ tự ở
             // mọi lần gọi, nếu không phân trang sẽ lặp hoặc bỏ sót hàng giữa hai trang.
-            .OrderBy(e => e.EstimateAt)
+            // SortOrder ĐỨNG TRƯỚC: nhà thầu kéo thả để chốt thứ tự thi công, và thứ tự người
+            // dùng đã chọn phải thắng ngày tháng — nếu không, kéo xong danh sách lại tự nhảy về
+            // theo hạn và thao tác kéo thả trở thành vô nghĩa. EstimateAt tụt xuống làm mốc phụ
+            // cho các hàng chưa từng được sắp tay (backfill migration cho chúng cùng một giá trị).
+            .OrderBy(e => e.SortOrder)
+            .ThenBy(e => e.EstimateAt)
             .ThenBy(e => e.CreatedAt)
             .ThenBy(e => e.Id);
 
@@ -136,10 +141,21 @@ public class ConstructionItemService : IConstructionItemService
                     "Attach it to a root milestone, or create a task inside this child milestone.");
         }
 
+        // Hạng mục mới xuống CUỐI nhóm anh em: nó chưa được ai sắp, nên chen vào giữa kế hoạch
+        // đang chạy là tự ý thay đổi thứ tự thi công mà người dùng không yêu cầu.
+        var siblingOrders = request.ParentId is Guid parentScope
+            ? await _repository.GetListAsync(
+                selector: e => e.SortOrder,
+                predicate: e => e.ProjectWorkingId == engagement.Id && e.ParentId == parentScope)
+            : await _repository.GetListAsync(
+                selector: e => e.SortOrder,
+                predicate: e => e.ProjectWorkingId == engagement.Id && e.ParentId == null);
+
         var item = new ConstructionItem
         {
             ProjectWorkingId = engagement.Id,
             ParentId = request.ParentId,
+            SortOrder = siblingOrders.Count == 0 ? 1 : siblingOrders.Max() + 1,
             Name = request.Name,
             Description = request.Description,
             Category = request.Category,
@@ -157,6 +173,80 @@ public class ConstructionItemService : IConstructionItemService
         await _unitOfWork.CommitAsync();
 
         return ConstructionItemResponse.From(item);
+    }
+
+    public async Task<IReadOnlyList<ConstructionItemResponse>> ReorderAsync(
+        Guid accountId, ReorderConstructionItemsRequest request)
+    {
+        var engagement = await _unitOfWork.GetRepository<ProjectWorking>()
+            .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectWorkingId)
+            ?? throw new KeyNotFoundException($"No project provider found with id {request.ProjectWorkingId}.");
+
+        // Kế hoạch thi công là của nhà thầu — cùng quyền với tạo/sửa milestone. Check TRƯỚC mọi
+        // guard nghiệp vụ để không rò rỉ trạng thái engagement của người khác qua thông báo lỗi.
+        var actor = await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, engagement.Id);
+        EngagementAuthorization.EnsureActor(actor, "reorder construction items", EngagementActor.Provider);
+
+        if (request.ItemIds.Count == 0)
+            throw new ArgumentException("itemIds is required — send the whole sibling group in the order you want.");
+
+        if (request.ItemIds.Distinct().Count() != request.ItemIds.Count)
+            throw new ArgumentException("itemIds lists the same milestone more than once.");
+
+        // Hai nhánh riêng thay vì một predicate dùng chung: `e.ParentId == request.ParentId` với
+        // tham số null dịch ra `parent_id = NULL`, không khớp hàng nào — nhóm milestone gốc sẽ
+        // luôn rỗng và mọi lần sắp lại cấp gốc đều 409 vì "thiếu id".
+        var siblings = request.ParentId is Guid parentScope
+            ? await _repository.GetListAsync(
+                predicate: e => e.ProjectWorkingId == engagement.Id && e.ParentId == parentScope)
+            : await _repository.GetListAsync(
+                predicate: e => e.ProjectWorkingId == engagement.Id && e.ParentId == null);
+
+        var byId = siblings.ToDictionary(e => e.Id);
+
+        var unknown = request.ItemIds.Where(id => !byId.ContainsKey(id)).ToList();
+        if (unknown.Count > 0)
+            throw new InvalidOperationException(
+                $"{unknown.Count} of the milestones sent do not belong to this engagement and parent — " +
+                "reorder only works within one sibling group.");
+
+        // Nhận thiếu id thì phần vắng mặt sẽ giữ SortOrder cũ và trộn lẫn vào thứ tự mới một cách
+        // tuỳ ý — từ chối thẳng còn hơn ghi ra một thứ tự chẳng ai chọn.
+        var missing = byId.Keys.Where(id => !request.ItemIds.Contains(id)).ToList();
+        if (missing.Count > 0)
+            throw new InvalidOperationException(
+                $"Send the whole group: {missing.Count} milestone(s) in it are missing from itemIds.");
+
+        // Việc đã nghiệm thu giữ nguyên thứ tự đã thi công — không cho đổi chỗ hai mốc completed
+        // với nhau. Các mốc chưa xong vẫn di chuyển tự do quanh chúng, nếu không thì chỉ cần đóng
+        // một mốc là cả kế hoạch còn lại đông cứng.
+        var completedBefore = siblings
+            .Where(e => e.Status == ItemStatus.completed)
+            .OrderBy(e => e.SortOrder).ThenBy(e => e.EstimateAt).ThenBy(e => e.CreatedAt).ThenBy(e => e.Id)
+            .Select(e => e.Id)
+            .ToList();
+        var completedAfter = request.ItemIds
+            .Where(id => byId[id].Status == ItemStatus.completed)
+            .ToList();
+        if (!completedBefore.SequenceEqual(completedAfter))
+            throw new InvalidOperationException(
+                "Completed milestones cannot be reordered — work that is already signed off keeps the " +
+                "order it was done in. Move the unfinished milestones around them instead.");
+
+        var now = DateTime.UtcNow;
+        for (var index = 0; index < request.ItemIds.Count; index++)
+        {
+            var item = byId[request.ItemIds[index]];
+            var next = index + 1;
+            if (item.SortOrder == next) continue;
+            item.SortOrder = next;
+            item.UpdatedAt = now;
+            _repository.Update(item);
+        }
+
+        await _unitOfWork.CommitAsync();
+
+        return request.ItemIds.Select(id => ConstructionItemResponse.From(byId[id])).ToList();
     }
 
     public async Task<ConstructionItemResponse> UpdateAsync(

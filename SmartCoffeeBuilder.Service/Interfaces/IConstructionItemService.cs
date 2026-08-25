@@ -23,6 +23,13 @@ public interface IConstructionItemService
     /// </summary>
     Task<ConstructionItemResponse> CreateAsync(Guid accountId, CreateConstructionItemRequest request);
 
+    /// <summary>
+    /// Sắp lại thứ tự một nhóm anh em milestone. Nhận TOÀN BỘ nhóm theo thứ tự mong muốn.
+    /// Milestone đã <c>completed</c> không được đổi chỗ lẫn nhau (409).
+    /// </summary>
+    Task<IReadOnlyList<ConstructionItemResponse>> ReorderAsync(
+        Guid accountId, ReorderConstructionItemsRequest request);
+
     Task<ConstructionItemResponse> UpdateAsync(Guid accountId, Guid id, UpdateConstructionItemRequest request);
 
     /// <summary>Chuyển trạng thái: pending → in_progress → completed (chỉ tiến, không lùi, không cancel).</summary>

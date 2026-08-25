@@ -10,6 +10,20 @@ public class ConstructionItem
     public string Name { get; set; } = null!;
     public string? Description { get; set; }
     public string? Category { get; set; }
+
+    /// <summary>
+    /// Thứ tự do người dùng sắp — nhỏ hơn thì đứng trước, tính TRONG cùng một nhóm anh em
+    /// (cùng <see cref="ProjectWorkingId"/> và cùng <see cref="ParentId"/>).
+    ///
+    /// Trước đây danh sách chỉ sắp theo <see cref="EstimateAt"/>, nên nhà thầu không có cách nào
+    /// đổi thứ tự hiển thị mà không sửa hạn hoàn thành — mà hạn là dữ liệu nghiệp vụ, không phải
+    /// nút sắp xếp. Cột này tách hai việc đó ra.
+    ///
+    /// Không đảm bảo liên tục: xoá một hạng mục để lại khoảng trống, và khoảng trống không sao vì
+    /// chỉ thứ tự TƯƠNG ĐỐI có ý nghĩa.
+    /// </summary>
+    public int SortOrder { get; set; }
+
     /// <summary>
     /// Ngày DỰ KIẾN bắt đầu. Cùng với <see cref="EstimateAt"/> (hạn hoàn thành) mới ra được
     /// THỜI LƯỢNG của hạng mục — review 1.1 hỏi "thời lượng", mà một mốc kết thúc đơn lẻ chỉ trả
