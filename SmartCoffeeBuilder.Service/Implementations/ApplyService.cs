@@ -36,7 +36,7 @@ public class ApplyService : IApplyService
         if (!string.IsNullOrWhiteSpace(status))
         {
             if (!Enum.TryParse<ApplicationStatus>(status, ignoreCase: true, out var parsed))
-                throw new ArgumentException($"Status '{status}' không hợp lệ. Cho phép: pending, accepted, rejected.");
+                throw new ArgumentException($"Status '{status}' is not valid. Allowed: pending, accepted, rejected.");
             st = parsed;
         }
 
@@ -64,7 +64,7 @@ public class ApplyService : IApplyService
                             && a.ServiceProviderProfile.DeletedAt == null
                             && a.Post.ProjectShopOwner.DeletedAt == null,
             include: BuildApplyInclude())
-            ?? throw new KeyNotFoundException($"Không tìm thấy application với id {id}.");
+            ?? throw new KeyNotFoundException($"No application found with id {id}.");
 
         return ApplyResponse.From(application);
     }
@@ -99,13 +99,13 @@ public class ApplyService : IApplyService
 
         if (surveys.Count == 0)
             throw new InvalidOperationException(
-                $"Hồ sơ #{applyId} chưa có bản khảo sát nào — bài đăng phạm vi '{serviceKind}' " +
-                "yêu cầu provider khảo sát hiện trường trước khi được chấp nhận.");
+                $"Application #{applyId} has no survey yet — a post with scope '{serviceKind}' " +
+                "requires the provider to survey the site before the application can be accepted.");
 
         if (!surveys.Any(s => s.SurveyedAt != null))
             throw new InvalidOperationException(
-                $"Hồ sơ #{applyId} mới hẹn lịch khảo sát, chưa đi thực tế (surveyed_at còn trống) — " +
-                "chưa chấp nhận được.");
+                $"Application #{applyId} only has a scheduled survey and no actual visit yet (surveyed_at is still empty) — " +
+                "it cannot be accepted.");
     }
 
     private static Func<IQueryable<Apply>, IIncludableQueryable<Apply, object>> BuildApplyInclude() =>
@@ -121,18 +121,18 @@ public class ApplyService : IApplyService
     {
         var post = await _unitOfWork.GetRepository<Post>()
             .SingleOrDefaultAsync(predicate: p => p.Id == request.PostId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy bài đăng với id {request.PostId}.");
+            ?? throw new KeyNotFoundException($"No post found with id {request.PostId}.");
 
         if (post.Status != PostStatus.open)
-            throw new InvalidOperationException($"Bài đăng đang ở trạng thái '{post.Status}', không nhận hồ sơ.");
+            throw new InvalidOperationException($"The post is in status '{post.Status}' and is not accepting applications.");
 
         if (post.SubmissionDeadline.HasValue && post.SubmissionDeadline.Value <= DateTime.UtcNow)
-            throw new InvalidOperationException("Bài đăng đã quá hạn nộp hồ sơ.");
+            throw new InvalidOperationException("The application deadline for this post has passed.");
 
         // Hồ sơ provider lấy theo account đang đăng nhập — không nhận id từ client.
         var provider = await _unitOfWork.GetRepository<ServiceProviderProfile>()
             .SingleOrDefaultAsync(predicate: s => s.AccountId == accountId && s.DeletedAt == null)
-            ?? throw new KeyNotFoundException("Tài khoản đang đăng nhập không có hồ sơ service provider — chỉ provider mới nộp được hồ sơ.");
+            ?? throw new KeyNotFoundException("The signed-in account has no service provider profile — only providers can submit an application.");
 
         // Capability phải phù hợp service_kind của bài đăng (designer/constructor/both).
         var capabilityMatches = provider.Capability == Capability.both
@@ -140,18 +140,18 @@ public class ApplyService : IApplyService
             || (post.ServiceKind == ServiceKind.construction && provider.Capability == Capability.constructor);
         if (!capabilityMatches)
             throw new InvalidOperationException(
-                $"ServiceProviderProfile capability '{provider.Capability}' không phù hợp với bài đăng service kind '{post.ServiceKind}'.");
+                $"ServiceProviderProfile capability '{provider.Capability}' does not match the post service kind '{post.ServiceKind}'.");
 
         var alreadyApplied = await _repository.CountAsync(
             a => a.PostId == post.Id && a.ServiceProviderProfileId == provider.Id && a.Status != ApplicationStatus.rejected) > 0;
         if (alreadyApplied)
-            throw new InvalidOperationException("ServiceProviderProfile đã nộp hồ sơ cho bài đăng này.");
+            throw new InvalidOperationException("This ServiceProviderProfile has already applied to this post.");
 
         // Chỗ của dự án đã có người giữ thì hồ sơ nộp vào cũng vô nghĩa — chặn ngay từ đây thay vì
         // để provider chờ rồi bị từ chối ở bước accept. Xem ProjectSlotRules.
         await EnsureProjectSlotFreeAsync(
             post.ProjectShopOwnerId, post.ServiceKind,
-            $"nộp hồ sơ cho bài đăng phạm vi '{post.ServiceKind}'");
+            $"apply to a post with scope '{post.ServiceKind}'");
 
         var application = new Apply
         {
@@ -181,10 +181,10 @@ public class ApplyService : IApplyService
         var application = await _repository.SingleOrDefaultAsync(
             predicate: a => a.Id == id,
             include: q => q.Include(a => a.Post).Include(a => a.ServiceProviderProfile))
-            ?? throw new KeyNotFoundException($"Không tìm thấy application với id {id}.");
+            ?? throw new KeyNotFoundException($"No application found with id {id}.");
 
         if (application.Status != ApplicationStatus.pending)
-            throw new InvalidOperationException($"Apply đang ở trạng thái '{application.Status}', chỉ sửa được khi pending.");
+            throw new InvalidOperationException($"The application is in status '{application.Status}'; it can only be edited while pending.");
 
         if (request.Proposal != null) application.Proposal = request.Proposal;
         if (request.EstimatedDurationDays.HasValue) application.EstimatedDurationDays = request.EstimatedDurationDays;
@@ -201,14 +201,14 @@ public class ApplyService : IApplyService
         var application = await _repository.SingleOrDefaultAsync(
             predicate: a => a.Id == id,
             include: q => q.Include(a => a.Post).ThenInclude(p => p.ProjectShopOwner).Include(a => a.ServiceProviderProfile))
-            ?? throw new KeyNotFoundException($"Không tìm thấy application với id {id}.");
+            ?? throw new KeyNotFoundException($"No application found with id {id}.");
 
         if (application.Status != ApplicationStatus.pending)
-            throw new InvalidOperationException($"Apply đang ở trạng thái '{application.Status}', chỉ chấp nhận được khi pending.");
+            throw new InvalidOperationException($"The application is in status '{application.Status}'; it can only be accepted while pending.");
 
         var post = application.Post;
         if (post.Status != PostStatus.open)
-            throw new InvalidOperationException($"Bài đăng đang ở trạng thái '{post.Status}', không thể chấp nhận hồ sơ.");
+            throw new InvalidOperationException($"The post is in status '{post.Status}'; the application cannot be accepted.");
 
         // Bài có pha thiết kế thì phải khảo sát thực tế rồi mới chốt được provider.
         await EnsureSurveySubmittedAsync(application.Id, post.ServiceKind);
@@ -218,7 +218,7 @@ public class ApplyService : IApplyService
         // một hồ sơ ở bài đăng khác cùng dự án.
         await EnsureProjectSlotFreeAsync(
             post.ProjectShopOwnerId, post.ServiceKind,
-            $"chấp nhận hồ sơ #{application.Id} với phạm vi '{post.ServiceKind}'");
+            $"accept application #{application.Id} with scope '{post.ServiceKind}'");
 
         var now = DateTime.UtcNow;
 
@@ -235,7 +235,7 @@ public class ApplyService : IApplyService
             ApplyId = application.Id,
             ContractType = post.ServiceKind,
             Status = ProviderStatus.accepted,
-            RequestMessage = $"Chấp nhận hồ sơ ứng tuyển #{application.Id} cho bài đăng \"{post.Title}\".",
+            RequestMessage = $"Accepted application #{application.Id} for post \"{post.Title}\".",
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -282,10 +282,10 @@ public class ApplyService : IApplyService
         var application = await _repository.SingleOrDefaultAsync(
             predicate: a => a.Id == id,
             include: q => q.Include(a => a.Post).Include(a => a.ServiceProviderProfile))
-            ?? throw new KeyNotFoundException($"Không tìm thấy application với id {id}.");
+            ?? throw new KeyNotFoundException($"No application found with id {id}.");
 
         if (application.Status != ApplicationStatus.pending)
-            throw new InvalidOperationException($"Apply đang ở trạng thái '{application.Status}', chỉ từ chối được khi pending.");
+            throw new InvalidOperationException($"The application is in status '{application.Status}'; it can only be rejected while pending.");
 
         application.Status = ApplicationStatus.rejected;
         application.UpdatedAt = DateTime.UtcNow;
@@ -316,10 +316,10 @@ public class ApplyService : IApplyService
     public async Task WithdrawAsync(Guid id)
     {
         var application = await _repository.GetByIdAsync(id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy application với id {id}.");
+            ?? throw new KeyNotFoundException($"No application found with id {id}.");
 
         if (application.Status != ApplicationStatus.pending)
-            throw new InvalidOperationException($"Apply đang ở trạng thái '{application.Status}', chỉ rút được khi pending.");
+            throw new InvalidOperationException($"The application is in status '{application.Status}'; it can only be withdrawn while pending.");
 
         _repository.Delete(application);
         await _unitOfWork.CommitAsync();

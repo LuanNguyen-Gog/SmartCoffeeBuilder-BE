@@ -80,14 +80,14 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
     {
         var owner = await _unitOfWork.GetRepository<ShopOwner>()
             .SingleOrDefaultAsync(predicate: s => s.Id == request.OwnerId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy shop owner với id {request.OwnerId}.");
+            ?? throw new KeyNotFoundException($"No shop owner found with id {request.OwnerId}.");
 
         // ownerId vẫn nhận từ body để giữ nguyên hợp đồng API, nhưng chỉ chấp nhận khi nó TRÙNG hồ
         // sơ chủ quán của chính tài khoản đang đăng nhập — client tự khai thì cột owner_id mất giá
         // trị đối chứng và ai cũng tạo được dự án đứng tên người khác.
         if (owner.AccountId != accountId && !await IsAdminAsync(accountId))
             throw new UnauthorizedAccessException(
-                "Chỉ tạo được dự án cho hồ sơ chủ quán của chính tài khoản đang đăng nhập.");
+                "A project can only be created for the shop owner profile of the signed-in account.");
 
         var project = new ProjectShopOwner
         {
@@ -110,13 +110,13 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
     public async Task<ProjectShopOwnerResponse> UpdateAsync(Guid accountId, Guid id, UpdateProjectShopOwnerRequest request)
     {
         var project = await LoadForActionAsync(id);
-        await EnsureOwnerAsync(accountId, project, "sửa dự án");
+        await EnsureOwnerAsync(accountId, project, "edit the project");
 
         // Dự án đã đóng thì không sửa nội dung nữa.
         if (project.Status is ProjectStatus.completed or ProjectStatus.cancelled
             && (request.Name != null || request.Address != null || request.AreaM2.HasValue || request.Budget.HasValue))
             throw new InvalidOperationException(
-                $"Dự án đang ở trạng thái '{project.Status}' — không sửa được thông tin nữa.");
+                $"The project is in status '{project.Status}' — its details can no longer be edited.");
 
         if (request.Name != null) project.Name = request.Name;
         if (request.Address != null) project.Address = request.Address;
@@ -126,14 +126,14 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
         if (!string.IsNullOrWhiteSpace(request.Status))
         {
             if (!Enum.TryParse<ProjectStatus>(request.Status, ignoreCase: true, out var status))
-                throw new ArgumentException($"Status '{request.Status}' không hợp lệ. Cho phép: briefed, in_progress, completed, cancelled.");
+                throw new ArgumentException($"Status '{request.Status}' is not valid. Allowed: briefed, in_progress, completed, cancelled.");
 
             if (status != project.Status)
             {
                 // Đóng dự án đi kèm guard + dọn dẹp — bắt buộc qua endpoint chuyên dụng.
                 if (status is ProjectStatus.completed or ProjectStatus.cancelled)
                     throw new InvalidOperationException(
-                        $"Không đóng dự án qua PUT — dùng POST /api/project-shop-owners/{{id}}/{(status == ProjectStatus.completed ? "complete" : "cancel")}.");
+                        $"Do not close a project through PUT — use POST /api/project-shop-owners/{{id}}/{(status == ProjectStatus.completed ? "complete" : "cancel")}.");
 
                 EnsureTransition(project.Status, status);
                 project.Status = status;
@@ -150,7 +150,7 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
     public async Task<ProjectShopOwnerResponse> CompleteAsync(Guid accountId, Guid id)
     {
         var project = await LoadForActionAsync(id);
-        await EnsureOwnerAsync(accountId, project, "đóng dự án");
+        await EnsureOwnerAsync(accountId, project, "close the project");
 
         var signedEngagementIds = await GetSignedEngagementIdsAsync(project.Id);
 
@@ -161,8 +161,8 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
         {
             if (signedEngagementIds.Count == 0)
                 throw new InvalidOperationException(
-                    "Dự án chưa có hợp đồng nào được ký nên chưa có gì để nghiệm thu — chỉ có thể " +
-                    "huỷ dự án (POST /api/project-shop-owners/{id}/cancel).");
+                    "This project has no signed contract, so there is nothing to accept — the only option is " +
+                    "to cancel the project (POST /api/project-shop-owners/{id}/cancel).");
 
             project.Status = ProjectStatus.in_progress;
         }
@@ -201,7 +201,7 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
     public async Task<ProjectShopOwnerResponse> CancelAsync(Guid accountId, Guid id)
     {
         var project = await LoadForActionAsync(id);
-        await EnsureOwnerAsync(accountId, project, "huỷ dự án");
+        await EnsureOwnerAsync(accountId, project, "cancel the project");
 
         EnsureTransition(project.Status, ProjectStatus.cancelled);
 
@@ -219,14 +219,14 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
         var signedOpen = openEngagements.Where(e => signedEngagementIds.Contains(e.Id)).ToList();
         if (signedOpen.Count > 0)
         {
-            var scopes = string.Join(" và ", signedOpen
+            var scopes = string.Join(" and ", signedOpen
                 .Select(e => ProjectSlotRules.ScopeLabel(e.ContractType))
                 .Distinct());
             throw new InvalidOperationException(
-                $"Còn {signedOpen.Count} hợp tác đã ký hợp đồng (phần {scopes}) — hợp đồng đã ký chỉ " +
-                "chấm dứt được khi cả hai bên đồng ý. Gửi đề nghị huỷ ngang " +
-                "(POST /api/project-workings/{id}/termination-request) và đợi bên kia phản hồi, hoặc " +
-                "nghiệm thu nếu đã xong, rồi mới huỷ dự án.");
+                $"{signedOpen.Count} engagement(s) with a signed contract remain (scope: {scopes}) — a signed contract " +
+                "can only be ended when both parties agree. Send an early termination request " +
+                "(POST /api/project-workings/{id}/termination-request) and wait for the other side to respond, or " +
+                "accept the work if it is finished, and only then cancel the project.");
         }
 
         var now = DateTime.UtcNow;
@@ -271,17 +271,17 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
     public async Task DeleteAsync(Guid accountId, Guid id)
     {
         var project = await LoadForActionAsync(id);
-        await EnsureOwnerAsync(accountId, project, "xoá dự án");
+        await EnsureOwnerAsync(accountId, project, "delete the project");
 
         var openCount = await _unitOfWork.GetRepository<ProjectWorking>().CountAsync(
             e => e.ProjectShopOwnerId == project.Id && OpenEngagementStatuses.Contains(e.Status));
         if (openCount > 0)
             throw new InvalidOperationException(
-                $"Còn {openCount} engagement chưa đóng — huỷ dự án (POST /cancel) trước khi xoá.");
+                $"{openCount} engagement(s) are still open — cancel the project (POST /cancel) before deleting it.");
 
         if (project.Status == ProjectStatus.in_progress)
             throw new InvalidOperationException(
-                "Dự án đang 'in_progress' — nghiệm thu (POST /complete) hoặc huỷ (POST /cancel) trước khi xoá.");
+                "The project is 'in_progress' — accept it (POST /complete) or cancel it (POST /cancel) before deleting.");
 
         project.DeletedAt = DateTime.UtcNow;
         _repository.Update(project);
@@ -330,7 +330,7 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
 
         if (!allowed)
             throw new InvalidOperationException(
-                $"Không thể chuyển dự án từ '{current}' sang '{target}'.");
+                $"A project cannot move from '{current}' to '{target}'.");
     }
 
     /// <summary>
@@ -379,7 +379,7 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
             include: q => q.Include(p => p.ProjectWorkings).ThenInclude(pp => pp.ServiceProviderProfile)
                            .Include(p => p.Owner)
                            .Include(p => p.Posts))
-        ?? throw new KeyNotFoundException($"Không tìm thấy project với id {id}.");
+        ?? throw new KeyNotFoundException($"No project found with id {id}.");
 
     /// <summary>
     /// Chỉ owner sở hữu dự án (hoặc admin) mới thao tác được vòng đời dự án.
@@ -390,7 +390,7 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
         if (project.Owner?.AccountId == accountId) return;
         if (await IsAdminAsync(accountId)) return;
 
-        throw new UnauthorizedAccessException($"Chỉ chủ dự án mới được {action}.");
+        throw new UnauthorizedAccessException($"Only the project owner may {action}.");
     }
 
     /// <summary>
@@ -412,7 +412,7 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
         if (await IsAdminAsync(accountId)) return;
 
         throw new UnauthorizedAccessException(
-            "Dự án này không mở thầu công khai và tài khoản đang đăng nhập không tham gia.");
+            "This project is not open for public bidding, and the signed-in account is not part of it.");
     }
 
     private async Task<bool> IsAdminAsync(Guid accountId)

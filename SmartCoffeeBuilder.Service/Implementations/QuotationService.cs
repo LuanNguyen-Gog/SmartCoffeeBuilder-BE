@@ -88,11 +88,11 @@ public class QuotationService : IQuotationService
     {
         if ((request.ApplyId == null) == (request.ProjectWorkingId == null))
             throw new ArgumentException(
-                "Phải gửi ĐÚNG MỘT trong hai: applyId (báo giá kèm hồ sơ ứng tuyển) " +
-                "hoặc projectWorkingId (đã được owner mời trực tiếp).");
+                "Send EXACTLY ONE of: applyId (quotation attached to an application) " +
+                "or projectWorkingId (already invited directly by the owner).");
 
         if (request.Items.Count == 0)
-            throw new ArgumentException("Báo giá phải có ít nhất một hạng mục.");
+            throw new ArgumentException("A quotation must have at least one line item.");
 
         var parties = request.ApplyId != null
             ? await LoadApplyAnchorAsync(request.ApplyId.Value)
@@ -101,7 +101,7 @@ public class QuotationService : IQuotationService
         // Quyền trước mọi check nghiệp vụ — không để người ngoài dò trạng thái hồ sơ của người khác.
         if (parties.ProviderAccountId != accountId)
             throw new UnauthorizedAccessException(
-                "Chỉ provider của chính hồ sơ ứng tuyển / hợp tác này mới được lập báo giá.");
+                "Only the provider behind this application or engagement may create a quotation.");
 
         await EnsureAnchorOpenAsync(request.ApplyId, request.ProjectWorkingId);
         await EnsureNoOpenQuotationAsync(request.ApplyId, request.ProjectWorkingId);
@@ -138,12 +138,12 @@ public class QuotationService : IQuotationService
     public async Task<QuotationResponse> UpdateAsync(Guid accountId, Guid id, UpdateQuotationRequest request)
     {
         var quotation = await LoadWithDetailsAsync(id);
-        EnsureActor(await ResolveActorAsync(accountId, quotation), "sửa báo giá", QuotationActor.Provider);
+        EnsureActor(await ResolveActorAsync(accountId, quotation), "edit the quotation", QuotationActor.Provider);
 
         if (quotation.Status != QuotationStatus.draft)
             throw new InvalidOperationException(
-                $"Báo giá đang ở trạng thái '{quotation.Status}' — chỉ sửa được khi còn 'draft'. " +
-                "Bản đã gửi cho chủ quán thì phát hành bản mới thay vì sửa đè lịch sử.");
+                $"The quotation is in status '{quotation.Status}' — it can only be edited while still 'draft'. " +
+                "Once sent to the shop owner, issue a new version instead of overwriting history.");
 
         if (request.Title != null) quotation.Title = request.Title;
         if (request.Note != null) quotation.Note = request.Note;
@@ -152,7 +152,7 @@ public class QuotationService : IQuotationService
         if (request.ExtraRevisionFee.HasValue)
         {
             if (request.ExtraRevisionFee.Value < 0)
-                throw new ArgumentException("Phí sửa vượt hạn mức không được âm.");
+                throw new ArgumentException("The extra revision fee cannot be negative.");
             quotation.ExtraRevisionFee = request.ExtraRevisionFee;
         }
 
@@ -162,7 +162,7 @@ public class QuotationService : IQuotationService
         if (request.Items != null)
         {
             if (request.Items.Count == 0)
-                throw new ArgumentException("Báo giá phải có ít nhất một hạng mục.");
+                throw new ArgumentException("A quotation must have at least one line item.");
 
             _unitOfWork.GetRepository<QuotationItem>().DeleteRange(quotation.Items.ToList());
 
@@ -208,12 +208,12 @@ public class QuotationService : IQuotationService
     public async Task<QuotationResponse> SendAsync(Guid accountId, Guid id)
     {
         var quotation = await LoadWithDetailsAsync(id);
-        EnsureActor(await ResolveActorAsync(accountId, quotation), "gửi báo giá cho chủ quán", QuotationActor.Provider);
+        EnsureActor(await ResolveActorAsync(accountId, quotation), "send the quotation to the shop owner", QuotationActor.Provider);
 
         EnsureTransition(quotation.Status, QuotationStatus.sent);
 
         if (quotation.Items.Count == 0)
-            throw new InvalidOperationException("Báo giá chưa có hạng mục nào — không gửi được.");
+            throw new InvalidOperationException("The quotation has no line items — it cannot be sent.");
 
         var now = DateTime.UtcNow;
         quotation.Status = QuotationStatus.sent;
@@ -229,11 +229,11 @@ public class QuotationService : IQuotationService
     public async Task DeleteAsync(Guid accountId, Guid id)
     {
         var quotation = await LoadWithDetailsAsync(id);
-        EnsureActor(await ResolveActorAsync(accountId, quotation), "xoá báo giá", QuotationActor.Provider);
+        EnsureActor(await ResolveActorAsync(accountId, quotation), "delete the quotation", QuotationActor.Provider);
 
         if (quotation.Status != QuotationStatus.draft)
             throw new InvalidOperationException(
-                $"Báo giá đang ở trạng thái '{quotation.Status}' — chỉ xoá được bản nháp chưa gửi.");
+                $"The quotation is in status '{quotation.Status}' — only an unsent draft can be deleted.");
 
         var attachments = quotation.Attachments.Select(a => a.FileUrl).ToList();
 
@@ -256,10 +256,10 @@ public class QuotationService : IQuotationService
     public async Task<QuotationResponse> RequestRevisionAsync(Guid accountId, Guid id, RespondQuotationRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Reason))
-            throw new ArgumentException("Phải nêu lý do khi yêu cầu provider gửi bản báo giá khác.");
+            throw new ArgumentException("A reason is required when asking the provider for a different quotation.");
 
         var quotation = await LoadWithDetailsAsync(id);
-        EnsureActor(await ResolveActorAsync(accountId, quotation), "yêu cầu sửa báo giá", QuotationActor.Owner);
+        EnsureActor(await ResolveActorAsync(accountId, quotation), "request a quotation revision", QuotationActor.Owner);
 
         EnsureTransition(quotation.Status, QuotationStatus.revision_requested);
 
@@ -279,7 +279,7 @@ public class QuotationService : IQuotationService
     public async Task<QuotationResponse> RejectAsync(Guid accountId, Guid id, RespondQuotationRequest request)
     {
         var quotation = await LoadWithDetailsAsync(id);
-        EnsureActor(await ResolveActorAsync(accountId, quotation), "từ chối báo giá", QuotationActor.Owner);
+        EnsureActor(await ResolveActorAsync(accountId, quotation), "reject the quotation", QuotationActor.Owner);
 
         EnsureTransition(quotation.Status, QuotationStatus.rejected);
 
@@ -299,7 +299,7 @@ public class QuotationService : IQuotationService
     public async Task<AcceptQuotationResponse> AcceptAsync(Guid accountId, Guid id)
     {
         var quotation = await LoadWithDetailsAsync(id);
-        EnsureActor(await ResolveActorAsync(accountId, quotation), "duyệt báo giá", QuotationActor.Owner);
+        EnsureActor(await ResolveActorAsync(accountId, quotation), "approve the quotation", QuotationActor.Owner);
 
         EnsureTransition(quotation.Status, QuotationStatus.accepted);
 
@@ -350,12 +350,12 @@ public class QuotationService : IQuotationService
     public async Task<QuotationResponse> AddAttachmentAsync(Guid accountId, Guid id, AddQuotationAttachmentRequest request)
     {
         var quotation = await LoadWithDetailsAsync(id);
-        EnsureActor(await ResolveActorAsync(accountId, quotation), "đính kèm file vào báo giá", QuotationActor.Provider);
+        EnsureActor(await ResolveActorAsync(accountId, quotation), "attach a file to the quotation", QuotationActor.Provider);
 
-        EnsureNotLocked(quotation, "đính kèm thêm file");
+        EnsureNotLocked(quotation, "attach another file");
 
         var objectName = await _fileStorage.NormalizeForStorageAsync(request.FileUrl, "fileUrl")
-            ?? throw new ArgumentException("fileUrl không được để trống.");
+            ?? throw new ArgumentException("fileUrl cannot be empty.");
 
         await _unitOfWork.GetRepository<QuotationAttachment>().InsertAsync(new QuotationAttachment
         {
@@ -373,12 +373,12 @@ public class QuotationService : IQuotationService
     public async Task RemoveAttachmentAsync(Guid accountId, Guid id, Guid attachmentId)
     {
         var quotation = await LoadWithDetailsAsync(id);
-        EnsureActor(await ResolveActorAsync(accountId, quotation), "gỡ file đính kèm", QuotationActor.Provider);
+        EnsureActor(await ResolveActorAsync(accountId, quotation), "remove an attachment", QuotationActor.Provider);
 
-        EnsureNotLocked(quotation, "gỡ file đính kèm");
+        EnsureNotLocked(quotation, "remove an attachment");
 
         var attachment = quotation.Attachments.FirstOrDefault(a => a.Id == attachmentId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy file đính kèm {attachmentId} trong báo giá này.");
+            ?? throw new KeyNotFoundException($"No attachment {attachmentId} was found in this quotation.");
 
         _unitOfWork.GetRepository<QuotationAttachment>().Delete(attachment);
         await _unitOfWork.CommitAsync();
@@ -399,11 +399,11 @@ public class QuotationService : IQuotationService
         foreach (var item in items)
         {
             if (string.IsNullOrWhiteSpace(item.Name))
-                throw new ArgumentException("Mỗi hạng mục phải có tên.");
+                throw new ArgumentException("Every line item must have a name.");
             if (item.Quantity <= 0)
-                throw new ArgumentException($"Số lượng của hạng mục '{item.Name}' phải lớn hơn 0.");
+                throw new ArgumentException($"The quantity of line item '{item.Name}' must be greater than 0.");
             if (item.UnitPrice < 0)
-                throw new ArgumentException($"Đơn giá của hạng mục '{item.Name}' không được âm.");
+                throw new ArgumentException($"The unit price of line item '{item.Name}' cannot be negative.");
 
             built.Add(new QuotationItem
             {
@@ -435,17 +435,17 @@ public class QuotationService : IQuotationService
         var percentageTotal = terms.Sum(t => t.Percentage ?? 0m);
         if (terms.All(t => t.Percentage != null) && decimal.Round(percentageTotal, 2) != 100m)
             throw new ArgumentException(
-                $"Tổng tỉ lệ các đợt thanh toán phải bằng 100% (đang là {percentageTotal}%).");
+                $"The payment terms must add up to 100% (currently {percentageTotal}%).");
 
         var sortOrder = 0;
         foreach (var term in terms)
         {
             if (string.IsNullOrWhiteSpace(term.Name))
-                throw new ArgumentException("Mỗi đợt thanh toán phải có tên (vd: 'Khi ký hợp đồng').");
+                throw new ArgumentException("Every payment term must have a name (e.g. 'On contract signing').");
             if (term.Percentage == null && term.Amount == null)
-                throw new ArgumentException($"Đợt '{term.Name}' phải có tỉ lệ % hoặc số tiền.");
+                throw new ArgumentException($"Term '{term.Name}' must have either a percentage or an amount.");
             if (term.Percentage is < 0 or > 100)
-                throw new ArgumentException($"Tỉ lệ của đợt '{term.Name}' phải nằm trong khoảng 0–100.");
+                throw new ArgumentException($"The percentage of term '{term.Name}' must be between 0 and 100.");
 
             built.Add(new QuotationPaymentTerm
             {
@@ -462,7 +462,7 @@ public class QuotationService : IQuotationService
         var scheduled = built.Sum(t => t.Amount);
         if (scheduled > totalAmount)
             throw new ArgumentException(
-                $"Tổng các đợt thanh toán ({scheduled:N0}) vượt quá giá trị báo giá ({totalAmount:N0}).");
+                $"The payment terms total ({scheduled:N0}) exceeds the quotation value ({totalAmount:N0}).");
 
         // Chỉ dồn phần lẻ khi mọi đợt tính theo % — trường hợp ghi tay số tiền thì phần còn lại là
         // chủ ý của provider (vd: giữ lại phần bảo hành), không được tự ý cộng thêm.
@@ -494,16 +494,16 @@ public class QuotationService : IQuotationService
         if (await IsAdminAsync(accountId)) return QuotationActor.Admin;
 
         throw new UnauthorizedAccessException(
-            "Báo giá này thuộc về một hồ sơ/hợp tác mà tài khoản đang đăng nhập không tham gia.");
+            "This quotation belongs to an application or engagement that the signed-in account is not part of.");
     }
 
     private static void EnsureActor(QuotationActor actual, string action, params QuotationActor[] allowed)
     {
         if (actual == QuotationActor.Admin || allowed.Contains(actual)) return;
 
-        var who = string.Join(" hoặc ", allowed.Select(
-            a => a == QuotationActor.Owner ? "chủ quán" : "nhà cung cấp"));
-        throw new UnauthorizedAccessException($"Chỉ {who} của hồ sơ/hợp tác này mới được {action}.");
+        var who = string.Join(" or ", allowed.Select(
+            a => a == QuotationActor.Owner ? "the shop owner" : "the provider"));
+        throw new UnauthorizedAccessException($"Only {who} of this application or engagement may {action}.");
     }
 
     private async Task<QuotationParties> LoadApplyAnchorAsync(Guid applyId) =>
@@ -513,7 +513,7 @@ public class QuotationService : IQuotationService
                 a.ServiceProviderProfile.AccountId),
             predicate: a => a.Id == applyId))
         .FirstOrDefault()
-        ?? throw new KeyNotFoundException($"Không tìm thấy hồ sơ ứng tuyển với id {applyId}.");
+        ?? throw new KeyNotFoundException($"No application found with id {applyId}.");
 
     private async Task<QuotationParties> LoadEngagementAnchorAsync(Guid projectWorkingId) =>
         (await _unitOfWork.GetRepository<ProjectWorking>().GetListAsync(
@@ -522,7 +522,7 @@ public class QuotationService : IQuotationService
                 e.ServiceProviderProfile.AccountId),
             predicate: e => e.Id == projectWorkingId))
         .FirstOrDefault()
-        ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {projectWorkingId}.");
+        ?? throw new KeyNotFoundException($"No project provider found with id {projectWorkingId}.");
 
     private async Task<bool> IsAdminAsync(Guid accountId)
     {
@@ -543,21 +543,21 @@ public class QuotationService : IQuotationService
         {
             var apply = await _unitOfWork.GetRepository<Apply>()
                 .SingleOrDefaultAsync(predicate: a => a.Id == applyId)
-                ?? throw new KeyNotFoundException($"Không tìm thấy hồ sơ ứng tuyển với id {applyId}.");
+                ?? throw new KeyNotFoundException($"No application found with id {applyId}.");
 
             if (apply.Status != ApplicationStatus.pending)
                 throw new InvalidOperationException(
-                    $"Hồ sơ ứng tuyển đang ở trạng thái '{apply.Status}' — chỉ gửi báo giá khi hồ sơ còn 'pending'.");
+                    $"The application is in status '{apply.Status}' — a quotation can only be sent while the application is 'pending'.");
             return;
         }
 
         var engagement = await _unitOfWork.GetRepository<ProjectWorking>()
             .SingleOrDefaultAsync(predicate: e => e.Id == projectWorkingId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {projectWorkingId}.");
+            ?? throw new KeyNotFoundException($"No project provider found with id {projectWorkingId}.");
 
         if (engagement.Status != ProviderStatus.accepted)
             throw new InvalidOperationException(
-                $"Hợp tác đang ở trạng thái '{engagement.Status}' — chỉ gửi báo giá khi đã 'accepted' và chưa ký hợp đồng.");
+                $"The engagement is in status '{engagement.Status}' — a quotation can only be sent once it is 'accepted' and before the contract is signed.");
     }
 
     /// <summary>
@@ -579,11 +579,11 @@ public class QuotationService : IQuotationService
         throw new InvalidOperationException(open.Status switch
         {
             QuotationStatus.accepted =>
-                $"Báo giá v{open.Version} đã được chủ quán duyệt — không lập thêm bản mới.",
+                $"Quotation v{open.Version} has already been approved by the shop owner — no further version can be created.",
             QuotationStatus.sent =>
-                $"Báo giá v{open.Version} đang chờ chủ quán phản hồi — chờ phản hồi hoặc để chủ quán yêu cầu bản khác.",
+                $"Quotation v{open.Version} is awaiting the shop owner's response — wait for it, or let the owner request a different version.",
             _ =>
-                $"Đang có bản nháp v{open.Version} — sửa tiếp bản đó (PUT /api/quotations/{open.Id}) hoặc xoá rồi lập bản mới."
+                $"There is already a draft v{open.Version} — keep editing it (PUT /api/quotations/{open.Id}) or delete it before creating a new version."
         });
     }
 
@@ -620,7 +620,7 @@ public class QuotationService : IQuotationService
     private static void EnsureNotLocked(Quotation quotation, string action)
     {
         if (quotation.LockedAt != null)
-            throw new InvalidOperationException($"Báo giá đã được duyệt và khoá — không {action}.");
+            throw new InvalidOperationException($"The quotation is approved and locked — cannot {action}.");
     }
 
     /// <summary>
@@ -640,7 +640,7 @@ public class QuotationService : IQuotationService
 
         if (!allowed)
             throw new InvalidOperationException(
-                $"Không thể chuyển báo giá từ '{current}' sang '{target}'.");
+                $"A quotation cannot move from '{current}' to '{target}'.");
     }
 
     private static QuotationStatus? ParseStatus(string? status)
@@ -649,7 +649,7 @@ public class QuotationService : IQuotationService
 
         if (!Enum.TryParse<QuotationStatus>(status.Trim().Replace("-", "_"), ignoreCase: true, out var parsed))
             throw new ArgumentException(
-                $"Status '{status}' không hợp lệ. Cho phép: draft, sent, revision_requested, accepted, rejected, superseded.");
+                $"Status '{status}' is not valid. Allowed: draft, sent, revision_requested, accepted, rejected, superseded.");
 
         return parsed;
     }
@@ -663,5 +663,5 @@ public class QuotationService : IQuotationService
 
     private async Task<Quotation> LoadWithDetailsAsync(Guid id) =>
         await _repository.SingleOrDefaultAsync(predicate: q => q.Id == id, include: BuildInclude())
-        ?? throw new KeyNotFoundException($"Không tìm thấy báo giá với id {id}.");
+        ?? throw new KeyNotFoundException($"No quotation found with id {id}.");
 }

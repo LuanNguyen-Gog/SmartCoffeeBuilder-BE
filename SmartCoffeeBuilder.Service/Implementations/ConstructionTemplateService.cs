@@ -39,7 +39,7 @@ public class ConstructionTemplateService : IConstructionTemplateService
         {
             if (!Enum.TryParse<ServiceKind>(serviceKind.Trim(), ignoreCase: true, out var parsed))
                 throw new ArgumentException(
-                    $"ServiceKind '{serviceKind}' không hợp lệ. Cho phép: design, construction, both.");
+                    $"ServiceKind '{serviceKind}' is not valid. Allowed: design, construction, both.");
             kind = parsed;
         }
 
@@ -70,11 +70,11 @@ public class ConstructionTemplateService : IConstructionTemplateService
         Guid accountId, CreateConstructionTemplateRequest request)
     {
         if (request.Items.Count == 0)
-            throw new ArgumentException("Mẫu phải có ít nhất một hạng mục.");
+            throw new ArgumentException("A template must have at least one item.");
 
         if (!Enum.TryParse<ServiceKind>(request.ServiceKind?.Trim() ?? "construction", ignoreCase: true, out var kind))
             throw new ArgumentException(
-                $"ServiceKind '{request.ServiceKind}' không hợp lệ. Cho phép: design, construction, both.");
+                $"ServiceKind '{request.ServiceKind}' is not valid. Allowed: design, construction, both.");
 
         var now = DateTime.UtcNow;
         var template = new ConstructionTemplate
@@ -101,7 +101,7 @@ public class ConstructionTemplateService : IConstructionTemplateService
         var template = await LoadAsync(id);
 
         if (template.CreatedBy != accountId && !await IsAdminAsync(accountId))
-            throw new UnauthorizedAccessException("Chỉ người tạo mẫu (hoặc admin) mới được xoá mẫu này.");
+            throw new UnauthorizedAccessException("Only the template's author (or an admin) may delete this template.");
 
         _repository.Delete(template);
         await _unitOfWork.CommitAsync();
@@ -122,26 +122,26 @@ public class ConstructionTemplateService : IConstructionTemplateService
                 predicate: e => e.Id == request.ProjectWorkingId,
                 include: q => q.Include(e => e.ServiceProviderProfile))
             ?? throw new KeyNotFoundException(
-                $"Không tìm thấy project provider với id {request.ProjectWorkingId}.");
+                $"No project provider found with id {request.ProjectWorkingId}.");
 
         if (engagement.ServiceProviderProfile.AccountId != accountId && !await IsAdminAsync(accountId))
             throw new UnauthorizedAccessException(
-                "Chỉ nhà cung cấp của hợp tác này mới được áp mẫu quy trình vào dự án.");
+                "Only the provider of this engagement may apply a process template to the project.");
 
         // Cùng guard với tạo hạng mục thủ công: phải có hợp đồng đã ký mới được lập kế hoạch thi công.
         var signed = await _unitOfWork.GetRepository<Contract>().CountAsync(
             c => c.ProjectWorkingId == engagement.Id && c.Status == ContractStatus.confirmed) > 0;
         if (!signed)
             throw new InvalidOperationException(
-                "Hợp tác chưa có hợp đồng đã ký — chưa áp được mẫu quy trình thi công.");
+                "The engagement has no signed contract — a construction process template cannot be applied yet.");
 
         var now = DateTime.UtcNow;
-        var cursor = request.StartDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        var cursor = request.StartDate ?? VietnamTime.Today;
 
         // Mọi estimate_at sinh ra đều đếm tiến từ mốc này, nên mốc lùi về quá khứ là cả cây kế
         // hoạch nằm trong quá khứ — đúng thứ mà luồng tạo hạng mục thủ công đã chặn. Không guard
         // ở đây thì áp mẫu trở thành đường vòng qua ConstructionSchedule.
-        ConstructionSchedule.EnsureEstimateNotInPast(cursor, "ngày bắt đầu áp mẫu quy trình");
+        ConstructionSchedule.EnsureEstimateNotInPast(cursor, "the start date for applying the process template");
 
         var items = new List<ConstructionItem>();
         var tasks = new List<ConstructionTask>();
@@ -236,9 +236,9 @@ public class ConstructionTemplateService : IConstructionTemplateService
         return inputs.Select(input =>
         {
             if (string.IsNullOrWhiteSpace(input.Name))
-                throw new ArgumentException("Mỗi hạng mục trong mẫu phải có tên.");
+                throw new ArgumentException("Every item in the template must have a name.");
             if (input.EstimateDays is < 0)
-                throw new ArgumentException($"Thời lượng của hạng mục '{input.Name}' không được âm.");
+                throw new ArgumentException($"The duration of item '{input.Name}' cannot be negative.");
 
             var taskOrder = 0;
             return new ConstructionTemplateItem
@@ -252,7 +252,7 @@ public class ConstructionTemplateService : IConstructionTemplateService
                 {
                     Name = !string.IsNullOrWhiteSpace(task.Name)
                         ? task.Name
-                        : throw new ArgumentException("Mỗi việc con trong mẫu phải có tên."),
+                        : throw new ArgumentException("Every sub-task in the template must have a name."),
                     Description = task.Description,
                     EstimateDays = task.EstimateDays,
                     SortOrder = taskOrder++
@@ -265,7 +265,7 @@ public class ConstructionTemplateService : IConstructionTemplateService
     {
         if (template.IsPublic || template.CreatedBy == accountId) return;
 
-        throw new UnauthorizedAccessException("Mẫu này là mẫu riêng của nhà cung cấp khác.");
+        throw new UnauthorizedAccessException("This template is private to another provider.");
     }
 
     private async Task<bool> IsAdminAsync(Guid accountId)
@@ -280,5 +280,5 @@ public class ConstructionTemplateService : IConstructionTemplateService
 
     private async Task<ConstructionTemplate> LoadAsync(Guid id) =>
         await _repository.SingleOrDefaultAsync(predicate: t => t.Id == id, include: BuildInclude())
-        ?? throw new KeyNotFoundException($"Không tìm thấy mẫu quy trình với id {id}.");
+        ?? throw new KeyNotFoundException($"No process template found with id {id}.");
 }

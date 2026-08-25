@@ -43,7 +43,7 @@ public class ConstructionItemService : IConstructionItemService
         if (!string.IsNullOrWhiteSpace(status))
         {
             if (!Enum.TryParse<ItemStatus>(status, ignoreCase: true, out var parsed))
-                throw new ArgumentException($"Status '{status}' không hợp lệ. Cho phép: pending, in_progress, completed.");
+                throw new ArgumentException($"Status '{status}' is not valid. Allowed: pending, in_progress, completed.");
             st = parsed;
         }
 
@@ -83,7 +83,7 @@ public class ConstructionItemService : IConstructionItemService
 
     public async Task<ConstructionItemResponse> GetByIdAsync(Guid accountId, Guid id)
     {
-        var item = await LoadForActionAsync(accountId, id, "xem hạng mục thi công",
+        var item = await LoadForActionAsync(accountId, id, "view construction items",
             EngagementActor.Owner, EngagementActor.Provider);
 
         return ConstructionItemResponse.From(item);
@@ -93,47 +93,47 @@ public class ConstructionItemService : IConstructionItemService
     {
         var engagement = await _unitOfWork.GetRepository<ProjectWorking>()
             .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectWorkingId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {request.ProjectWorkingId}.");
+            ?? throw new KeyNotFoundException($"No project provider found with id {request.ProjectWorkingId}.");
 
         // Nhà thầu là người lập milestone của chính mình — owner không tự thêm việc vào phần
         // của provider. Quyền check TRƯỚC mọi guard nghiệp vụ để endpoint không rò rỉ trạng thái
         // engagement của người khác qua thông báo lỗi.
         var actor = await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, engagement.Id);
-        EngagementAuthorization.EnsureActor(actor, "tạo hạng mục thi công", EngagementActor.Provider);
+        EngagementAuthorization.EnsureActor(actor, "create a construction item", EngagementActor.Provider);
 
         if (engagement.ContractType == ServiceKind.design)
             throw new InvalidOperationException(
-                "Engagement có contract type 'design' — không có giai đoạn thi công.");
+                "This engagement has contract type 'design' — it has no construction phase.");
 
         if (engagement.Status != ProviderStatus.accepted)
             throw new InvalidOperationException(
-                $"Engagement đang ở trạng thái '{engagement.Status}' — chỉ tạo hạng mục thi công khi engagement 'accepted'.");
+                $"The engagement is in status '{engagement.Status}' — construction items can only be created while the engagement is 'accepted'.");
 
         // v5: "đã ký mới được làm" — guard qua contract confirmed, không check provider_status.
         var hasConfirmedContract = await _unitOfWork.GetRepository<Contract>()
             .CountAsync(c => c.ProjectWorkingId == engagement.Id && c.Status == ContractStatus.confirmed) > 0;
         if (!hasConfirmedContract)
             throw new InvalidOperationException(
-                "Engagement chưa có contract 'confirmed' — ký hợp đồng trước khi tạo hạng mục thi công.");
+                "The engagement has no 'confirmed' contract — sign the contract before creating construction items.");
 
-        ConstructionSchedule.EnsureEstimateNotInPast(request.EstimateAt, "hạng mục");
-        ConstructionSchedule.EnsureRangeOrdered(request.StartAt, request.EstimateAt, "hạng mục");
+        ConstructionSchedule.EnsureEstimateNotInPast(request.EstimateAt, "the construction item");
+        ConstructionSchedule.EnsureRangeOrdered(request.StartAt, request.EstimateAt, "the construction item");
         EnsureCostNotNegative(request.EstimatedLaborCost, nameof(request.EstimatedLaborCost));
 
         if (request.ParentId != null)
         {
             var parent = await _repository.SingleOrDefaultAsync(predicate: e => e.Id == request.ParentId)
-                ?? throw new KeyNotFoundException($"Không tìm thấy milestone cha với id {request.ParentId}.");
+                ?? throw new KeyNotFoundException($"No parent milestone found with id {request.ParentId}.");
             if (parent.ProjectWorkingId != engagement.Id)
-                throw new InvalidOperationException("Milestone cha phải thuộc cùng engagement.");
+                throw new InvalidOperationException("The parent milestone must belong to the same engagement.");
 
             // Thi công đúng 2 CẤP (v5): milestone gốc → milestone con → task. Bản thân milestone con
             // KHÔNG được làm cha tiếp, nếu không cây đào sâu tuỳ ý trong khi FE chỉ render 2 tầng
             // và các guard bên dưới (đóng milestone / nghiệm thu) chỉ nhìn đúng một mức con.
             if (parent.ParentId != null)
                 throw new InvalidOperationException(
-                    "Thi công chỉ có 2 cấp milestone — milestone con không thể làm milestone cha. " +
-                    "Gắn vào milestone gốc, hoặc tạo task bên trong milestone con này.");
+                    "Construction has only 2 milestone levels — a child milestone cannot be a parent. " +
+                    "Attach it to a root milestone, or create a task inside this child milestone.");
         }
 
         var item = new ConstructionItem
@@ -162,22 +162,22 @@ public class ConstructionItemService : IConstructionItemService
     public async Task<ConstructionItemResponse> UpdateAsync(
         Guid accountId, Guid id, UpdateConstructionItemRequest request)
     {
-        var item = await LoadForActionAsync(accountId, id, "sửa hạng mục thi công", EngagementActor.Provider);
+        var item = await LoadForActionAsync(accountId, id, "edit a construction item", EngagementActor.Provider);
 
         if (item.Status == ItemStatus.completed)
-            throw new InvalidOperationException("Hạng mục đã 'completed' — không chỉnh sửa được nữa.");
+            throw new InvalidOperationException("This construction item is already 'completed' — it can no longer be edited.");
 
         // Chỉ soi giá trị MỚI: hạn cũ đã lỡ trôi vào quá khứ vẫn sửa được các trường khác.
         if (request.EstimateAt.HasValue)
-            ConstructionSchedule.EnsureEstimateNotInPast(request.EstimateAt, "hạng mục");
+            ConstructionSchedule.EnsureEstimateNotInPast(request.EstimateAt, "the construction item");
 
         // Kiểm tra thứ tự trên giá trị SAU KHI GHÉP: gửi mỗi StartAt mà so với request.EstimateAt
         // (đang null) thì mọi ngày bắt đầu đều lọt, kể cả ngày nằm sau hạn đã lưu trong DB.
         ConstructionSchedule.EnsureRangeOrdered(
-            request.StartAt ?? item.StartAt, request.EstimateAt ?? item.EstimateAt, "hạng mục");
+            request.StartAt ?? item.StartAt, request.EstimateAt ?? item.EstimateAt, "the construction item");
         ConstructionSchedule.EnsureRangeOrdered(
             request.ActualStartAt ?? item.ActualStartAt, request.ActualAt ?? item.ActualAt,
-            "hạng mục (thực tế)");
+            "the construction item (actual)");
 
         EnsureCostNotNegative(request.EstimatedLaborCost, nameof(request.EstimatedLaborCost));
         EnsureCostNotNegative(request.ActualLaborCost, nameof(request.ActualLaborCost));
@@ -203,11 +203,11 @@ public class ConstructionItemService : IConstructionItemService
         Guid accountId, Guid id, UpdateConstructionItemStatusRequest request)
     {
         if (!Enum.TryParse<ItemStatus>(request.Status, ignoreCase: true, out var target))
-            throw new ArgumentException($"Status '{request.Status}' không hợp lệ. Cho phép: pending, in_progress, completed.");
+            throw new ArgumentException($"Status '{request.Status}' is not valid. Allowed: pending, in_progress, completed.");
 
         // Chỉ nhà thầu của chính engagement báo tiến độ — đây là dữ liệu guard nghiệm thu tin vào.
         var item = await LoadForActionAsync(
-            accountId, id, "cập nhật tiến độ hạng mục thi công", EngagementActor.Provider);
+            accountId, id, "update construction item progress", EngagementActor.Provider);
 
         // pending → in_progress → completed (chỉ tiến, không lùi, không cancel).
         // TODO (Mục 10 — construction_dependency, đang DRAFT): khi chốt bảng phụ thuộc,
@@ -219,7 +219,7 @@ public class ConstructionItemService : IConstructionItemService
             _ => false
         };
         if (!allowed)
-            throw new InvalidOperationException($"Không thể chuyển hạng mục từ '{item.Status}' sang '{target}'.");
+            throw new InvalidOperationException($"A construction item cannot move from '{item.Status}' to '{target}'.");
 
         // Milestone chỉ đóng được khi MỌI thứ treo dưới nó đã xong — cả task lẫn milestone con.
         // Thiếu bước này thì cây thi công hiện tick xanh cho phần việc còn dở, và guard nghiệm thu
@@ -230,21 +230,21 @@ public class ConstructionItemService : IConstructionItemService
                 .CountAsync(t => t.ConstructionItemId == item.Id && t.Status != ItemStatus.completed);
             if (unfinishedTasks > 0)
                 throw new InvalidOperationException(
-                    $"Còn {unfinishedTasks} task chưa 'completed' trong hạng mục này — " +
-                    "hoàn thành hoặc xoá hết task trước khi đóng milestone.");
+                    $"{unfinishedTasks} task(s) in this item are not 'completed' yet — " +
+                    "finish or delete every task before closing the milestone.");
 
             // Chỉ cần soi ĐÚNG MỘT mức con: cây bị chặn ở 2 cấp nên milestone con không có con nữa.
             var unfinishedChildren = await _repository.CountAsync(
                 c => c.ParentId == item.Id && c.Status != ItemStatus.completed);
             if (unfinishedChildren > 0)
                 throw new InvalidOperationException(
-                    $"Còn {unfinishedChildren} milestone con chưa 'completed' — " +
-                    "đóng hết milestone con trước khi đóng milestone cha.");
+                    $"{unfinishedChildren} child milestone(s) are not 'completed' yet — " +
+                    "close every child milestone before closing the parent.");
 
             // Đóng milestone = tuyên bố phần việc này đã xong, nên checklist nghiệm thu của nó
             // phải được owner chấm đạt trước (review 3).
             await ChecklistGate.EnsureConstructionItemPassedAsync(
-                _unitOfWork, item.Id, "chưa đóng được hạng mục này");
+                _unitOfWork, item.Id, "close this construction item yet");
         }
 
         item.Status = target;
@@ -252,9 +252,9 @@ public class ConstructionItemService : IConstructionItemService
         // Mốc thực tế tự đóng theo trạng thái, cùng cách ActualAt vẫn làm: bắt provider nhớ điền
         // tay ngày bắt đầu thì cột đó rỗng ở phần lớn hạng mục và không tính được thời lượng THẬT.
         if (target == ItemStatus.in_progress && item.ActualStartAt == null)
-            item.ActualStartAt = DateOnly.FromDateTime(DateTime.UtcNow);
+            item.ActualStartAt = VietnamTime.Today;
         if (target == ItemStatus.completed && item.ActualAt == null)
-            item.ActualAt = DateOnly.FromDateTime(DateTime.UtcNow);
+            item.ActualAt = VietnamTime.Today;
 
         // Nhảy thẳng pending → completed (hạng mục làm gọn trong ngày) vẫn phải có mốc bắt đầu,
         // nếu không thời lượng thực tế thành null trong khi việc rõ ràng đã làm xong.
@@ -274,7 +274,7 @@ public class ConstructionItemService : IConstructionItemService
     private static void EnsureCostNotNegative(decimal? value, string fieldName)
     {
         if (value is decimal v && v < 0)
-            throw new ArgumentException($"{fieldName} không được âm — bỏ trống nếu chưa có số liệu.");
+            throw new ArgumentException($"{fieldName} cannot be negative — leave it empty if there is no figure yet.");
     }
 
     // ───────────────────────── Tổng hợp chi phí (review 1.1) ─────────────────────────
@@ -282,7 +282,7 @@ public class ConstructionItemService : IConstructionItemService
     public async Task<ConstructionCostSummaryResponse> GetCostSummaryAsync(Guid accountId, Guid id)
     {
         var item = await _repository.SingleOrDefaultAsync(predicate: e => e.Id == id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy hạng mục thi công với id {id}.");
+            ?? throw new KeyNotFoundException($"No construction item found with id {id}.");
 
         await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, item.ProjectWorkingId);
 
@@ -461,11 +461,11 @@ public class ConstructionItemService : IConstructionItemService
 
     public async Task DeleteAsync(Guid accountId, Guid id)
     {
-        var item = await LoadForActionAsync(accountId, id, "xoá hạng mục thi công", EngagementActor.Provider);
+        var item = await LoadForActionAsync(accountId, id, "delete a construction item", EngagementActor.Provider);
 
         var hasChildren = await _repository.CountAsync(e => e.ParentId == id) > 0;
         if (hasChildren)
-            throw new InvalidOperationException("Hạng mục còn milestone con — xoá/di chuyển con trước khi xoá.");
+            throw new InvalidOperationException("This item still has child milestones — delete or move the children before deleting it.");
 
         // Cascade xoá comment gắn vào milestone này (FK mềm — không tự cascade theo DB).
         var commentRepo = _unitOfWork.GetRepository<Comment>();
@@ -512,14 +512,14 @@ public class ConstructionItemService : IConstructionItemService
             {
                 failed++;
                 _logger.LogError(ex,
-                    "Không tạo được cảnh báo trễ tiến độ cho hạng mục #{ItemId} — bỏ qua, " +
-                    "lượt quét tiếp tục với các hạng mục còn lại.", id);
+                    "Could not create an overdue alert for construction item #{ItemId} — skipping, " +
+                    "the scan continues with the remaining items.", id);
             }
         }
 
         if (failed > 0)
             _logger.LogWarning(
-                "Lượt quét trễ tiến độ: {Sent} cảnh báo đã gửi, {Failed}/{Total} hạng mục lỗi.",
+                "Overdue scan: {Sent} alert(s) sent, {Failed}/{Total} item(s) failed.",
                 sent, failed, overdueIds.Count);
 
         return sent;
@@ -532,7 +532,7 @@ public class ConstructionItemService : IConstructionItemService
         Guid accountId, Guid id, string action, params EngagementActor[] allowed)
     {
         var item = await _repository.SingleOrDefaultAsync(predicate: e => e.Id == id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy construction item với id {id}.");
+            ?? throw new KeyNotFoundException($"No construction item found with id {id}.");
 
         var actor = await EngagementAuthorization.ResolveActorAsync(
             _unitOfWork, accountId, item.ProjectWorkingId);

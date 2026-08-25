@@ -54,7 +54,7 @@ public class ChatMessageService : IChatMessageService
         {
             var anchor = await repository.SingleOrDefaultAsync(
                 predicate: m => m.Id == sinceId && m.ConversationId == conversationId)
-                ?? throw new KeyNotFoundException("Không tìm thấy message ứng với sinceId trong thread này.");
+                ?? throw new KeyNotFoundException("No message matching sinceId was found in this thread.");
             anchorSentAt = anchor.SentAt;
         }
 
@@ -114,7 +114,7 @@ public class ChatMessageService : IChatMessageService
         var validFiles = files?.Where(f => f is { SizeBytes: > 0 }).ToList();
 
         if (trimmedBody == null && (validFiles == null || validFiles.Count == 0))
-            throw new ArgumentException("Phải có nội dung văn bản hoặc ít nhất 1 file đính kèm.");
+            throw new ArgumentException("A message must have text content or at least one attachment.");
 
         var conversation = await LoadConversationAsync(conversationId);
         await EnsureMemberAsync(accountId, conversation.ProjectWorkingId);
@@ -177,7 +177,7 @@ public class ChatMessageService : IChatMessageService
     {
         var sender = await _unitOfWork.GetRepository<AccountModel>()
             .SingleOrDefaultAsync(predicate: a => a.Id == accountId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy account id {accountId}.");
+            ?? throw new KeyNotFoundException($"No account found with id {accountId}.");
         return $"{sender.Role}/{sender.Id}";
     }
 
@@ -185,12 +185,12 @@ public class ChatMessageService : IChatMessageService
     {
         var message = await _unitOfWork.GetRepository<MessageModel>().SingleOrDefaultAsync(
             predicate: m => m.Id == messageId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy message với id {messageId}.");
+            ?? throw new KeyNotFoundException($"No message found with id {messageId}.");
 
         // Phân quyền: chỉ sender mới xoá được message.
         if (message.SenderId != accountId)
             throw new UnauthorizedAccessException(
-                "Chỉ người gửi mới có quyền xoá tin nhắn này.");
+                "Only the sender may delete this message.");
 
         var conversationId = message.ConversationId;
 
@@ -215,7 +215,7 @@ public class ChatMessageService : IChatMessageService
     {
         return await _unitOfWork.GetRepository<ConversationModel>().SingleOrDefaultAsync(
             predicate: c => c.Id == conversationId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy conversation với id {conversationId}.");
+            ?? throw new KeyNotFoundException($"No conversation found with id {conversationId}.");
     }
 
     private async Task<MessageModel> LoadMessageAsync(Guid messageId)
@@ -223,7 +223,7 @@ public class ChatMessageService : IChatMessageService
         return await _unitOfWork.GetRepository<MessageModel>().SingleOrDefaultAsync(
             predicate: m => m.Id == messageId,
             include: q => q.Include(m => m.Sender).Include(m => m.Attachments))
-            ?? throw new KeyNotFoundException($"Không tìm thấy message với id {messageId}.");
+            ?? throw new KeyNotFoundException($"No message found with id {messageId}.");
     }
 
     private async Task EnsureMemberAsync(Guid accountId, Guid projectWorkingId)
@@ -231,7 +231,7 @@ public class ChatMessageService : IChatMessageService
         var pw = await _unitOfWork.GetRepository<ProjectWorkingModel>().SingleOrDefaultAsync(
             predicate: p => p.Id == projectWorkingId,
             include: q => q.Include(p => p.ProjectShopOwner).ThenInclude(s => s.Owner))
-            ?? throw new KeyNotFoundException($"Không tìm thấy engagement với id {projectWorkingId}.");
+            ?? throw new KeyNotFoundException($"No engagement found with id {projectWorkingId}.");
 
         if (pw.ProjectShopOwner.Owner.AccountId == accountId)
             return;
@@ -242,7 +242,7 @@ public class ChatMessageService : IChatMessageService
                             && p.Status == ProviderStatus.accepted);
         if (!otherPws.Any())
             throw new UnauthorizedAccessException(
-                "Account không thuộc engagement này — không có quyền gửi/xem tin nhắn.");
+                "This account is not part of the engagement — it cannot send or read messages.");
     }
 
     private async Task<SenderInfo> BuildSenderInfoAsync(AccountModel account)

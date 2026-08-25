@@ -56,7 +56,7 @@ public class CommentService : ICommentService
         request.CreatedBy = currentAccountId;
 
         if (string.IsNullOrWhiteSpace(request.Body))
-            throw new ArgumentException("Nội dung comment không được để trống.");
+            throw new ArgumentException("Comment content cannot be empty.");
 
         var targetType = ParseTargetType(request.TargetType);
 
@@ -97,15 +97,15 @@ public class CommentService : ICommentService
         var comment = await _repository.SingleOrDefaultAsync(
             predicate: c => c.Id == id,
             include: q => q.Include(c => c.CreatedByAccount))
-            ?? throw new KeyNotFoundException($"Không tìm thấy comment với id {id}.");
+            ?? throw new KeyNotFoundException($"No comment found with id {id}.");
 
         // Chỉ người tạo hoặc admin mới xoá.
         var current = await _unitOfWork.GetRepository<Account>()
             .SingleOrDefaultAsync(predicate: a => a.Id == currentAccountId)
-            ?? throw new UnauthorizedAccessException("Tài khoản không hợp lệ.");
+            ?? throw new UnauthorizedAccessException("The account is not valid.");
 
         if (comment.CreatedBy != currentAccountId && current.Role != AccountRole.admin)
-            throw new UnauthorizedAccessException("Chỉ người viết hoặc admin mới được xoá comment.");
+            throw new UnauthorizedAccessException("Only the author or an admin may delete a comment.");
 
         _repository.Delete(comment);
         await _unitOfWork.CommitAsync();
@@ -117,7 +117,7 @@ public class CommentService : ICommentService
         var normalized = raw.Trim().ToLowerInvariant().Replace("-", "_");
         if (!Enum.TryParse<CommentTargetType>(normalized, ignoreCase: true, out var parsed))
             throw new ArgumentException(
-                $"TargetType '{raw}' không hợp lệ. Cho phép: {TargetTypeList}.");
+                $"TargetType '{raw}' is not valid. Allowed: {TargetTypeList}.");
         return parsed;
     }
 
@@ -140,21 +140,21 @@ public class CommentService : ICommentService
             {
                 var item = await _unitOfWork.GetRepository<ConstructionItem>()
                     .SingleOrDefaultAsync(predicate: ci => ci.Id == targetId)
-                    ?? throw new KeyNotFoundException($"Không tìm thấy construction item với id {targetId}.");
+                    ?? throw new KeyNotFoundException($"No construction item found with id {targetId}.");
                 return await LoadEngagementPartiesAsync(item.ProjectWorkingId);
             }
             case CommentTargetType.design:
             {
                 var design = await _unitOfWork.GetRepository<Design>()
                     .SingleOrDefaultAsync(predicate: d => d.Id == targetId)
-                    ?? throw new KeyNotFoundException($"Không tìm thấy design với id {targetId}.");
+                    ?? throw new KeyNotFoundException($"No design found with id {targetId}.");
                 return await LoadEngagementPartiesAsync(design.ProjectWorkingId);
             }
             case CommentTargetType.quotation:
             {
                 var quotation = await _unitOfWork.GetRepository<Quotation>()
                     .SingleOrDefaultAsync(predicate: q => q.Id == targetId)
-                    ?? throw new KeyNotFoundException($"Không tìm thấy báo giá với id {targetId}.");
+                    ?? throw new KeyNotFoundException($"No quotation found with id {targetId}.");
 
                 // CHECK ck_quotations_anchor bảo đảm đúng MỘT trong hai cột có giá trị.
                 return quotation.ApplyId is Guid applyId
@@ -162,7 +162,7 @@ public class CommentService : ICommentService
                     : await LoadEngagementPartiesAsync(quotation.ProjectWorkingId!.Value);
             }
             default:
-                throw new ArgumentException($"TargetType '{type}' chưa được hỗ trợ.");
+                throw new ArgumentException($"TargetType '{type}' is not supported yet.");
         }
     }
 
@@ -174,7 +174,7 @@ public class CommentService : ICommentService
                 e.ServiceProviderProfile.AccountId),
             predicate: e => e.Id == projectWorkingId))
         .FirstOrDefault()
-        ?? throw new KeyNotFoundException($"Không tìm thấy engagement với id {projectWorkingId}.");
+        ?? throw new KeyNotFoundException($"No engagement found with id {projectWorkingId}.");
 
     /// <summary>Owner đến từ dự án của bài đăng, provider đến từ chính hồ sơ ứng tuyển.</summary>
     private async Task<CommentParties> LoadApplyPartiesAsync(Guid applyId) =>
@@ -184,7 +184,7 @@ public class CommentService : ICommentService
                 a.ServiceProviderProfile.AccountId),
             predicate: a => a.Id == applyId))
         .FirstOrDefault()
-        ?? throw new KeyNotFoundException($"Không tìm thấy hồ sơ ứng tuyển với id {applyId}.");
+        ?? throw new KeyNotFoundException($"No application found with id {applyId}.");
 
     /// <summary>
     /// Đảm bảo currentAccountId là một trong hai bên của chỗ neo, hoặc admin.
@@ -197,11 +197,11 @@ public class CommentService : ICommentService
 
         var current = await _unitOfWork.GetRepository<Account>()
             .SingleOrDefaultAsync(predicate: a => a.Id == currentAccountId && a.DeletedAt == null)
-            ?? throw new UnauthorizedAccessException("Tài khoản không hợp lệ.");
+            ?? throw new UnauthorizedAccessException("The account is not valid.");
 
         if (current.Role == AccountRole.admin) return;
 
         throw new UnauthorizedAccessException(
-            "Bạn không thuộc hồ sơ/hợp tác này — không thể comment.");
+            "You are not part of this application or engagement — you cannot comment.");
     }
 }

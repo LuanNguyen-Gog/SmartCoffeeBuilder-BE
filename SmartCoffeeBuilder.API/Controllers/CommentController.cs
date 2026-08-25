@@ -41,8 +41,8 @@ public class CommentController : ControllerBase
         if (!Enum.TryParse<CommentTargetType>(normalized, ignoreCase: true, out var parsed))
             return BadRequest(new
             {
-                message = $"targetType '{targetType}' không hợp lệ. " +
-                          $"Cho phép: {string.Join(", ", Enum.GetNames<CommentTargetType>())}."
+                message = $"targetType '{targetType}' is not valid. " +
+                          $"Allowed: {string.Join(", ", Enum.GetNames<CommentTargetType>())}."
             });
 
         var result = await _commentService.GetAllAsync(

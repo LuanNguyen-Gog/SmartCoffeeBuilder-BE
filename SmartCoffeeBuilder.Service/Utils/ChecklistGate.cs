@@ -24,13 +24,13 @@ public static class ChecklistGate
     /// <exception cref="InvalidOperationException">Còn mục bắt buộc chưa đạt (HTTP 409).</exception>
     public static Task EnsureDesignPassedAsync(
         IUnitOfWork<SmartCafeBuilderContext> unitOfWork, Guid designId, string blockedAction) =>
-        EnsureAsync(unitOfWork, c => c.DesignId == designId, "bản thiết kế", blockedAction);
+        EnsureAsync(unitOfWork, c => c.DesignId == designId, "the design", blockedAction);
 
     /// <summary>Checklist của một hạng mục thi công — gọi trước khi đóng milestone.</summary>
     /// <exception cref="InvalidOperationException">Còn mục bắt buộc chưa đạt (HTTP 409).</exception>
     public static Task EnsureConstructionItemPassedAsync(
         IUnitOfWork<SmartCafeBuilderContext> unitOfWork, Guid constructionItemId, string blockedAction) =>
-        EnsureAsync(unitOfWork, c => c.ConstructionItemId == constructionItemId, "hạng mục", blockedAction);
+        EnsureAsync(unitOfWork, c => c.ConstructionItemId == constructionItemId, "the construction item", blockedAction);
 
     /// <summary>
     /// TOÀN BỘ checklist của một engagement (mọi design + mọi hạng mục thi công của nó) — gọi khi
@@ -44,7 +44,7 @@ public static class ChecklistGate
             unitOfWork,
             c => (c.Design != null && c.Design.ProjectWorkingId == projectWorkingId)
                  || (c.ConstructionItem != null && c.ConstructionItem.ProjectWorkingId == projectWorkingId),
-            "hợp tác này",
+            "this engagement",
             blockedAction);
 
     /// <summary>
@@ -66,12 +66,12 @@ public static class ChecklistGate
         if (failed == 0 && pending == 0) return;
 
         var parts = new List<string>();
-        if (failed > 0) parts.Add($"{failed} mục KHÔNG ĐẠT");
-        if (pending > 0) parts.Add($"{pending} mục chưa chấm");
+        if (failed > 0) parts.Add($"{failed} item(s) FAILED");
+        if (pending > 0) parts.Add($"{pending} item(s) not graded");
 
         throw new InvalidOperationException(
-            $"Checklist nghiệm thu của {subject} còn {string.Join(" và ", parts)} " +
-            $"(chỉ tính mục bắt buộc) — {blockedAction}.");
+            $"The acceptance checklist for {subject} still has {string.Join(" and ", parts)} " +
+            $"(required items only) — {blockedAction}.");
     }
 
     /// <summary>Ghép thêm điều kiện <c>IsRequired</c> vào predicate phạm vi, giữ nguyên dạng cây

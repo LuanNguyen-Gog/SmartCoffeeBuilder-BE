@@ -47,7 +47,7 @@ public class AiRecommendationService : IAiRecommendationService
     public async Task<AiRecommendationResponse> GetByIdAsync(Guid accountId, Guid id)
     {
         var recommendation = await _repository.GetByIdAsync(id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy ai recommendation với id {id}.");
+            ?? throw new KeyNotFoundException($"No AI recommendation found with id {id}.");
 
         await EnsureBriefVisibleAsync(accountId, recommendation.BriefId);
 
@@ -58,7 +58,7 @@ public class AiRecommendationService : IAiRecommendationService
     {
         _ = await _unitOfWork.GetRepository<DesignBrief>()
             .SingleOrDefaultAsync(predicate: b => b.Id == request.BriefId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy design brief với id {request.BriefId}.");
+            ?? throw new KeyNotFoundException($"No design brief found with id {request.BriefId}.");
 
         var recommendation = new AiRecommendation
         {
@@ -79,7 +79,7 @@ public class AiRecommendationService : IAiRecommendationService
     public async Task<AiRecommendationResponse> UpdateAsync(Guid id, UpdateAiRecommendationRequest request)
     {
         var recommendation = await _repository.GetByIdAsync(id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy ai recommendation với id {id}.");
+            ?? throw new KeyNotFoundException($"No AI recommendation found with id {id}.");
 
         if (request.ConceptSummary != null) recommendation.ConceptSummary = request.ConceptSummary;
         if (request.Payload != null) recommendation.Payload = request.Payload;
@@ -130,7 +130,7 @@ public class AiRecommendationService : IAiRecommendationService
     public async Task DeleteAsync(Guid id)
     {
         var recommendation = await _repository.GetByIdAsync(id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy ai recommendation với id {id}.");
+            ?? throw new KeyNotFoundException($"No AI recommendation found with id {id}.");
 
         _repository.Delete(recommendation);
         await _unitOfWork.CommitAsync();
@@ -141,7 +141,7 @@ public class AiRecommendationService : IAiRecommendationService
     public async Task<AiDesignJobStatusResponse> GenerateDesignAsync(Guid briefId, string userId, GenerateAiDesignRequest request)
     {
         if (!Guid.TryParse(userId, out var callerAccountId))
-            throw new UnauthorizedAccessException("User ID trong token không hợp lệ.");
+            throw new UnauthorizedAccessException("The account id in the token is not valid.");
 
         // Quyền TRƯỚC mọi thứ khác. Thiếu bước này thì owner A truyền briefId của owner B là chạy
         // được job bằng quota của mình nhưng bản ghi ai_recommendation lại ghi vào brief của B và
@@ -154,11 +154,11 @@ public class AiRecommendationService : IAiRecommendationService
         // Load DesignBrief với Project
         var brief = await _unitOfWork.GetRepository<DesignBrief>()
             .SingleOrDefaultAsync(predicate: b => b.Id == briefId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy design brief với id {briefId}.");
+            ?? throw new KeyNotFoundException($"No design brief found with id {briefId}.");
 
         var project = await _unitOfWork.GetRepository<ProjectShopOwner>()
             .SingleOrDefaultAsync(predicate: p => p.Id == brief.ProjectShopOwnerId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy project liên quan.");
+            ?? throw new KeyNotFoundException($"The related project was not found.");
 
         // Required fields for AI worker — fail fast if project metadata is incomplete
         // so we don't enqueue jobs that worker will reject at validation.
@@ -170,8 +170,8 @@ public class AiRecommendationService : IAiRecommendationService
         if (missingFields.Count > 0)
         {
             throw new InvalidOperationException(
-                $"Project {project.Id} thiếu các trường bắt buộc cho AI design: {string.Join(", ", missingFields)}. " +
-                "Vui lòng cập nhật project trước khi generate AI design.");
+                $"Project {project.Id} is missing fields required for AI design: {string.Join(", ", missingFields)}. " +
+                "Please update the project before generating an AI design.");
         }
 
         // Generate JobId upfront as GUID for consistent tracking
@@ -244,7 +244,7 @@ public class AiRecommendationService : IAiRecommendationService
     public async Task ProcessAiDesignResultAsync(AiDesignResultMessage result)
     {
         var recommendation = await _repository.GetByIdAsync(result.RecommendationId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy recommendation với id {result.RecommendationId}.");
+            ?? throw new KeyNotFoundException($"No recommendation found with id {result.RecommendationId}.");
 
         recommendation.JobId = result.JobId;
         recommendation.State = result.State;
@@ -315,7 +315,7 @@ public class AiRecommendationService : IAiRecommendationService
                                  && e.Status != ProviderStatus.terminated)
                         || b.ProjectShopOwner.Posts.Any(p => p.Status == PostStatus.open))),
                 predicate: b => b.Id == briefId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy design brief với id {briefId}.");
+            ?? throw new KeyNotFoundException($"No design brief found with id {briefId}.");
 
         if (visible) return;
 
@@ -324,7 +324,7 @@ public class AiRecommendationService : IAiRecommendationService
         if (account?.Role == AccountRole.admin) return;
 
         throw new UnauthorizedAccessException(
-            "Dự án mang brief này không mở thầu công khai và tài khoản đang đăng nhập không tham gia.");
+            "The project behind this brief is not open for public bidding, and the signed-in account is not part of it.");
     }
 
     /// <summary>
@@ -340,7 +340,7 @@ public class AiRecommendationService : IAiRecommendationService
             .SingleOrDefaultAsync(
                 selector: b => (Guid?)b.ProjectShopOwner.Owner.AccountId,
                 predicate: b => b.Id == briefId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy design brief với id {briefId}.");
+            ?? throw new KeyNotFoundException($"No design brief found with id {briefId}.");
 
         if (ownerAccountId == accountId) return;
 
@@ -349,7 +349,7 @@ public class AiRecommendationService : IAiRecommendationService
         if (account?.Role == AccountRole.admin) return;
 
         throw new UnauthorizedAccessException(
-            "Brief này thuộc dự án của một chủ quán khác.");
+            "This brief belongs to another shop owner's project.");
     }
 
     /// <summary>
@@ -363,11 +363,11 @@ public class AiRecommendationService : IAiRecommendationService
         return;
 #pragma warning disable CS0162 // Unreachable code detected
         if (!Guid.TryParse(userId, out var accountId))
-            throw new UnauthorizedAccessException("User ID trong token không hợp lệ.");
+            throw new UnauthorizedAccessException("The account id in the token is not valid.");
 
         var account = await _unitOfWork.GetRepository<Account>()
             .SingleOrDefaultAsync(predicate: a => a.Id == accountId && a.DeletedAt == null)
-            ?? throw new KeyNotFoundException($"Không tìm thấy tài khoản với id {accountId}.");
+            ?? throw new KeyNotFoundException($"No account found with id {accountId}.");
 
         if (account.Role != AccountRole.owner) return;
 
@@ -379,8 +379,8 @@ public class AiRecommendationService : IAiRecommendationService
 
         if (!hasActiveSubscription)
             throw new InvalidOperationException(
-                "Tài khoản gói free không dùng được tính năng AI design. " +
-                "Vui lòng mua gói subscription (GET /api/payments/plans) để mở khoá.");
+                "Free-plan accounts cannot use the AI design feature. " +
+                "Please purchase a subscription plan (GET /api/payments/plans) to unlock it.");
 #pragma warning restore CS0162
     }
 

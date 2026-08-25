@@ -64,7 +64,7 @@ public class ProviderPortfolioService : IProviderPortfolioService
         var providerId = await ResolveProviderIdAsync(accountId, request.ServiceProviderProfileId);
 
         if (string.IsNullOrWhiteSpace(request.Title))
-            throw new ArgumentException("Dự án mẫu phải có tiêu đề.");
+            throw new ArgumentException("A portfolio project must have a title.");
         EnsureMetricsValid(request.AreaM2, request.ContractValue, request.DurationDays);
 
         var now = DateTime.UtcNow;
@@ -125,14 +125,14 @@ public class ProviderPortfolioService : IProviderPortfolioService
         Guid accountId, Guid id, UpdateProviderPortfolioRequest request)
     {
         var portfolio = await LoadAsync(id);
-        await EnsureCanWriteAsync(accountId, portfolio.ServiceProviderProfileId, "sửa dự án mẫu này");
+        await EnsureCanWriteAsync(accountId, portfolio.ServiceProviderProfileId, "edit this portfolio project");
 
         EnsureMetricsValid(request.AreaM2, request.ContractValue, request.DurationDays);
 
         if (request.Title != null)
         {
             if (string.IsNullOrWhiteSpace(request.Title))
-                throw new ArgumentException("Dự án mẫu phải có tiêu đề.");
+                throw new ArgumentException("A portfolio project must have a title.");
             portfolio.Title = request.Title.Trim();
         }
         if (request.Description != null) portfolio.Description = request.Description;
@@ -176,7 +176,7 @@ public class ProviderPortfolioService : IProviderPortfolioService
     public async Task DeleteAsync(Guid accountId, Guid id)
     {
         var portfolio = await LoadGraphAsync(id);
-        await EnsureCanWriteAsync(accountId, portfolio.ServiceProviderProfileId, "xoá dự án mẫu này");
+        await EnsureCanWriteAsync(accountId, portfolio.ServiceProviderProfileId, "delete this portfolio project");
 
         // Gom file TRƯỚC khi xoá bản ghi — sau khi cascade chạy thì không còn đường tra ObjectName.
         var orphanFiles = portfolio.Images.Select(i => i.ImageUrl)
@@ -196,7 +196,7 @@ public class ProviderPortfolioService : IProviderPortfolioService
     {
         var portfolio = await LoadAsync(portfolioId);
         await EnsureCanWriteAsync(
-            accountId, portfolio.ServiceProviderProfileId, "thêm ảnh cho dự án mẫu này");
+            accountId, portfolio.ServiceProviderProfileId, "add an image to this portfolio project");
 
         var repo = _unitOfWork.GetRepository<ProviderPortfolioImage>();
         var existing = await repo.GetListAsync(
@@ -223,10 +223,10 @@ public class ProviderPortfolioService : IProviderPortfolioService
         var image = await repo.SingleOrDefaultAsync(
             predicate: i => i.Id == imageId,
             include: q => q.Include(i => i.ProviderPortfolio))
-            ?? throw new KeyNotFoundException($"Không tìm thấy ảnh dự án mẫu với id {imageId}.");
+            ?? throw new KeyNotFoundException($"No portfolio project image found with id {imageId}.");
 
         await EnsureCanWriteAsync(
-            accountId, image.ProviderPortfolio.ServiceProviderProfileId, "xoá ảnh của dự án mẫu này");
+            accountId, image.ProviderPortfolio.ServiceProviderProfileId, "delete an image of this portfolio project");
 
         var objectName = image.ImageUrl;
 
@@ -240,13 +240,13 @@ public class ProviderPortfolioService : IProviderPortfolioService
 
     private async Task<Entities.ProviderPortfolio> LoadAsync(Guid id) =>
         await _repository.SingleOrDefaultAsync(predicate: p => p.Id == id)
-        ?? throw new KeyNotFoundException($"Không tìm thấy dự án mẫu với id {id}.");
+        ?? throw new KeyNotFoundException($"No portfolio project found with id {id}.");
 
     private async Task<Entities.ProviderPortfolio> LoadGraphAsync(Guid id) =>
         await _repository.SingleOrDefaultAsync(
             predicate: p => p.Id == id,
             include: q => q.Include(p => p.Images))
-        ?? throw new KeyNotFoundException($"Không tìm thấy dự án mẫu với id {id}.");
+        ?? throw new KeyNotFoundException($"No portfolio project found with id {id}.");
 
     /// <summary>
     /// Hồ sơ provider mà dự án mẫu này thuộc về. Bỏ trống <paramref name="requested"/> = hồ sơ của
@@ -265,13 +265,13 @@ public class ProviderPortfolioService : IProviderPortfolioService
             return own != Guid.Empty
                 ? own
                 : throw new KeyNotFoundException(
-                    "Tài khoản này chưa có hồ sơ nhà cung cấp — tạo hồ sơ trước khi thêm dự án mẫu.");
+                    "This account has no provider profile yet — create the profile before adding portfolio projects.");
 
         if (target == own) return target;
         if (await IsAdminAsync(accountId)) return target;
 
         throw new UnauthorizedAccessException(
-            "Chỉ thêm được dự án mẫu vào hồ sơ nhà cung cấp của chính mình.");
+            "Portfolio projects can only be added to your own provider profile.");
     }
 
     /// <exception cref="UnauthorizedAccessException">Không sở hữu hồ sơ (HTTP 401).</exception>
@@ -282,7 +282,7 @@ public class ProviderPortfolioService : IProviderPortfolioService
 
         if (isOwnProfile || await IsAdminAsync(accountId)) return;
 
-        throw new UnauthorizedAccessException($"Chỉ nhà cung cấp sở hữu hồ sơ mới được {action}.");
+        throw new UnauthorizedAccessException($"Only the provider who owns this profile may {action}.");
     }
 
     private async Task<bool> IsAdminAsync(Guid accountId)
@@ -295,10 +295,10 @@ public class ProviderPortfolioService : IProviderPortfolioService
     private async Task<string> NormalizeImageAsync(string raw)
     {
         if (string.IsNullOrWhiteSpace(raw))
-            throw new ArgumentException("Ảnh dự án mẫu phải có imageUrl.");
+            throw new ArgumentException("A portfolio project image must have an imageUrl.");
 
         return await _fileStorage.NormalizeForStorageAsync(raw, "imageUrl")
-            ?? throw new ArgumentException("Ảnh dự án mẫu phải có imageUrl.");
+            ?? throw new ArgumentException("A portfolio project image must have an imageUrl.");
     }
 
     /// <summary>Dọn file mồ côi — best-effort, hỏng thì kệ: bản ghi đã xoá xong rồi.</summary>
@@ -313,11 +313,11 @@ public class ProviderPortfolioService : IProviderPortfolioService
     private static void EnsureMetricsValid(decimal? areaM2, decimal? contractValue, int? durationDays)
     {
         if (areaM2 is decimal a && a <= 0)
-            throw new ArgumentException("Diện tích công trình phải lớn hơn 0 — bỏ trống nếu không nhớ.");
+            throw new ArgumentException("The floor area must be greater than 0 — leave it empty if you do not remember.");
         if (contractValue is decimal v && v < 0)
-            throw new ArgumentException("Giá trị hợp đồng không được âm.");
+            throw new ArgumentException("The contract value cannot be negative.");
         if (durationDays is int d && d <= 0)
-            throw new ArgumentException("Số ngày thi công phải lớn hơn 0.");
+            throw new ArgumentException("The number of construction days must be greater than 0.");
     }
 
     private static ServiceKind ParseRole(string? raw)
@@ -326,6 +326,6 @@ public class ProviderPortfolioService : IProviderPortfolioService
         if (Enum.TryParse<ServiceKind>(raw.Trim(), ignoreCase: true, out var parsed)) return parsed;
 
         throw new ArgumentException(
-            $"Vai trò '{raw}' không hợp lệ. Nhận: {string.Join(", ", Enum.GetNames<ServiceKind>())}.");
+            $"Role '{raw}' is not valid. Accepted: {string.Join(", ", Enum.GetNames<ServiceKind>())}.");
     }
 }

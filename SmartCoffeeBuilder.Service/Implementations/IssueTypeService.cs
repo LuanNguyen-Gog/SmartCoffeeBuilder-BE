@@ -27,7 +27,7 @@ public class IssueTypeService : IIssueTypeService
     public async Task<IssueTypeResponse> GetByIdAsync(Guid id)
     {
         var issueType = await _repository.SingleOrDefaultAsync(predicate: t => t.Id == id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy issue type với id {id}.");
+            ?? throw new KeyNotFoundException($"No issue type found with id {id}.");
 
         return IssueTypeResponse.From(issueType);
     }
@@ -37,7 +37,7 @@ public class IssueTypeService : IIssueTypeService
         var code = request.Code.Trim();
         var duplicated = await _repository.CountAsync(t => t.Code == code) > 0;
         if (duplicated)
-            throw new InvalidOperationException($"Issue type với code '{code}' đã tồn tại.");
+            throw new InvalidOperationException($"An issue type with code '{code}' already exists.");
 
         var issueType = new IssueType
         {
@@ -54,7 +54,7 @@ public class IssueTypeService : IIssueTypeService
     public async Task<IssueTypeResponse> UpdateAsync(Guid id, UpdateIssueTypeRequest request)
     {
         var issueType = await _repository.SingleOrDefaultAsync(predicate: t => t.Id == id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy issue type với id {id}.");
+            ?? throw new KeyNotFoundException($"No issue type found with id {id}.");
 
         issueType.Name = request.Name;
 
@@ -67,11 +67,11 @@ public class IssueTypeService : IIssueTypeService
     public async Task DeleteAsync(Guid id)
     {
         var issueType = await _repository.SingleOrDefaultAsync(predicate: t => t.Id == id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy issue type với id {id}.");
+            ?? throw new KeyNotFoundException($"No issue type found with id {id}.");
 
         var inUse = await _unitOfWork.GetRepository<Issue>().CountAsync(i => i.IssueTypeId == id) > 0;
         if (inUse)
-            throw new InvalidOperationException("Issue type đang được dùng bởi issue — không thể xoá.");
+            throw new InvalidOperationException("This issue type is in use by an issue — it cannot be deleted.");
 
         _repository.Delete(issueType);
         await _unitOfWork.CommitAsync();

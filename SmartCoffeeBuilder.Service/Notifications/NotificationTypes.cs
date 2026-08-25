@@ -85,23 +85,23 @@ public static class NotificationTypes
     /// <summary>Subject email mặc định cho mỗi loại.</summary>
     public static string SubjectFor(string type) => type switch
     {
-        ApplicationReceived => "Hồ sơ ứng tuyển mới - Smart Coffee Builder",
-        ApplicationAccepted => "Hồ sơ của bạn đã được chấp nhận - Smart Coffee Builder",
-        ApplicationRejected => "Kết quả hồ sơ ứng tuyển - Smart Coffee Builder",
-        EngagementInvited => "Bạn nhận được lời mời hợp tác - Smart Coffee Builder",
-        EngagementInviteAccepted => "Nhà cung cấp đã nhận lời mời hợp tác - Smart Coffee Builder",
-        EngagementInviteRejected => "Nhà cung cấp đã từ chối lời mời hợp tác - Smart Coffee Builder",
-        EngagementCompletionRequested => "Nhà cung cấp báo hoàn thành, chờ bạn nghiệm thu - Smart Coffee Builder",
-        EngagementCompleted => "Công việc của bạn đã được nghiệm thu - Smart Coffee Builder",
-        EngagementTerminated => "Hợp tác đã bị huỷ ngang - Smart Coffee Builder",
-        EngagementTerminationRequested => "Đề nghị huỷ ngang hợp tác, chờ bạn phản hồi - Smart Coffee Builder",
-        EngagementTerminationApproved => "Hợp tác đã kết thúc theo thoả thuận hai bên - Smart Coffee Builder",
-        EngagementTerminationRejected => "Đề nghị huỷ ngang không được chấp thuận - Smart Coffee Builder",
-        EngagementTerminationCancelled => "Đề nghị huỷ ngang đã được rút lại - Smart Coffee Builder",
-        ProjectReadyToClose => "Dự án đã xong, chờ bạn đóng - Smart Coffee Builder",
-        ProjectCompleted => "Dự án đã hoàn thành - Smart Coffee Builder",
-        ProjectCancelled => "Dự án đã bị huỷ - Smart Coffee Builder",
-        ConstructionOverdue => "Hạng mục thi công đang trễ tiến độ - Smart Coffee Builder",
-        _ => "Thông báo - Smart Coffee Builder"
+        ApplicationReceived => "New application - Smart Coffee Builder",
+        ApplicationAccepted => "Your application has been accepted - Smart Coffee Builder",
+        ApplicationRejected => "Application result - Smart Coffee Builder",
+        EngagementInvited => "You have received an engagement invitation - Smart Coffee Builder",
+        EngagementInviteAccepted => "The provider accepted your engagement invitation - Smart Coffee Builder",
+        EngagementInviteRejected => "The provider declined your engagement invitation - Smart Coffee Builder",
+        EngagementCompletionRequested => "The provider reported completion, awaiting your acceptance - Smart Coffee Builder",
+        EngagementCompleted => "Your work has been accepted - Smart Coffee Builder",
+        EngagementTerminated => "The engagement was terminated early - Smart Coffee Builder",
+        EngagementTerminationRequested => "Early termination requested, awaiting your response - Smart Coffee Builder",
+        EngagementTerminationApproved => "The engagement ended by mutual agreement - Smart Coffee Builder",
+        EngagementTerminationRejected => "The early termination request was declined - Smart Coffee Builder",
+        EngagementTerminationCancelled => "The early termination request was withdrawn - Smart Coffee Builder",
+        ProjectReadyToClose => "The project is finished, waiting for you to close it - Smart Coffee Builder",
+        ProjectCompleted => "The project is complete - Smart Coffee Builder",
+        ProjectCancelled => "The project was cancelled - Smart Coffee Builder",
+        ConstructionOverdue => "A construction item is behind schedule - Smart Coffee Builder",
+        _ => "Notification - Smart Coffee Builder"
     };
 }

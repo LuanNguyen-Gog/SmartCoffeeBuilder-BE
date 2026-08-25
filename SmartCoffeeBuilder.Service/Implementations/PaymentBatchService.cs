@@ -78,14 +78,14 @@ public class PaymentBatchService : IPaymentBatchService
         Guid accountId, Guid id, SubmitPaymentProofRequest request)
     {
         var batch = await LoadWithDetailsAsync(id);
-        EnsureActor(await ResolveActorAsync(accountId, batch), "nộp minh chứng thanh toán", PaymentActor.Owner);
+        EnsureActor(await ResolveActorAsync(accountId, batch), "submit payment proof", PaymentActor.Owner);
 
         if (batch.Status == PaymentBatchStatus.confirmed)
             throw new InvalidOperationException(
-                "Đợt thanh toán đã được nhà cung cấp xác nhận — không nộp thêm minh chứng.");
+                "The payment batch has already been confirmed by the provider — no further proof can be submitted.");
 
         if (request.Amount is <= 0)
-            throw new ArgumentException("Số tiền trên minh chứng phải lớn hơn 0.");
+            throw new ArgumentException("The amount on the proof must be greater than 0.");
 
         // Ảnh chứng từ là TUỲ CHỌN: hệ thống không nối ngân hàng và không giữ tiền, nên hành động
         // của chủ quán ở đây chỉ là ĐÁNH DẤU "đợt này tôi đã trả" — một cú bấm là đủ. Có đính ảnh
@@ -123,11 +123,11 @@ public class PaymentBatchService : IPaymentBatchService
     public async Task<PaymentBatchResponse> ConfirmAsync(Guid accountId, Guid id)
     {
         var batch = await LoadWithDetailsAsync(id);
-        EnsureActor(await ResolveActorAsync(accountId, batch), "xác nhận đã nhận tiền", PaymentActor.Provider);
+        EnsureActor(await ResolveActorAsync(accountId, batch), "confirm receipt of payment", PaymentActor.Provider);
 
         if (batch.Status != PaymentBatchStatus.proof_submitted)
             throw new InvalidOperationException(
-                $"Đợt thanh toán đang ở trạng thái '{batch.Status}' — chỉ xác nhận được khi chủ quán đã nộp minh chứng.");
+                $"The payment batch is in status '{batch.Status}' — it can only be confirmed once the shop owner has submitted proof.");
 
         var now = DateTime.UtcNow;
         batch.Status = PaymentBatchStatus.confirmed;
@@ -146,11 +146,11 @@ public class PaymentBatchService : IPaymentBatchService
     public async Task<PaymentBatchResponse> RejectAsync(Guid accountId, Guid id, RejectPaymentBatchRequest request)
     {
         var batch = await LoadWithDetailsAsync(id);
-        EnsureActor(await ResolveActorAsync(accountId, batch), "bác minh chứng thanh toán", PaymentActor.Provider);
+        EnsureActor(await ResolveActorAsync(accountId, batch), "reject payment proof", PaymentActor.Provider);
 
         if (batch.Status != PaymentBatchStatus.proof_submitted)
             throw new InvalidOperationException(
-                $"Đợt thanh toán đang ở trạng thái '{batch.Status}' — chỉ bác được minh chứng đang chờ đối chiếu.");
+                $"The payment batch is in status '{batch.Status}' — only proof awaiting reconciliation can be rejected.");
 
         var now = DateTime.UtcNow;
         batch.Status = PaymentBatchStatus.rejected;
@@ -169,7 +169,7 @@ public class PaymentBatchService : IPaymentBatchService
         var batch = await LoadWithDetailsAsync(id);
         EnsureActor(
             await ResolveActorAsync(accountId, batch),
-            "gắn hạng mục thi công cho đợt thanh toán", PaymentActor.Provider);
+            "link a construction item to a payment batch", PaymentActor.Provider);
 
         var now = DateTime.UtcNow;
         var previousItemId = batch.ConstructionItemId;
@@ -179,13 +179,13 @@ public class PaymentBatchService : IPaymentBatchService
             var item = await _unitOfWork.GetRepository<ConstructionItem>()
                 .SingleOrDefaultAsync(predicate: ci => ci.Id == request.ConstructionItemId)
                 ?? throw new KeyNotFoundException(
-                    $"Không tìm thấy construction item với id {request.ConstructionItemId}.");
+                    $"No construction item found with id {request.ConstructionItemId}.");
 
             // Hạng mục phải thuộc CHÍNH engagement của hợp đồng — nếu không thì đợt tiền của hợp
             // đồng này lại đánh dấu đã thanh toán cho công việc của một hợp tác khác.
             if (item.ProjectWorkingId != batch.Contract.ProjectWorkingId)
                 throw new InvalidOperationException(
-                    "Hạng mục thi công không thuộc hợp tác của hợp đồng này.");
+                    "The construction item does not belong to the engagement of this contract.");
         }
 
         batch.ConstructionItemId = request.ConstructionItemId;
@@ -252,14 +252,14 @@ public class PaymentBatchService : IPaymentBatchService
                 predicate: e => e.Id == batch.Contract.ProjectWorkingId))
             .FirstOrDefault()
             ?? throw new KeyNotFoundException(
-                $"Không tìm thấy project provider với id {batch.Contract.ProjectWorkingId}.");
+                $"No project provider found with id {batch.Contract.ProjectWorkingId}.");
 
         if (parties.OwnerAccountId == accountId) return PaymentActor.Owner;
         if (parties.ProviderAccountId == accountId) return PaymentActor.Provider;
         if (await IsAdminAsync(accountId)) return PaymentActor.Admin;
 
         throw new UnauthorizedAccessException(
-            "Đợt thanh toán này thuộc về một hợp tác mà tài khoản đang đăng nhập không tham gia.");
+            "This payment batch belongs to an engagement that the signed-in account is not part of.");
     }
 
     /// <summary>
@@ -270,9 +270,9 @@ public class PaymentBatchService : IPaymentBatchService
     {
         if (allowed.Contains(actual)) return;
 
-        var who = string.Join(" hoặc ", allowed.Select(
-            a => a == PaymentActor.Owner ? "chủ quán" : "nhà cung cấp"));
-        throw new UnauthorizedAccessException($"Chỉ {who} của hợp tác này mới được {action}.");
+        var who = string.Join(" or ", allowed.Select(
+            a => a == PaymentActor.Owner ? "the shop owner" : "the provider"));
+        throw new UnauthorizedAccessException($"Only {who} of this engagement may {action}.");
     }
 
     private async Task<bool> IsAdminAsync(Guid accountId)
@@ -290,7 +290,7 @@ public class PaymentBatchService : IPaymentBatchService
 
         if (!Enum.TryParse<PaymentBatchStatus>(status.Trim().Replace("-", "_"), ignoreCase: true, out var parsed))
             throw new ArgumentException(
-                $"Status '{status}' không hợp lệ. Cho phép: pending, proof_submitted, confirmed, rejected.");
+                $"Status '{status}' is not valid. Allowed: pending, proof_submitted, confirmed, rejected.");
 
         return parsed;
     }
@@ -302,5 +302,5 @@ public class PaymentBatchService : IPaymentBatchService
 
     private async Task<PaymentBatch> LoadWithDetailsAsync(Guid id) =>
         await _repository.SingleOrDefaultAsync(predicate: b => b.Id == id, include: BuildInclude())
-        ?? throw new KeyNotFoundException($"Không tìm thấy đợt thanh toán với id {id}.");
+        ?? throw new KeyNotFoundException($"No payment batch found with id {id}.");
 }

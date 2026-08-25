@@ -32,14 +32,14 @@ public static class ProjectSlotRules
     ];
 
     /// <summary>
-    /// Nhãn tiếng Việt của một phạm vi công việc — dùng trong câu lỗi hiển thị cho người dùng,
+    /// Nhãn của một phạm vi công việc — dùng trong câu lỗi hiển thị cho người dùng,
     /// thay vì đọc thẳng tên enum.
     /// </summary>
     public static string ScopeLabel(ServiceKind kind) => kind switch
     {
-        ServiceKind.design => "thiết kế",
-        ServiceKind.construction => "thi công",
-        _ => "thiết kế & thi công"
+        ServiceKind.design => "design",
+        ServiceKind.construction => "construction",
+        _ => "design & construction"
     };
 
     /// <summary>
@@ -66,19 +66,19 @@ public static class ProjectSlotRules
 
         var taken = (designTaken, constructionTaken) switch
         {
-            (true, true) => "cả vị trí 'design' lẫn 'construction'",
-            (true, false) => "vị trí 'design'",
-            _ => "vị trí 'construction'"
+            (true, true) => "both the 'design' and 'construction' slots",
+            (true, false) => "the 'design' slot",
+            _ => "the 'construction' slot"
         };
 
         var hint = (designTaken, constructionTaken) switch
         {
-            (true, true) => "Dự án đã đủ hai vị trí, không nhận thêm provider cho tới khi một bên kết thúc.",
-            (true, false) => "Dự án chỉ còn trống vị trí 'construction'.",
-            _ => "Dự án chỉ còn trống vị trí 'design'."
+            (true, true) => "The project has both slots filled and will not take another provider until one side finishes.",
+            (true, false) => "Only the 'construction' slot is still free on this project.",
+            _ => "Only the 'design' slot is still free on this project."
         };
 
         throw new InvalidOperationException(
-            $"Không thể {action}: dự án đã có provider đang đảm nhận {taken}. {hint}");
+            $"Cannot {action}: the project already has a provider covering {taken}. {hint}");
     }
 }

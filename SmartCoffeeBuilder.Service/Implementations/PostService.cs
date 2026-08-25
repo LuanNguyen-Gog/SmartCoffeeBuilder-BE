@@ -7,6 +7,7 @@ using SmartCoffeeBuilder.Service.ApiResponse;
 using SmartCoffeeBuilder.Service.DTOs.Requests.Post;
 using SmartCoffeeBuilder.Service.DTOs.Responses.Post;
 using SmartCoffeeBuilder.Service.Interfaces;
+using SmartCoffeeBuilder.Service.Utils;
 
 namespace SmartCoffeeBuilder.Service.Implementations;
 
@@ -64,7 +65,7 @@ public class PostService : IPostService
         var post = await _repository.SingleOrDefaultAsync(
             predicate: p => p.Id == id && p.ProjectShopOwner.DeletedAt == null,
             include: q => q.Include(p => p.ProjectShopOwner))
-            ?? throw new KeyNotFoundException($"Không tìm thấy bài đăng với id {id}.");
+            ?? throw new KeyNotFoundException($"No post found with id {id}.");
 
         return PostResponse.From(post);
     }
@@ -73,19 +74,19 @@ public class PostService : IPostService
     {
         var project = await _unitOfWork.GetRepository<ProjectShopOwner>()
             .SingleOrDefaultAsync(predicate: p => p.Id == request.ProjectShopOwnerId && p.DeletedAt == null)
-            ?? throw new KeyNotFoundException($"Không tìm thấy project với id {request.ProjectShopOwnerId}.");
+            ?? throw new KeyNotFoundException($"No project found with id {request.ProjectShopOwnerId}.");
 
         if (project.Status is ProjectStatus.completed or ProjectStatus.cancelled)
             throw new InvalidOperationException(
-                $"ProjectShopOwner đang ở trạng thái '{project.Status}', không thể đăng bài tuyển.");
+                $"ProjectShopOwner is in status '{project.Status}'; a recruitment post cannot be created.");
 
         if (!Enum.TryParse<ServiceKind>(request.ServiceKind, ignoreCase: true, out var kind))
             throw new ArgumentException(
-                $"ServiceKind '{request.ServiceKind}' không hợp lệ. Cho phép: design, construction, both.");
+                $"ServiceKind '{request.ServiceKind}' is not valid. Allowed: design, construction, both.");
 
         var deadline = ToDeadlineUtc(request.SubmissionDeadline);
         if (deadline.HasValue && deadline.Value <= DateTime.UtcNow)
-            throw new ArgumentException("SubmissionDeadline phải là ngày hôm nay trở đi (theo giờ Việt Nam).");
+            throw new ArgumentException("SubmissionDeadline must be today or later (Vietnam time).");
 
         var post = new Post
         {
@@ -111,7 +112,7 @@ public class PostService : IPostService
         var post = await _repository.SingleOrDefaultAsync(
             predicate: p => p.Id == id,
             include: q => q.Include(p => p.ProjectShopOwner))
-            ?? throw new KeyNotFoundException($"Không tìm thấy bài đăng với id {id}.");
+            ?? throw new KeyNotFoundException($"No post found with id {id}.");
 
         if (request.Title != null) post.Title = request.Title;
         if (request.Description != null) post.Description = request.Description;
@@ -120,7 +121,7 @@ public class PostService : IPostService
         {
             if (!Enum.TryParse<ServiceKind>(request.ServiceKind, ignoreCase: true, out var kind))
                 throw new ArgumentException(
-                    $"ServiceKind '{request.ServiceKind}' không hợp lệ. Cho phép: design, construction, both.");
+                    $"ServiceKind '{request.ServiceKind}' is not valid. Allowed: design, construction, both.");
             post.ServiceKind = kind;
         }
 
@@ -128,7 +129,7 @@ public class PostService : IPostService
         {
             if (!Enum.TryParse<PostStatus>(request.Status, ignoreCase: true, out var status))
                 throw new ArgumentException(
-                    $"Status '{request.Status}' không hợp lệ. Cho phép: open, closed, cancelled.");
+                    $"Status '{request.Status}' is not valid. Allowed: open, closed, cancelled.");
             post.Status = status;
         }
 
@@ -136,7 +137,7 @@ public class PostService : IPostService
         if (deadline.HasValue)
         {
             if (deadline.Value <= DateTime.UtcNow)
-                throw new ArgumentException("SubmissionDeadline phải là ngày hôm nay trở đi (theo giờ Việt Nam).");
+                throw new ArgumentException("SubmissionDeadline must be today or later (Vietnam time).");
             post.SubmissionDeadline = deadline;
         }
 
@@ -150,7 +151,7 @@ public class PostService : IPostService
     public async Task DeleteAsync(Guid id)
     {
         var post = await _repository.GetByIdAsync(id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy bài đăng với id {id}.");
+            ?? throw new KeyNotFoundException($"No post found with id {id}.");
 
         _repository.Delete(post);
         await _unitOfWork.CommitAsync();
@@ -196,22 +197,19 @@ public class PostService : IPostService
             await _notificationService.NotifyApplicationDecisionAsync(application.Id, accepted: false);
     }
 
-    /// <summary>Việt Nam không có DST nên offset cố định +07:00.</summary>
-    private static readonly TimeSpan VietNamOffset = TimeSpan.FromHours(7);
-
     // Client chỉ gửi ngày (yyyy-MM-dd) → hạn chốt vào 23:59:59 cuối ngày đó theo giờ VN.
     // Trả về DateTime Kind=Utc vì cột submission_deadline là `timestamp with time zone`,
     // Npgsql chỉ ghi được Kind=Utc (Local/Unspecified ném InvalidCastException lúc SaveChanges).
     private static DateTime? ToDeadlineUtc(DateOnly? date) => date is null
         ? null
-        : new DateTimeOffset(date.Value.ToDateTime(new TimeOnly(23, 59, 59)), VietNamOffset).UtcDateTime;
+        : new DateTimeOffset(date.Value.ToDateTime(new TimeOnly(23, 59, 59)), VietnamTime.Offset).UtcDateTime;
 
     private static ServiceKind? ParseServiceKind(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return null;
         if (!Enum.TryParse<ServiceKind>(value, ignoreCase: true, out var kind))
             throw new ArgumentException(
-                $"ServiceKind '{value}' không hợp lệ. Cho phép: design, construction, both.");
+                $"ServiceKind '{value}' is not valid. Allowed: design, construction, both.");
         return kind;
     }
 
@@ -220,7 +218,7 @@ public class PostService : IPostService
         if (string.IsNullOrWhiteSpace(value)) return null;
         if (!Enum.TryParse<PostStatus>(value, ignoreCase: true, out var status))
             throw new ArgumentException(
-                $"Status '{value}' không hợp lệ. Cho phép: open, closed, cancelled.");
+                $"Status '{value}' is not valid. Allowed: open, closed, cancelled.");
         return status;
     }
 }

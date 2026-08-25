@@ -11,21 +11,21 @@ public static class ConstructionSchedule
     /// sắp tới, đặt hạn đã qua thì mọi báo cáo trễ tiến độ mất ý nghĩa. Hôm nay VẪN hợp lệ
     /// (chỉ chặn TRƯỚC ngày hiện tại); <c>null</c> = không đặt hạn, bỏ qua.
     ///
-    /// Mốc so sánh lấy từ <see cref="DateTime.UtcNow"/> cho khớp phần còn lại của tầng service
-    /// (<c>ActualAt</c> cũng vậy). VN là UTC+7 nên mốc này chỉ có thể DỄ hơn giờ địa phương,
-    /// không bao giờ chặn nhầm một ngày còn hợp lệ.
+    /// Mốc so sánh lấy theo GIỜ VN (<see cref="VietnamTime.Today"/>) cho khớp <c>ActualAt</c> /
+    /// <c>ActualStartAt</c> ở tầng service. Lấy theo UTC thì trong khoảng 00:00–07:00 giờ VN mốc
+    /// còn là HÔM QUA, và người dùng đặt hạn đúng vào ngày hôm qua vẫn lọt qua.
     /// </summary>
-    /// <param name="subject">Tên đối tượng để ghép vào câu lỗi, vd "task" / "hạng mục".</param>
+    /// <param name="subject">Tên đối tượng để ghép vào câu lỗi, vd "the task" / "the construction item".</param>
     /// <exception cref="ArgumentException">Hạn nằm trước ngày hiện tại (HTTP 400).</exception>
     public static void EnsureEstimateNotInPast(DateOnly? estimateAt, string subject)
     {
         if (estimateAt is not DateOnly due) return;
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = VietnamTime.Today;
         if (due < today)
             throw new ArgumentException(
-                $"EstimateAt '{due:yyyy-MM-dd}' nằm trước ngày hiện tại ({today:yyyy-MM-dd}) — " +
-                $"hạn hoàn thành {subject} không được đặt về quá khứ.");
+                $"EstimateAt '{due:yyyy-MM-dd}' falls before the current date ({today:yyyy-MM-dd}) — " +
+                $"the completion deadline for {subject} cannot be set in the past.");
     }
 
     /// <summary>
@@ -39,8 +39,8 @@ public static class ConstructionSchedule
 
         if (start > due)
             throw new ArgumentException(
-                $"StartAt '{start:yyyy-MM-dd}' nằm sau EstimateAt '{due:yyyy-MM-dd}' — " +
-                $"thời lượng {subject} không thể âm.");
+                $"StartAt '{start:yyyy-MM-dd}' falls after EstimateAt '{due:yyyy-MM-dd}' — " +
+                $"the duration of {subject} cannot be negative.");
     }
 
     /// <summary>Số ngày theo kế hoạch, tính cả ngày đầu và ngày cuối. null khi thiếu một mốc.</summary>

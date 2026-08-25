@@ -77,15 +77,15 @@ public class ChecklistItemService : IChecklistItemService
     {
         if ((request.DesignId == null) == (request.ConstructionItemId == null))
             throw new ArgumentException(
-                "Phải gửi ĐÚNG MỘT trong hai: designId (nghiệm thu bản thiết kế) hoặc constructionItemId (nghiệm thu hạng mục thi công).");
+                "Send EXACTLY ONE of: designId (design acceptance) or constructionItemId (construction item acceptance).");
 
         if (request.Items.Count == 0)
-            throw new ArgumentException("Phải có ít nhất một mục nghiệm thu.");
+            throw new ArgumentException("At least one acceptance item is required.");
 
         var projectWorkingId = await ResolveTargetEngagementAsync(request.DesignId, request.ConstructionItemId);
         EnsureActor(
             await ResolveActorByEngagementAsync(accountId, projectWorkingId),
-            "lập checklist nghiệm thu", ChecklistActor.Provider);
+            "create an acceptance checklist", ChecklistActor.Provider);
 
         // Nối tiếp thứ tự đang có thay vì đánh lại từ 0 — nhập checklist thành nhiều đợt là chuyện
         // bình thường, đánh lại từ 0 sẽ làm hai cụm chồng số lên nhau.
@@ -99,7 +99,7 @@ public class ChecklistItemService : IChecklistItemService
         var items = request.Items.Select(i =>
         {
             if (string.IsNullOrWhiteSpace(i.Name))
-                throw new ArgumentException("Mỗi mục nghiệm thu phải có tên.");
+                throw new ArgumentException("Every acceptance item must have a name.");
 
             return new ChecklistItem
             {
@@ -125,7 +125,7 @@ public class ChecklistItemService : IChecklistItemService
     public async Task<ChecklistItemResponse> UpdateAsync(Guid accountId, Guid id, UpdateChecklistItemRequest request)
     {
         var item = await LoadAsync(id);
-        EnsureActor(await ResolveActorAsync(accountId, item), "sửa mục nghiệm thu", ChecklistActor.Provider);
+        EnsureActor(await ResolveActorAsync(accountId, item), "edit an acceptance item", ChecklistActor.Provider);
 
         if (request.Name != null) item.Name = request.Name;
         if (request.Description != null) item.Description = request.Description;
@@ -146,16 +146,16 @@ public class ChecklistItemService : IChecklistItemService
     public async Task<ChecklistItemResponse> CheckAsync(Guid accountId, Guid id, CheckChecklistItemRequest request)
     {
         var item = await LoadAsync(id);
-        EnsureActor(await ResolveActorAsync(accountId, item), "chấm nghiệm thu", ChecklistActor.Owner);
+        EnsureActor(await ResolveActorAsync(accountId, item), "grade acceptance items", ChecklistActor.Owner);
 
         if (!Enum.TryParse<ChecklistStatus>(request.Status?.Trim(), ignoreCase: true, out var status)
             || status == ChecklistStatus.pending)
-            throw new ArgumentException($"Status '{request.Status}' không hợp lệ. Cho phép: passed, failed.");
+            throw new ArgumentException($"Status '{request.Status}' is not valid. Allowed: passed, failed.");
 
         // Chấm 'failed' mà không nói vì sao thì provider không biết đường sửa — đúng ý review 3
         // ("cái nào chưa đạt hay cần sửa cái gì").
         if (status == ChecklistStatus.failed && string.IsNullOrWhiteSpace(request.Note))
-            throw new ArgumentException("Chấm 'failed' thì phải ghi chú rõ chưa đạt ở chỗ nào / cần sửa gì.");
+            throw new ArgumentException("Grading an item 'failed' requires a note stating what fell short and what must be fixed.");
 
         var now = DateTime.UtcNow;
         item.Status = status;
@@ -180,10 +180,10 @@ public class ChecklistItemService : IChecklistItemService
         Guid accountId, Guid id, AttachChecklistEvidenceRequest request)
     {
         var item = await LoadAsync(id);
-        EnsureActor(await ResolveActorAsync(accountId, item), "đính minh chứng nghiệm thu", ChecklistActor.Provider);
+        EnsureActor(await ResolveActorAsync(accountId, item), "attach acceptance evidence", ChecklistActor.Provider);
 
         item.EvidenceUrl = await _fileStorage.NormalizeForStorageAsync(request.EvidenceUrl, "evidenceUrl")
-            ?? throw new ArgumentException("evidenceUrl không được để trống.");
+            ?? throw new ArgumentException("evidenceUrl cannot be empty.");
         item.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(item);
@@ -195,11 +195,11 @@ public class ChecklistItemService : IChecklistItemService
     public async Task DeleteAsync(Guid accountId, Guid id)
     {
         var item = await LoadAsync(id);
-        EnsureActor(await ResolveActorAsync(accountId, item), "xoá mục nghiệm thu", ChecklistActor.Provider);
+        EnsureActor(await ResolveActorAsync(accountId, item), "delete an acceptance item", ChecklistActor.Provider);
 
         if (item.Status != ChecklistStatus.pending)
             throw new InvalidOperationException(
-                $"Mục đã được chấm '{item.Status}' — không xoá được (giữ lại làm vết nghiệm thu).");
+                $"This item was already graded '{item.Status}' — it cannot be deleted (it is kept as an acceptance record).");
 
         var evidence = item.EvidenceUrl;
 
@@ -230,23 +230,23 @@ public class ChecklistItemService : IChecklistItemService
                     e.ServiceProviderProfile.AccountId),
                 predicate: e => e.Id == projectWorkingId))
             .FirstOrDefault()
-            ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {projectWorkingId}.");
+            ?? throw new KeyNotFoundException($"No project provider found with id {projectWorkingId}.");
 
         if (parties.OwnerAccountId == accountId) return ChecklistActor.Owner;
         if (parties.ProviderAccountId == accountId) return ChecklistActor.Provider;
         if (await IsAdminAsync(accountId)) return ChecklistActor.Admin;
 
         throw new UnauthorizedAccessException(
-            "Checklist này thuộc về một hợp tác mà tài khoản đang đăng nhập không tham gia.");
+            "This checklist belongs to an engagement that the signed-in account is not part of.");
     }
 
     private static void EnsureActor(ChecklistActor actual, string action, params ChecklistActor[] allowed)
     {
         if (actual == ChecklistActor.Admin || allowed.Contains(actual)) return;
 
-        var who = string.Join(" hoặc ", allowed.Select(
-            a => a == ChecklistActor.Owner ? "chủ quán" : "nhà cung cấp"));
-        throw new UnauthorizedAccessException($"Chỉ {who} của hợp tác này mới được {action}.");
+        var who = string.Join(" or ", allowed.Select(
+            a => a == ChecklistActor.Owner ? "the shop owner" : "the provider"));
+        throw new UnauthorizedAccessException($"Only {who} of this engagement may {action}.");
     }
 
     private async Task<Guid> ResolveTargetEngagementAsync(Guid? designId, Guid? constructionItemId)
@@ -256,14 +256,14 @@ public class ChecklistItemService : IChecklistItemService
             var design = await _unitOfWork.GetRepository<Design>()
                 .SingleOrDefaultAsync(selector: d => d.ProjectWorkingId, predicate: d => d.Id == designId);
             if (design == Guid.Empty)
-                throw new KeyNotFoundException($"Không tìm thấy design với id {designId}.");
+                throw new KeyNotFoundException($"No design found with id {designId}.");
             return design;
         }
 
         var item = await _unitOfWork.GetRepository<ConstructionItem>()
             .SingleOrDefaultAsync(selector: ci => ci.ProjectWorkingId, predicate: ci => ci.Id == constructionItemId);
         if (item == Guid.Empty)
-            throw new KeyNotFoundException($"Không tìm thấy construction item với id {constructionItemId}.");
+            throw new KeyNotFoundException($"No construction item found with id {constructionItemId}.");
         return item;
     }
 
@@ -279,7 +279,7 @@ public class ChecklistItemService : IChecklistItemService
         if (string.IsNullOrWhiteSpace(status)) return null;
 
         if (!Enum.TryParse<ChecklistStatus>(status.Trim(), ignoreCase: true, out var parsed))
-            throw new ArgumentException($"Status '{status}' không hợp lệ. Cho phép: pending, passed, failed.");
+            throw new ArgumentException($"Status '{status}' is not valid. Allowed: pending, passed, failed.");
 
         return parsed;
     }
@@ -289,5 +289,5 @@ public class ChecklistItemService : IChecklistItemService
 
     private async Task<ChecklistItem> LoadAsync(Guid id) =>
         await _repository.SingleOrDefaultAsync(predicate: c => c.Id == id, include: BuildInclude())
-        ?? throw new KeyNotFoundException($"Không tìm thấy mục nghiệm thu với id {id}.");
+        ?? throw new KeyNotFoundException($"No acceptance item found with id {id}.");
 }

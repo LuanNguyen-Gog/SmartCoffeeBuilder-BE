@@ -66,7 +66,7 @@ public class ContractService : IContractService
     public async Task<ContractResponse> GetByIdAsync(Guid accountId, Guid id)
     {
         var contract = await _repository.SingleOrDefaultAsync(predicate: c => c.Id == id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy contract với id {id}.");
+            ?? throw new KeyNotFoundException($"No contract found with id {id}.");
 
         // Chỉ cần là một bên bất kỳ của engagement — đọc thì owner và provider ngang nhau.
         await ResolveActorAsync(accountId, contract.ProjectWorkingId);
@@ -79,16 +79,16 @@ public class ContractService : IContractService
         var engagement = await _unitOfWork.GetRepository<ProjectWorking>()
             .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectWorkingId)
             ?? throw new KeyNotFoundException(
-                $"Không tìm thấy project provider với id {request.ProjectWorkingId}.");
+                $"No project provider found with id {request.ProjectWorkingId}.");
 
         // Quyền trước mọi check trạng thái — không để người ngoài dò trạng thái engagement của người khác.
         EnsureActor(
             await ResolveActorAsync(accountId, engagement.Id),
-            "soạn hợp đồng cho hợp tác này", ContractActor.Provider);
+            "draft a contract for this engagement", ContractActor.Provider);
 
         if (engagement.Status != ProviderStatus.accepted)
             throw new InvalidOperationException(
-                $"Engagement đang ở trạng thái '{engagement.Status}' — chỉ tạo contract khi engagement 'accepted'.");
+                $"The engagement is in status '{engagement.Status}' — a contract can only be created while the engagement is 'accepted'.");
 
         await EnsureNoActiveContractAsync(engagement);
 
@@ -153,29 +153,29 @@ public class ContractService : IContractService
         throw new InvalidOperationException(active.Status switch
         {
             ContractStatus.confirmed =>
-                $"Hợp đồng #{active.Id} ('{active.Title}') đã được ký cho dự án này — không lập thêm hợp đồng.",
+                $"Contract #{active.Id} ('{active.Title}') has already been signed for this project — no further contract can be created.",
             ContractStatus.pending_otp =>
-                $"Hợp đồng #{active.Id} ('{active.Title}') đã phát OTP và đang chờ chủ quán ký — " +
-                $"chờ ký xong, hoặc huỷ hợp đồng đó (POST /api/contracts/{active.Id}/cancel) rồi mới lập bản mới.",
+                $"Contract #{active.Id} ('{active.Title}') has already issued an OTP and is waiting for the shop owner to sign — " +
+                $"wait for it to be signed, or cancel it (POST /api/contracts/{active.Id}/cancel) before drafting a new one.",
             _ =>
-                $"Đang có hợp đồng nháp #{active.Id} ('{active.Title}') cho dự án này — " +
-                $"sửa trực tiếp bản đó (PUT /api/contracts/{active.Id}), hoặc huỷ " +
-                $"(POST /api/contracts/{active.Id}/cancel) rồi mới lập bản mới."
+                $"There is already a draft contract #{active.Id} ('{active.Title}') for this project — " +
+                $"edit that one directly (PUT /api/contracts/{active.Id}), or cancel it " +
+                $"(POST /api/contracts/{active.Id}/cancel) before drafting a new one."
         });
     }
 
     public async Task<ContractResponse> UpdateAsync(Guid accountId, Guid id, UpdateContractRequest request)
     {
         var contract = await _repository.SingleOrDefaultAsync(predicate: c => c.Id == id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy contract với id {id}.");
+            ?? throw new KeyNotFoundException($"No contract found with id {id}.");
 
         EnsureActor(
             await ResolveActorAsync(accountId, contract.ProjectWorkingId),
-            "sửa nội dung hợp đồng", ContractActor.Provider);
+            "edit contract content", ContractActor.Provider);
 
         if (contract.Status != ContractStatus.drafted)
             throw new InvalidOperationException(
-                $"Contract đang ở trạng thái '{contract.Status}' — chỉ sửa được khi còn 'drafted'.");
+                $"The contract is in status '{contract.Status}' — it can only be edited while still 'drafted'.");
 
         if (request.Title != null) contract.Title = request.Title;
         if (request.PartyInfo != null) contract.PartyInfo = request.PartyInfo;
@@ -187,8 +187,8 @@ public class ContractService : IContractService
             // đây thì bảng báo giá đã ký mất luôn ý nghĩa. Muốn đổi giá phải phát hành báo giá mới.
             if (contract.QuotationId != null)
                 throw new InvalidOperationException(
-                    "Hợp đồng này lấy giá trị từ báo giá đã được chủ quán duyệt — không sửa trực tiếp. " +
-                    "Muốn đổi giá thì huỷ hợp đồng và phát hành bản báo giá mới.");
+                    "This contract takes its value from a quotation the shop owner approved — it cannot be edited directly. " +
+                    "To change the price, cancel the contract and issue a new quotation.");
 
             contract.AgreedValue = request.AgreedValue;
         }
@@ -228,7 +228,7 @@ public class ContractService : IContractService
     public async Task<ContractResponse> SendOtpAsync(Guid accountId, Guid id)
     {
         var contract = await _repository.SingleOrDefaultAsync(predicate: c => c.Id == id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy contract với id {id}.");
+            ?? throw new KeyNotFoundException($"No contract found with id {id}.");
 
         // Nạp engagement MỘT lần cho cả check quyền lẫn email người nhận — nạp hai lần sẽ có hai
         // instance cùng khoá trong một context (reads đều AsNoTracking).
@@ -239,13 +239,13 @@ public class ContractService : IContractService
         // CHỈ OWNER: mã gửi về email owner và cũng chính owner nhập lại ở confirm-otp, nên owner tự
         // yêu cầu phát mã cho mình. Provider KHÔNG phát hộ được (không ai bấm gửi mã vào hộp thư
         // người khác), admin cũng không — cùng lý do với confirm-otp: chữ ký hợp đồng không uỷ quyền.
-        EnsureOwnerOfEngagement(accountId, engagement, "yêu cầu phát OTP ký hợp đồng");
+        EnsureOwnerOfEngagement(accountId, engagement, "request a contract signing OTP");
 
         // 'drafted' → phát lần đầu (chuyển 'pending_otp'); 'pending_otp' → phát lại khi mã cũ đã
         // hết hạn. Đã confirmed/cancelled thì chặn.
         if (contract.Status is not (ContractStatus.drafted or ContractStatus.pending_otp))
             throw new InvalidOperationException(
-                $"Contract đang ở trạng thái '{contract.Status}' — chỉ gửi OTP khi 'drafted' hoặc 'pending_otp'.");
+                $"The contract is in status '{contract.Status}' — an OTP can only be sent while 'drafted' or 'pending_otp'.");
 
         // Bấm lại khi mã hiện tại CÒN HẠN → không gửi gì thêm, giữ nguyên mã owner đang cầm trong
         // hộp thư. Cấp mã mới sẽ vô hiệu hoá mã cũ, người vừa mở mail trước đó ra nhập là sai ngay.
@@ -258,7 +258,7 @@ public class ContractService : IContractService
         var ownerEmail = engagement.ProjectShopOwner?.Owner?.Account?.Email;
         if (string.IsNullOrEmpty(ownerEmail))
             throw new InvalidOperationException(
-                "Không xác định được email owner để gửi OTP ký hợp đồng.");
+                "Could not determine the owner's email to send the contract signing OTP.");
 
         var code = GenerateOtpCode();
         contract.OtpCode = code;
@@ -270,7 +270,7 @@ public class ContractService : IContractService
         // Tái sử dụng template OtpEmail có sẵn (không đụng OtpService/OtpRepository tài khoản).
         await _emailService.SendTemplateAsync(
             ownerEmail,
-            subject: "Mã OTP ký hợp đồng - Smart Coffee Builder",
+            subject: "Contract signing OTP - Smart Coffee Builder",
             templateName: "OtpEmail",
             placeholders: new Dictionary<string, string>
             {
@@ -289,7 +289,7 @@ public class ContractService : IContractService
         Guid accountId, Guid id, ConfirmContractOtpRequest request)
     {
         var contract = await _repository.SingleOrDefaultAsync(predicate: c => c.Id == id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy contract với id {id}.");
+            ?? throw new KeyNotFoundException($"No contract found with id {id}.");
 
         // Nạp engagement đúng MỘT lần rồi dùng lại cho cả check quyền lẫn mốc started_at —
         // nạp hai lần sẽ có hai instance cùng khoá trong một context (reads đều AsNoTracking).
@@ -301,10 +301,10 @@ public class ContractService : IContractService
         EnsureTransition(contract.Status, ContractStatus.confirmed);
 
         if (string.IsNullOrEmpty(contract.OtpCode) || contract.OtpCode != request.OtpCode)
-            throw new InvalidOperationException("Mã OTP không đúng.");
+            throw new InvalidOperationException("The OTP is incorrect.");
 
         if (contract.OtpExpiresAt == null || contract.OtpExpiresAt < DateTime.UtcNow)
-            throw new InvalidOperationException("Mã OTP đã hết hạn — vui lòng gửi lại.");
+            throw new InvalidOperationException("The OTP has expired — please request a new one.");
 
         contract.Status = ContractStatus.confirmed;
         contract.ConfirmedAt = DateTime.UtcNow;
@@ -328,12 +328,12 @@ public class ContractService : IContractService
     public async Task<ContractResponse> CancelAsync(Guid accountId, Guid id)
     {
         var contract = await _repository.SingleOrDefaultAsync(predicate: c => c.Id == id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy contract với id {id}.");
+            ?? throw new KeyNotFoundException($"No contract found with id {id}.");
 
         // Huỷ bản nháp thì bên nào cũng được — provider rút lại bản soạn, owner từ chối ký.
         EnsureActor(
             await ResolveActorAsync(accountId, contract.ProjectWorkingId),
-            "huỷ hợp đồng", ContractActor.Owner, ContractActor.Provider);
+            "cancel the contract", ContractActor.Owner, ContractActor.Provider);
 
         EnsureTransition(contract.Status, ContractStatus.cancelled);
 
@@ -365,7 +365,7 @@ public class ContractService : IContractService
 
         if (!allowed)
             throw new InvalidOperationException(
-                $"Không thể chuyển contract từ '{current}' sang '{target}'.");
+                $"A contract cannot move from '{current}' to '{target}'.");
     }
 
     /// <summary>
@@ -411,8 +411,8 @@ public class ContractService : IContractService
 
         if (start is DateOnly from && end is DateOnly to && to < from)
             throw new ArgumentException(
-                $"ExecutionEndAt '{to:yyyy-MM-dd}' nằm trước ExecutionStartAt '{from:yyyy-MM-dd}' — " +
-                "thời gian thực hiện không thể âm.");
+                $"ExecutionEndAt '{to:yyyy-MM-dd}' falls before ExecutionStartAt '{from:yyyy-MM-dd}' — " +
+                "the execution period cannot be negative.");
 
         return (start, end);
     }
@@ -432,18 +432,18 @@ public class ContractService : IContractService
 
         var quotation = await _unitOfWork.GetRepository<Quotation>()
             .SingleOrDefaultAsync(predicate: q => q.Id == quotationId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy báo giá với id {quotationId}.");
+            ?? throw new KeyNotFoundException($"No quotation found with id {quotationId}.");
 
         var belongsToEngagement =
             (quotation.ProjectWorkingId != null && quotation.ProjectWorkingId == engagement.Id)
             || (quotation.ApplyId != null && engagement.ApplyId != null && quotation.ApplyId == engagement.ApplyId);
 
         if (!belongsToEngagement)
-            throw new InvalidOperationException("Báo giá này không thuộc hợp tác đang lập hợp đồng.");
+            throw new InvalidOperationException("This quotation does not belong to the engagement the contract is being drafted for.");
 
         if (quotation.Status != QuotationStatus.accepted)
             throw new InvalidOperationException(
-                $"Báo giá đang ở trạng thái '{quotation.Status}' — chỉ dựng hợp đồng từ báo giá đã được chủ quán duyệt.");
+                $"The quotation is in status '{quotation.Status}' — a contract can only be built from a quotation the shop owner approved.");
 
         return quotation;
     }
@@ -499,7 +499,7 @@ public class ContractService : IContractService
                 include: q => q.Include(e => e.ProjectShopOwner)
                     .ThenInclude(p => p.Owner).ThenInclude(o => o.Account))
         ?? throw new KeyNotFoundException(
-            $"Không tìm thấy project provider với id {projectWorkingId}.");
+            $"No project provider found with id {projectWorkingId}.");
 
     /// <summary>Vai trò của người gọi TRONG engagement mang hợp đồng — không phải AccountRole.</summary>
     private enum ContractActor { Owner, Provider, Admin }
@@ -525,14 +525,14 @@ public class ContractService : IContractService
                 predicate: e => e.Id == projectWorkingId))
             .FirstOrDefault()
             ?? throw new KeyNotFoundException(
-                $"Không tìm thấy project provider với id {projectWorkingId}.");
+                $"No project provider found with id {projectWorkingId}.");
 
         if (parties.OwnerAccountId == accountId) return ContractActor.Owner;
         if (parties.ProviderAccountId == accountId) return ContractActor.Provider;
         if (await IsAdminAsync(accountId)) return ContractActor.Admin;
 
         throw new UnauthorizedAccessException(
-            "Hợp đồng này thuộc về một hợp tác mà tài khoản đang đăng nhập không tham gia.");
+            "This contract belongs to an engagement that the signed-in account is not part of.");
     }
 
     /// <summary>Admin luôn được phép; còn lại phải nằm trong danh sách vai trò cho phép.</summary>
@@ -540,9 +540,9 @@ public class ContractService : IContractService
     {
         if (actual == ContractActor.Admin || allowed.Contains(actual)) return;
 
-        var who = string.Join(" hoặc ", allowed.Select(
-            a => a == ContractActor.Owner ? "chủ quán" : "nhà cung cấp"));
-        throw new UnauthorizedAccessException($"Chỉ {who} của hợp tác này mới được {action}.");
+        var who = string.Join(" or ", allowed.Select(
+            a => a == ContractActor.Owner ? "the shop owner" : "the provider"));
+        throw new UnauthorizedAccessException($"Only {who} of this engagement may {action}.");
     }
 
     /// <summary>Admin xem được mọi hợp đồng (phục vụ giám sát/hỗ trợ).</summary>
@@ -560,10 +560,10 @@ public class ContractService : IContractService
     /// Sai người → UnauthorizedAccessException (401).
     /// </summary>
     private static void EnsureOwnerOfEngagement(
-        Guid accountId, ProjectWorking engagement, string action = "xác nhận hợp đồng")
+        Guid accountId, ProjectWorking engagement, string action = "confirm the contract")
     {
         if (engagement.ProjectShopOwner?.Owner?.AccountId != accountId)
-            throw new UnauthorizedAccessException($"Chỉ chủ quán của dự án này mới được {action}.");
+            throw new UnauthorizedAccessException($"Only the shop owner of this project may {action}.");
     }
 
     private static string GenerateOtpCode()

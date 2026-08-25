@@ -30,10 +30,10 @@ public class AuthService : IAuthService
     {
         var existing = await _authRepository.GetByEmailAsync(request.Email);
         if (existing != null)
-            throw new InvalidOperationException("Email đã được sử dụng.");
+            throw new InvalidOperationException("That email is already in use.");
 
         if (!Enum.TryParse<AccountRole>(request.Role, ignoreCase: true, out var role))
-            throw new ArgumentException($"Role '{request.Role}' không hợp lệ. Cho phép: owner, provider, admin.");
+            throw new ArgumentException($"Role '{request.Role}' is not valid. Allowed: owner, provider, admin.");
 
         var account = new Account
         {
@@ -54,10 +54,10 @@ public class AuthService : IAuthService
     public async Task<AuthResponse> LoginAsync(LoginRequest request)
     {
         var account = await _authRepository.GetByEmailAsync(request.Email)
-            ?? throw new UnauthorizedAccessException("Email hoặc mật khẩu không đúng.");
+            ?? throw new UnauthorizedAccessException("Incorrect email or password.");
 
         if (!BCrypt.Net.BCrypt.Verify(request.Password, account.PasswordHash))
-            throw new UnauthorizedAccessException("Email hoặc mật khẩu không đúng.");
+            throw new UnauthorizedAccessException("Incorrect email or password.");
 
         return await IssueTokensAsync(account);
     }
@@ -65,13 +65,13 @@ public class AuthService : IAuthService
     public async Task<AuthResponse> RefreshAsync(RefreshTokenRequest request)
     {
         var stored = await _authRepository.GetRefreshTokenAsync(request.RefreshToken)
-            ?? throw new UnauthorizedAccessException("Refresh token không hợp lệ.");
+            ?? throw new UnauthorizedAccessException("The refresh token is not valid.");
 
         if (!stored.IsActive)
-            throw new UnauthorizedAccessException("Refresh token đã hết hạn hoặc bị thu hồi.");
+            throw new UnauthorizedAccessException("The refresh token has expired or been revoked.");
 
         if (stored.Account is null || stored.Account.DeletedAt != null)
-            throw new UnauthorizedAccessException("Refresh token không hợp lệ.");
+            throw new UnauthorizedAccessException("The refresh token is not valid.");
 
         await _authRepository.RevokeRefreshTokenAsync(stored);
 
@@ -95,10 +95,10 @@ public class AuthService : IAuthService
     {
         var valid = await _otpService.VerifyOtpAsync(request.Email, request.Code);
         if (!valid)
-            throw new ArgumentException("Mã OTP không đúng hoặc đã hết hạn.");
+            throw new ArgumentException("The OTP is incorrect or has expired.");
 
         var account = await _authRepository.GetByEmailAsync(request.Email)
-            ?? throw new KeyNotFoundException("Không tìm thấy tài khoản với email này.");
+            ?? throw new KeyNotFoundException("No account found with this email.");
 
         account.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
         account.UpdatedAt = DateTime.UtcNow;
@@ -113,7 +113,7 @@ public class AuthService : IAuthService
     {
         // GetByIdAsync đã lọc DeletedAt == null nên tài khoản đã xoá mềm sẽ trả null → 404.
         var account = await _authRepository.GetByIdAsync(accountId)
-            ?? throw new KeyNotFoundException("Tài khoản không tồn tại.");
+            ?? throw new KeyNotFoundException("The account does not exist.");
 
         var response = new MeResponse
         {

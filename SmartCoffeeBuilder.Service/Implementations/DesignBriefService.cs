@@ -52,7 +52,7 @@ public class DesignBriefService : IDesignBriefService
     public async Task<DesignBriefResponse> GetByIdAsync(Guid accountId, Guid id)
     {
         var brief = await _repository.SingleOrDefaultAsync(predicate: b => b.Id == id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy design brief với id {id}.");
+            ?? throw new KeyNotFoundException($"No design brief found with id {id}.");
 
         await EnsureProjectVisibleAsync(accountId, brief.ProjectShopOwnerId);
 
@@ -65,17 +65,17 @@ public class DesignBriefService : IDesignBriefService
             .SingleOrDefaultAsync(
                 predicate: p => p.Id == request.ProjectShopOwnerId && p.DeletedAt == null,
                 include: q => q.Include(p => p.Owner))
-            ?? throw new KeyNotFoundException($"Không tìm thấy project với id {request.ProjectShopOwnerId}.");
+            ?? throw new KeyNotFoundException($"No project found with id {request.ProjectShopOwnerId}.");
 
         // Quyền TRƯỚC check trùng: nếu check trùng chạy trước, người ngoài dò được dự án nào đã có
         // brief (409) và dự án nào chưa (401) — endpoint thành công cụ do thám. Ngoài ra bảng có
         // unique index trên project_id nên tạo hộ brief cho dự án người khác là chiếm luôn chỗ,
         // chủ thật sau đó không tạo được nữa.
-        await EnsureOwnerAsync(accountId, project, "tạo brief cho dự án này");
+        await EnsureOwnerAsync(accountId, project, "create a brief for this project");
 
         // DB có unique index trên project_id — check trước để trả 409 thay vì 500.
         if (await _repository.CountAsync(b => b.ProjectShopOwnerId == request.ProjectShopOwnerId) > 0)
-            throw new InvalidOperationException($"ProjectShopOwner {request.ProjectShopOwnerId} đã có design brief.");
+            throw new InvalidOperationException($"ProjectShopOwner {request.ProjectShopOwnerId} already has a design brief.");
 
         var brief = new DesignBrief
         {
@@ -102,7 +102,7 @@ public class DesignBriefService : IDesignBriefService
     public async Task<DesignBriefResponse> UpdateAsync(Guid accountId, Guid id, UpdateDesignBriefRequest request)
     {
         var brief = await LoadWithOwnerAsync(id);
-        await EnsureOwnerAsync(accountId, brief.ProjectShopOwner, "sửa brief này");
+        await EnsureOwnerAsync(accountId, brief.ProjectShopOwner, "edit this brief");
 
         if (request.TargetCustomer != null) brief.TargetCustomer = request.TargetCustomer;
         if (request.Style != null) brief.Style = request.Style;
@@ -124,7 +124,7 @@ public class DesignBriefService : IDesignBriefService
     public async Task DeleteAsync(Guid accountId, Guid id)
     {
         var brief = await LoadWithOwnerAsync(id);
-        await EnsureOwnerAsync(accountId, brief.ProjectShopOwner, "xoá brief này");
+        await EnsureOwnerAsync(accountId, brief.ProjectShopOwner, "delete this brief");
 
         _repository.Delete(brief);
         await _unitOfWork.CommitAsync();
@@ -136,7 +136,7 @@ public class DesignBriefService : IDesignBriefService
         await _repository.SingleOrDefaultAsync(
             predicate: b => b.Id == id,
             include: q => q.Include(b => b.ProjectShopOwner).ThenInclude(p => p.Owner))
-        ?? throw new KeyNotFoundException($"Không tìm thấy design brief với id {id}.");
+        ?? throw new KeyNotFoundException($"No design brief found with id {id}.");
 
     /// <summary>
     /// Ai được ĐỌC brief của một dự án:
@@ -165,7 +165,7 @@ public class DesignBriefService : IDesignBriefService
         if (visible || await IsAdminAsync(accountId)) return;
 
         throw new UnauthorizedAccessException(
-            "Brief này thuộc một dự án mà tài khoản đang đăng nhập không tham gia.");
+            "This brief belongs to a project that the signed-in account is not part of.");
     }
 
     /// <summary>
@@ -178,7 +178,7 @@ public class DesignBriefService : IDesignBriefService
         if (project.Owner?.AccountId == accountId) return;
         if (await IsAdminAsync(accountId)) return;
 
-        throw new UnauthorizedAccessException($"Chỉ chủ dự án mới được {action}.");
+        throw new UnauthorizedAccessException($"Only the project owner may {action}.");
     }
 
     private async Task<bool> IsAdminAsync(Guid accountId)

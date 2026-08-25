@@ -16,7 +16,7 @@ namespace SmartCoffeeBuilder.Service.Utils;
 public static class ProjectClosureRules
 {
     /// <summary>Câu lỗi chỉ owner sang đường huỷ dự án khi dự án không còn gì để nghiệm thu.</summary>
-    private const string CancelHint = "chỉ có thể huỷ dự án (POST /api/project-shop-owners/{id}/cancel).";
+    private const string CancelHint = "the only option is to cancel the project (POST /api/project-shop-owners/{id}/cancel).";
 
     /// <summary>
     /// Lý do dự án CHƯA đóng được, hoặc <c>null</c> khi đã đủ điều kiện.
@@ -37,22 +37,22 @@ public static class ProjectClosureRules
 
         // 1. Chưa thuê ai — không có gì để nghiệm thu.
         if (engagements.Count == 0)
-            return $"Dự án chưa có provider nào tham gia nên không có gì để nghiệm thu — {CancelHint}";
+            return $"No provider has joined the project yet, so there is nothing to accept — {CancelHint}";
 
         // 2. Còn phía đang mở: phải nghiệm thu hoặc huỷ ngang từng bên trước đã.
         var open = engagements
             .Where(e => ProjectSlotRules.OccupyingStatuses.Contains(e.Status))
             .ToList();
         if (open.Count > 0)
-            return $"Còn {open.Count} hợp tác chưa đóng (requested/accepted) — phần {DescribeScopes(open)} " +
-                   "vẫn đang mở. Nghiệm thu hoặc huỷ ngang từng provider trước khi đóng dự án.";
+            return $"{open.Count} engagement(s) are still open (requested/accepted) — the {DescribeScopes(open)} " +
+                   "scope is still running. Accept or terminate each provider before closing the project.";
 
         // 3. Chưa phía nào hoàn thành — dự án chạy dở rồi đứt, không nghiệm thu được.
         var completed = engagements
             .Where(e => e.Status == ProviderStatus.completed)
             .ToList();
         if (completed.Count == 0)
-            return $"Dự án chưa có phía nào được nghiệm thu ('completed') — {CancelHint}";
+            return $"No side of the project has been accepted ('completed') yet — {CancelHint}";
 
         // 4. Phía đã ký hợp đồng rồi bỏ dở: dự án thuê cả hai phía thì cả hai phải hoàn thành.
         var abandoned = engagements
@@ -65,16 +65,16 @@ public static class ProjectClosureRules
             .Select(ProjectSlotRules.ScopeLabel)
             .ToList();
         if (abandonedScopes.Count > 0)
-            return $"Phần {string.Join(" và ", abandonedScopes)} của dự án đã ký hợp đồng nhưng bị huỷ " +
-                   "ngang giữa chừng và chưa có ai làm xong. Thuê người hoàn tất rồi nghiệm thu phía đó " +
-                   "trước khi đóng dự án, hoặc huỷ dự án nếu không làm tiếp.";
+            return $"The {string.Join(" and ", abandonedScopes)} scope of the project has a signed contract but was " +
+                   "terminated midway and nobody has finished it. Hire someone to complete it and accept that side " +
+                   "before closing the project, or cancel the project if the work will not continue.";
 
         return null;
     }
 
     /// <summary>Liệt kê các phạm vi công việc (không trùng lặp) của một nhóm engagement.</summary>
     private static string DescribeScopes(IEnumerable<ProjectWorking> engagements) =>
-        string.Join(" và ", engagements
+        string.Join(" and ", engagements
             .Select(e => ProjectSlotRules.ScopeLabel(e.ContractType))
             .Distinct());
 }

@@ -84,7 +84,7 @@ public class SurveyService : ISurveyService
         // Không include gì: SurveyResponse.From chỉ đọc cột phẳng, còn kiểm quyền đi bằng query
         // đếm riêng — nạp cả graph project → owner ở đây là join thừa cho mọi lần gọi.
         var survey = await _repository.SingleOrDefaultAsync(predicate: s => s.Id == id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy survey với id {id}.");
+            ?? throw new KeyNotFoundException($"No survey found with id {id}.");
 
         await EnsureSurveyVisibleAsync(accountId, survey);
         return SurveyResponse.From(survey);
@@ -114,7 +114,7 @@ public class SurveyService : ISurveyService
         if (visible || await IsAdminAsync(accountId)) return;
 
         throw new UnauthorizedAccessException(
-            "Bản khảo sát này thuộc một dự án mà tài khoản đang đăng nhập không tham gia.");
+            "This survey belongs to a project that the signed-in account is not part of.");
     }
 
     private async Task<bool> IsAdminAsync(Guid accountId)
@@ -128,8 +128,8 @@ public class SurveyService : ISurveyService
     {
         if ((request.ApplyId == null) == (request.ProjectWorkingId == null))
             throw new ArgumentException(
-                "Phải gửi ĐÚNG MỘT trong hai: applyId (khảo sát lúc ứng tuyển) hoặc " +
-                "projectWorkingId (khảo sát khi đã hợp tác).");
+                "Send EXACTLY ONE of: applyId (survey at application time) or " +
+                "projectWorkingId (survey once the engagement is under way).");
 
         var survey = new Survey
         {
@@ -169,19 +169,19 @@ public class SurveyService : ISurveyService
             .SingleOrDefaultAsync(
                 predicate: a => a.Id == applyId,
                 include: q => q.Include(a => a.ServiceProviderProfile).Include(a => a.Post))
-            ?? throw new KeyNotFoundException($"Không tìm thấy hồ sơ ứng tuyển với id {applyId}.");
+            ?? throw new KeyNotFoundException($"No application found with id {applyId}.");
 
         if (apply.ServiceProviderProfile.AccountId != accountId)
             throw new UnauthorizedAccessException(
-                "Chỉ nhà cung cấp đứng tên hồ sơ ứng tuyển này mới được tạo bản khảo sát.");
+                "Only the provider named on this application may create a survey.");
 
         if (apply.Status != ApplicationStatus.pending)
             throw new InvalidOperationException(
-                $"Hồ sơ ứng tuyển đang ở trạng thái '{apply.Status}' — chỉ khảo sát khi hồ sơ còn 'pending'.");
+                $"The application is in status '{apply.Status}' — a survey can only be created while the application is 'pending'.");
 
         if (apply.Post.Status != PostStatus.open)
             throw new InvalidOperationException(
-                $"Bài đăng đang ở trạng thái '{apply.Post.Status}' — không nhận thêm khảo sát.");
+                $"The post is in status '{apply.Post.Status}' — it is not accepting further surveys.");
     }
 
     /// <summary>Luồng đã hợp tác — giữ nguyên luật v5.</summary>
@@ -189,21 +189,21 @@ public class SurveyService : ISurveyService
     {
         var engagement = await _unitOfWork.GetRepository<ProjectWorking>()
             .SingleOrDefaultAsync(predicate: e => e.Id == projectWorkingId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy project provider với id {projectWorkingId}.");
+            ?? throw new KeyNotFoundException($"No project provider found with id {projectWorkingId}.");
 
         // Quyền TRƯỚC mọi check trạng thái — role gate 'provider' không phân biệt được provider NÀO,
         // thiếu chỗ này thì provider bất kỳ tạo được khảo sát trên engagement của người khác.
         EngagementAuthorization.EnsureActor(
             await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, engagement.Id),
-            "tạo bản khảo sát", EngagementActor.Provider);
+            "create a survey", EngagementActor.Provider);
 
         if (engagement.ContractType == ServiceKind.construction)
             throw new InvalidOperationException(
-                "Engagement có contract type 'construction' — không có giai đoạn khảo sát/thiết kế.");
+                "This engagement has contract type 'construction' — it has no survey or design phase.");
 
         if (engagement.Status != ProviderStatus.accepted)
             throw new InvalidOperationException(
-                $"Engagement đang ở trạng thái '{engagement.Status}' — chỉ tạo survey khi engagement 'accepted'.");
+                $"The engagement is in status '{engagement.Status}' — a survey can only be created while the engagement is 'accepted'.");
 
         // v5 (cập nhật): survey ĐỘC LẬP với contract — khảo sát được phép làm TRƯỚC khi ký.
         // KHÔNG guard contract 'confirmed' ở đây (khác design/construction_item vẫn yêu cầu đã ký).
@@ -214,19 +214,19 @@ public class SurveyService : ISurveyService
         var survey = await _repository.SingleOrDefaultAsync(
             predicate: s => s.Id == id,
             include: q => q.Include(s => s.Apply!).ThenInclude(a => a.ServiceProviderProfile))
-            ?? throw new KeyNotFoundException($"Không tìm thấy survey với id {id}.");
+            ?? throw new KeyNotFoundException($"No survey found with id {id}.");
 
         if (survey.ApplyId != null)
         {
             if (survey.Apply!.ServiceProviderProfile.AccountId != accountId)
                 throw new UnauthorizedAccessException(
-                    "Chỉ nhà cung cấp đứng tên hồ sơ ứng tuyển này mới được sửa bản khảo sát.");
+                    "Only the provider named on this application may edit the survey.");
         }
         else
         {
             EngagementAuthorization.EnsureActor(
                 await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, survey.ProjectWorkingId!.Value),
-                "sửa bản khảo sát", EngagementActor.Provider);
+                "edit a survey", EngagementActor.Provider);
         }
 
         if (request.ConditionNote != null) survey.ConditionNote = request.ConditionNote;

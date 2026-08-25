@@ -41,7 +41,7 @@ public class FileController : ControllerBase
     public async Task<IActionResult> Upload(IFormFile file)
     {
         if (file == null || file.Length == 0)
-            throw new ArgumentException("Chưa chọn file hoặc file rỗng.");
+            throw new ArgumentException("No file selected, or the file is empty.");
 
         await using var stream = file.OpenReadStream();
         var result = await _fileStorageService.UploadAsync(
@@ -55,7 +55,7 @@ public class FileController : ControllerBase
     public async Task<IActionResult> UploadImage(IFormFile file)
     {
         if (file == null || file.Length == 0)
-            throw new ArgumentException("Chưa chọn file hoặc file rỗng.");
+            throw new ArgumentException("No file selected, or the file is empty.");
 
         await using var stream = file.OpenReadStream();
         var result = await _fileStorageService.UploadAsync(

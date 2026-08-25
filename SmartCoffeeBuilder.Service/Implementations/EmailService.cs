@@ -53,7 +53,7 @@ public class EmailService : IEmailService
         // "me" = tài khoản chủ của access token (SenderEmail).
         await gmail.Users.Messages.Send(gmailMessage, "me").ExecuteAsync();
 
-        _logger.LogInformation("Đã gửi email '{Subject}' tới {ToEmail}", subject, toEmail);
+        _logger.LogInformation("Sent email '{Subject}' to {ToEmail}", subject, toEmail);
     }
 
     public async Task SendTemplateAsync(string toEmail, string subject, string templateName,
@@ -106,7 +106,7 @@ public class EmailService : IEmailService
         var path = Path.Combine(TemplateDirectory, $"{templateName}.html");
         if (!File.Exists(path))
             throw new FileNotFoundException(
-                $"Không tìm thấy email template '{templateName}.html' trong thư mục EmailTemplates.", path);
+                $"Email template '{templateName}.html' was not found in the EmailTemplates folder.", path);
 
         var html = await File.ReadAllTextAsync(path);
         foreach (var (key, value) in placeholders)

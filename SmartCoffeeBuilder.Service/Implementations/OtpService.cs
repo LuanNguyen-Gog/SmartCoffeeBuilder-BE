@@ -53,7 +53,7 @@ public class OtpService : IOtpService
     public async Task SendOtpAsync(string email)
     {
         var account = await _authRepository.GetByEmailAsync(email)
-            ?? throw new KeyNotFoundException("Không tìm thấy tài khoản với email này.");
+            ?? throw new KeyNotFoundException("No account found with this email.");
 
         // Tái sử dụng yêu cầu còn hiệu lực (bấm gửi lại) — chỉ gửi mã chu kỳ hiện tại.
         var otp = await _otpRepository.GetActiveAsync(account.Id);
@@ -77,7 +77,7 @@ public class OtpService : IOtpService
 
         await _emailService.SendTemplateAsync(
             email,
-            subject: "Mã xác thực OTP - Smart Coffee Builder",
+            subject: "OTP verification code - Smart Coffee Builder",
             templateName: "OtpEmail",
             placeholders: new Dictionary<string, string>
             {
@@ -86,7 +86,7 @@ public class OtpService : IOtpService
                 ["Year"] = DateTime.UtcNow.Year.ToString()
             });
 
-        _logger.LogInformation("Đã gửi OTP tới {Email}", email);
+        _logger.LogInformation("Sent OTP to {Email}", email);
     }
 
     public async Task<bool> VerifyOtpAsync(string email, string code)
@@ -106,7 +106,7 @@ public class OtpService : IOtpService
             {
                 // Chặn brute-force: sai quá số lần cho phép thì vô hiệu yêu cầu OTP.
                 otp.IsUsed = true;
-                _logger.LogWarning("OTP của {Email} bị vô hiệu do nhập sai quá {Max} lần",
+                _logger.LogWarning("OTP for {Email} was disabled after more than {Max} incorrect attempts",
                     email, MaxVerifyAttempts);
             }
             await _otpRepository.SaveChangesAsync();
@@ -141,7 +141,7 @@ public class OtpService : IOtpService
             await _otpRepository.SaveChangesAsync();
 
         if (deleted > 0 || refreshed > 0)
-            _logger.LogInformation("OTP refresh job: {Refreshed} mã được refresh, {Deleted} dòng bị xoá",
+            _logger.LogInformation("OTP refresh job: {Refreshed} code(s) refreshed, {Deleted} row(s) deleted",
                 refreshed, deleted);
     }
 
