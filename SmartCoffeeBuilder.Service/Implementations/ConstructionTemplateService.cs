@@ -96,6 +96,52 @@ public class ConstructionTemplateService : IConstructionTemplateService
         return ConstructionTemplateResponse.From(await LoadAsync(template.Id));
     }
 
+    public async Task<ConstructionTemplateResponse> ReorderItemsAsync(
+        Guid accountId, Guid id, ReorderConstructionTemplateItemsRequest request)
+    {
+        var template = await LoadAsync(id);
+
+        if (template.CreatedBy != accountId && !await IsAdminAsync(accountId))
+            throw new UnauthorizedAccessException(
+                "Only the template's author (or an admin) may reorder this template's items.");
+
+        if (request.ItemIds.Count == 0)
+            throw new ArgumentException("itemIds is required — send every item of the template in the order you want.");
+
+        if (request.ItemIds.Distinct().Count() != request.ItemIds.Count)
+            throw new ArgumentException("itemIds lists the same template item more than once.");
+
+        var byId = template.Items.ToDictionary(i => i.Id);
+
+        var unknown = request.ItemIds.Where(itemId => !byId.ContainsKey(itemId)).ToList();
+        if (unknown.Count > 0)
+            throw new InvalidOperationException(
+                $"{unknown.Count} of the items sent do not belong to this template.");
+
+        var missing = byId.Keys.Where(itemId => !request.ItemIds.Contains(itemId)).ToList();
+        if (missing.Count > 0)
+            throw new InvalidOperationException(
+                $"Send the whole template: {missing.Count} item(s) are missing from itemIds.");
+
+        // Update() tường minh cho TỪNG hạng mục: mọi truy vấn đọc của GenericRepository đều
+        // AsNoTracking, nên gán thẳng vào entity vừa nạp chỉ đổi bộ nhớ — CommitAsync không có gì
+        // để lưu và API vẫn trả về đúng thứ tự mới (nó dựng từ object trong bộ nhớ) trong khi DB
+        // giữ nguyên thứ tự cũ.
+        var itemRepository = _unitOfWork.GetRepository<ConstructionTemplateItem>();
+        for (var index = 0; index < request.ItemIds.Count; index++)
+        {
+            var item = byId[request.ItemIds[index]];
+            var next = index + 1;
+            if (item.SortOrder == next) continue;
+            item.SortOrder = next;
+            itemRepository.Update(item);
+        }
+
+        await _unitOfWork.CommitAsync();
+
+        return ConstructionTemplateResponse.From(template);
+    }
+
     public async Task DeleteAsync(Guid accountId, Guid id)
     {
         var template = await LoadAsync(id);
@@ -146,6 +192,19 @@ public class ConstructionTemplateService : IConstructionTemplateService
         var items = new List<ConstructionItem>();
         var tasks = new List<ConstructionTask>();
 
+        // Thứ tự của mẫu phải đi theo sang dự án. Không chép sang SortOrder thì mọi hạng mục sinh
+        // ra đều mang 0, và danh sách kế hoạch lại rơi về sắp theo ngày — đúng cái mà cột SortOrder
+        // sinh ra để thay thế.
+        //
+        // Đếm TIẾP từ hạng mục cuối cùng chứ không bắt đầu lại từ 1: áp mẫu là NỐI THÊM vào kế
+        // hoạch đang có (xem cảnh báo "appendWarning" trên FE). Bắt đầu lại từ 1 thì cả bộ hạng mục
+        // mới trùng số thứ tự với bộ đang chạy, khoá sắp xếp hoà nhau và hai bộ cài răng lược vào
+        // nhau theo mốc thời gian.
+        var existingOrders = await _unitOfWork.GetRepository<ConstructionItem>().GetListAsync(
+            selector: i => i.SortOrder,
+            predicate: i => i.ProjectWorkingId == engagement.Id && i.ParentId == null);
+        var itemSortOrder = existingOrders.Count == 0 ? 1 : existingOrders.Max() + 1;
+
         foreach (var templateItem in template.Items.OrderBy(i => i.SortOrder))
         {
             // EstimateDays là SỐ NGÀY hạng mục chiếm, còn ConstructionSchedule.DurationDays đếm
@@ -165,6 +224,7 @@ public class ConstructionTemplateService : IConstructionTemplateService
             var item = new ConstructionItem
             {
                 ProjectWorkingId = engagement.Id,
+                SortOrder = itemSortOrder++,
                 Name = templateItem.Name,
                 Description = templateItem.Description,
                 Category = templateItem.Category,

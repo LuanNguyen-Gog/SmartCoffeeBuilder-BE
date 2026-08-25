@@ -61,6 +61,20 @@ public class ConstructionItemController : ControllerBase
     }
 
     /// <summary>
+    /// Sắp lại thứ tự một nhóm anh em milestone (kéo thả trên FE).
+    /// Gửi TOÀN BỘ id của nhóm theo thứ tự mong muốn — parentId = null là nhóm milestone gốc.
+    /// Milestone đã 'completed' không được đổi chỗ lẫn nhau (409); các mốc chưa xong vẫn di
+    /// chuyển tự do quanh chúng.
+    /// </summary>
+    [HttpPut("reorder")]
+    [Authorize(Roles = "provider,admin")]
+    public async Task<IActionResult> Reorder([FromBody] ReorderConstructionItemsRequest request)
+    {
+        var result = await _constructionItemService.ReorderAsync(User.GetAccountId(), request);
+        return Ok(result);
+    }
+
+    /// <summary>
     /// Sửa milestone. Nếu có gửi estimateAt thì hạn mới không được nằm trước ngày hiện tại
     /// (hạn cũ đã trôi vào quá khứ vẫn sửa các trường khác bình thường).
     /// </summary>

@@ -412,6 +412,9 @@ public class SmartCafeBuilderContext : DbContext
             e.Property(x => x.EstimatedLaborCost).HasPrecision(18, 2);
             e.Property(x => x.ActualLaborCost).HasPrecision(18, 2);
             e.HasIndex(x => x.ParentId);
+            // Khoá sắp xếp của màn kế hoạch: lọc theo engagement + cấp cha rồi sắp theo SortOrder.
+            e.HasIndex(x => new { x.ProjectWorkingId, x.ParentId, x.SortOrder })
+                .HasDatabaseName("ix_construction_items_project_provider_id_parent_id_sort_order");
             e.HasOne(x => x.ProjectWorking).WithMany(p => p.ConstructionItems)
                 .HasForeignKey(x => x.ProjectWorkingId).OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("fk_construction_items_project_providers_project_provider_id");

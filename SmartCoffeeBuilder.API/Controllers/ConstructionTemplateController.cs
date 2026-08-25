@@ -64,6 +64,19 @@ public class ConstructionTemplateController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>
+    /// Sắp lại thứ tự hạng mục trong mẫu (kéo thả trên FE). Gửi TOÀN BỘ id theo thứ tự mong muốn.
+    /// Chỉ tác giả mẫu hoặc admin. Không ảnh hưởng dự án đã áp mẫu trước đó — áp mẫu là copy một lần.
+    /// </summary>
+    [HttpPut("{id:guid}/items/reorder")]
+    [Authorize(Roles = "provider,admin")]
+    public async Task<IActionResult> ReorderItems(
+        Guid id, [FromBody] ReorderConstructionTemplateItemsRequest request)
+    {
+        var result = await _constructionTemplateService.ReorderItemsAsync(User.GetAccountId(), id, request);
+        return Ok(result);
+    }
+
     [HttpDelete("{id:guid}")]
     [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> Delete(Guid id)

@@ -36,6 +36,18 @@ public class ConstructionTemplateTaskInput
     public int? EstimateDays { get; set; }
 }
 
+/// <summary>
+/// Sắp lại thứ tự hạng mục trong mẫu. Nhận TOÀN BỘ id của mẫu theo thứ tự mong muốn — mẫu là
+/// một danh sách phẳng nên không có nhóm anh em nào khác để phân biệt.
+///
+/// Thứ tự này quyết định thứ tự sinh hạng mục lúc áp mẫu, nên sửa mẫu ở đây KHÔNG đụng tới dự án
+/// đã áp mẫu trước đó — áp mẫu vốn là copy một lần.
+/// </summary>
+public class ReorderConstructionTemplateItemsRequest
+{
+    public List<Guid> ItemIds { get; set; } = new();
+}
+
 /// <summary>Áp mẫu vào một engagement đã ký hợp đồng.</summary>
 public class ApplyConstructionTemplateRequest
 {

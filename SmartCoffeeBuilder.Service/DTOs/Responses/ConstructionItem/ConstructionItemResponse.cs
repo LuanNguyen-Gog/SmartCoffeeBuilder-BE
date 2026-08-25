@@ -9,6 +9,13 @@ public class ConstructionItemResponse
     public string Name { get; set; } = null!;
     public string? Description { get; set; }
     public string? Category { get; set; }
+
+    /// <summary>
+    /// Thứ tự nhà thầu đã sắp trong nhóm anh em (nhỏ hơn đứng trước). FE cần trả ra để dựng lại
+    /// đúng thứ tự sau khi kéo thả mà không phải đoán từ ngày tháng.
+    /// </summary>
+    public int SortOrder { get; set; }
+
     public DateOnly? StartAt { get; set; }
     public DateOnly? EstimateAt { get; set; }
     public DateOnly? ActualAt { get; set; }
@@ -46,6 +53,7 @@ public class ConstructionItemResponse
         Name = e.Name,
         Description = e.Description,
         Category = e.Category,
+        SortOrder = e.SortOrder,
         StartAt = e.StartAt,
         EstimateAt = e.EstimateAt,
         ActualAt = e.ActualAt,

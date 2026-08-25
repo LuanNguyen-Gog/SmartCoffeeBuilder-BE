@@ -21,4 +21,10 @@ public interface IConstructionTemplateService
 
     /// <summary>Sinh hạng mục + việc con cho một engagement đã ký hợp đồng.</summary>
     Task<ApplyTemplateResponse> ApplyAsync(Guid accountId, Guid id, ApplyConstructionTemplateRequest request);
+
+    /// <summary>
+    /// Sắp lại thứ tự hạng mục trong mẫu — chỉ tác giả mẫu (hoặc admin). Nhận toàn bộ danh sách.
+    /// </summary>
+    Task<ConstructionTemplateResponse> ReorderItemsAsync(
+        Guid accountId, Guid id, ReorderConstructionTemplateItemsRequest request);
 }
