@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartCoffeeBuilder.Service.DTOs.Requests.Post;
 using SmartCoffeeBuilder.Service.Interfaces;
+using SmartCoffeeBuilder.Service.Utils;
 
 namespace SmartCoffeeBuilder.API.Controllers;
 
@@ -20,6 +21,8 @@ public class PostController : ControllerBase
     /// <summary>
     /// [TÌM BÀI] Provider tìm bài đăng. serviceKind: design | construction | both.
     /// status: open | closed | cancelled (lọc open tự ẩn bài quá hạn nộp). search: theo title.
+    /// Provider chỉ nhận về bài đúng capability của mình (designer → design,
+    /// constructor → construction, both → cả ba); owner/admin thấy tất cả.
     /// </summary>
     [HttpGet]
     public async Task<IActionResult> GetAll(
@@ -31,7 +34,8 @@ public class PostController : ControllerBase
         [FromQuery] string? search = null)
     {
         var result = await _postService.GetAllAsync(
-            pageNumber, pageSize, projectShopOwnerId, serviceKind, status, search);
+            pageNumber, pageSize, projectShopOwnerId, serviceKind, status, search,
+            User.GetAccountId());
         return Ok(result);
     }
 
