@@ -32,11 +32,30 @@ public class PostService : IPostService
         Guid? projectShopOwnerId = null,
         string? serviceKind = null,
         string? status = null,
-        string? search = null)
+        string? search = null,
+        Guid? accountId = null)
     {
         ServiceKind? kind = ParseServiceKind(serviceKind);
         PostStatus? st = ParseStatus(status);
         var term = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
+
+        // Provider chỉ thấy bài đúng năng lực của mình: designer thấy bài design,
+        // constructor thấy bài construction, chỉ provider `both` mới thấy bài
+        // trọn gói. Trước đây feed trả về mọi bài rồi mới chặn ở bước nộp hồ sơ,
+        // nên provider phải bấm vào mới biết mình không nộp được (409).
+        //
+        // Không có hồ sơ provider (owner, admin, hoặc provider chưa onboarding)
+        // thì KHÔNG lọc. Với owner/admin đó là đúng — họ cần thấy toàn bộ. Với
+        // provider chưa có hồ sơ, lọc sẽ ra feed rỗng và đọc thành "không có
+        // việc nào", sai lệch hơn là cứ hiện chợ; họ vẫn bị chặn ở lúc nộp.
+        ServiceKind[]? allowedKinds = null;
+        if (accountId.HasValue)
+        {
+            var provider = await _unitOfWork.GetRepository<ServiceProviderProfile>()
+                .SingleOrDefaultAsync(predicate: s => s.AccountId == accountId.Value && s.DeletedAt == null);
+            if (provider != null)
+                allowedKinds = ProviderCapability.VisiblePostKinds(provider.Capability);
+        }
 
         // Khi provider tìm bài đang mở, loại bài đã quá hạn nộp hồ sơ.
         var now = DateTime.UtcNow;
@@ -45,6 +64,7 @@ public class PostService : IPostService
                 p => p.ProjectShopOwner.DeletedAt == null // ẩn bài của dự án đã xoá mềm
                      && (projectShopOwnerId == null || p.ProjectShopOwnerId == projectShopOwnerId)
                      && (kind == null || p.ServiceKind == kind)
+                     && (allowedKinds == null || allowedKinds.Contains(p.ServiceKind))
                      && (st == null || p.Status == st)
                      && (st != PostStatus.open || p.SubmissionDeadline == null || p.SubmissionDeadline > now)
                      && (term == null || EF.Functions.ILike(p.Title, $"%{term}%")),
