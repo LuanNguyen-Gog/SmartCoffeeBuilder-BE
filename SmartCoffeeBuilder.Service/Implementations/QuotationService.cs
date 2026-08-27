@@ -498,6 +498,15 @@ public class QuotationService : IQuotationService
     /// <summary>Hai đầu account của chỗ neo, lấy bằng projection để khỏi nạp cả graph.</summary>
     private sealed record QuotationParties(Guid OwnerAccountId, Guid ProviderAccountId);
 
+    /// <summary>
+    /// Phần việc mà một báo giá nói về: dự án nào, provider nào, hạng mục thiết kế hay thi công.
+    /// Đây mới là đơn vị "chỉ được có một bản đang treo", chứ không phải chỗ neo — cùng một phần
+    /// việc có thể đi qua hai chỗ neo khác nhau (hồ sơ ứng tuyển lúc đấu thầu, engagement sau khi
+    /// trúng), xem <see cref="EnsureNoOpenQuotationAsync"/>.
+    /// </summary>
+    private sealed record QuotationScope(
+        Guid ProjectShopOwnerId, Guid ServiceProviderProfileId, ServiceKind Kind);
+
     private async Task<QuotationActor> ResolveActorAsync(Guid accountId, Quotation quotation)
     {
         var parties = quotation.ApplyId != null
@@ -539,6 +548,25 @@ public class QuotationService : IQuotationService
         .FirstOrDefault()
         ?? throw new KeyNotFoundException($"No project provider found with id {projectWorkingId}.");
 
+    /// <summary>Phần việc mà chỗ neo này nói tới — xem <see cref="QuotationScope"/>.</summary>
+    private async Task<QuotationScope> LoadScopeAsync(Guid? applyId, Guid? projectWorkingId)
+    {
+        if (applyId != null)
+            return (await _unitOfWork.GetRepository<Apply>().GetListAsync(
+                selector: a => new QuotationScope(
+                    a.Post.ProjectShopOwnerId, a.ServiceProviderProfileId, a.Post.ServiceKind),
+                predicate: a => a.Id == applyId))
+                .FirstOrDefault()
+                ?? throw new KeyNotFoundException($"No application found with id {applyId}.");
+
+        return (await _unitOfWork.GetRepository<ProjectWorking>().GetListAsync(
+            selector: e => new QuotationScope(
+                e.ProjectShopOwnerId, e.ServiceProviderProfileId, e.ContractType),
+            predicate: e => e.Id == projectWorkingId))
+            .FirstOrDefault()
+            ?? throw new KeyNotFoundException($"No project provider found with id {projectWorkingId}.");
+    }
+
     private async Task<bool> IsAdminAsync(Guid accountId)
     {
         var account = await _unitOfWork.GetRepository<Account>()
@@ -576,14 +604,31 @@ public class QuotationService : IQuotationService
     }
 
     /// <summary>
-    /// Mỗi chỗ neo chỉ có MỘT bản báo giá đang treo. Không chặn thì provider gửi được nhiều bản
+    /// Mỗi PHẦN VIỆC chỉ có MỘT bản báo giá đang treo. Không chặn thì provider gửi được nhiều bản
     /// song song và owner không biết bản nào là bản đang có hiệu lực.
     /// </summary>
+    /// <remarks>
+    /// Xét theo phần việc (dự án + provider + loại hình) chứ KHÔNG theo chỗ neo. Bản thắng thầu neo
+    /// vào hồ sơ ứng tuyển và <see cref="AcceptAsync"/> giữ nguyên chỗ neo đó (ràng buộc
+    /// <c>ck_quotations_anchor</c> dưới DB chỉ cho phép một trong hai), nên nếu chỉ xét chỗ neo thì
+    /// sau khi trúng thầu provider vẫn lập được bản thứ hai neo vào engagement vừa mở — cùng một
+    /// dự án hoá ra có hai báo giá còn sống trong khi hợp đồng đã dựng từ bản đã duyệt.
+    ///
+    /// Loại hình nằm trong khoá vì một provider "both" có thể trúng cả gói thiết kế lẫn gói thi
+    /// công của cùng một dự án: đó là hai phần việc riêng, mỗi phần được quyền có báo giá riêng.
+    /// </remarks>
     private async Task EnsureNoOpenQuotationAsync(Guid? applyId, Guid? projectWorkingId)
     {
+        var scope = await LoadScopeAsync(applyId, projectWorkingId);
+
         var open = await _repository.SingleOrDefaultAsync(
-            predicate: q => ((applyId != null && q.ApplyId == applyId)
-                             || (projectWorkingId != null && q.ProjectWorkingId == projectWorkingId))
+            predicate: q => (q.ApplyId != null
+                                ? q.Apply!.Post.ProjectShopOwnerId == scope.ProjectShopOwnerId
+                                  && q.Apply!.ServiceProviderProfileId == scope.ServiceProviderProfileId
+                                  && q.Apply!.Post.ServiceKind == scope.Kind
+                                : q.ProjectWorking!.ProjectShopOwnerId == scope.ProjectShopOwnerId
+                                  && q.ProjectWorking!.ServiceProviderProfileId == scope.ServiceProviderProfileId
+                                  && q.ProjectWorking!.ContractType == scope.Kind)
                             && (q.Status == QuotationStatus.draft
                                 || q.Status == QuotationStatus.sent
                                 || q.Status == QuotationStatus.accepted),

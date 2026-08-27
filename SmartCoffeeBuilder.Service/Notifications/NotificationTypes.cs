@@ -86,6 +86,15 @@ public static class NotificationTypes
     /// <summary>Gửi cho PROVIDER khi owner yêu cầu một bản báo giá khác, kèm lý do.</summary>
     public const string QuotationRevisionRequested = "quotation_revision_requested";
 
+    // ───────── Hợp đồng (review 3) ─────────
+
+    /// <summary>
+    /// Gửi cho PROVIDER khi owner ký hợp đồng bằng OTP. Provider không nhìn thấy lượt ký — mã gửi
+    /// về hộp thư owner và owner tự nhập — nên nếu không báo thì bên duy nhất biết hợp đồng đã có
+    /// hiệu lực lại là bên không phải bắt đầu thi công. Đây cũng là lúc các đợt thanh toán xuất hiện.
+    /// </summary>
+    public const string ContractSigned = "contract_signed";
+
     // ───────── Đợt thanh toán (review 3) ─────────
 
     /// <summary>
@@ -134,6 +143,7 @@ public static class NotificationTypes
         QuotationAccepted => "Your quotation has been approved - Smart Coffee Builder",
         QuotationRejected => "Your quotation was not selected - Smart Coffee Builder",
         QuotationRevisionRequested => "The shop owner asked for a revised quotation - Smart Coffee Builder",
+        ContractSigned => "The shop owner signed the contract - Smart Coffee Builder",
         PaymentProofSubmitted => "The shop owner submitted a payment proof - Smart Coffee Builder",
         PaymentBatchConfirmed => "The provider confirmed your payment - Smart Coffee Builder",
         PaymentBatchRejected => "The provider rejected your payment proof - Smart Coffee Builder",

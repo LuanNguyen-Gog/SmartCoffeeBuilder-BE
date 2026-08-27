@@ -604,6 +604,44 @@ public class NotificationService : INotificationService
 
     // ─────────────────────── Đợt thanh toán (review 3) ───────────────────────
 
+    public async Task NotifyContractSignedAsync(Guid contractId)
+    {
+        var contract = await LoadContractWithPartiesAsync(contractId);
+        var providerAccount = contract?.ProjectWorking?.ServiceProviderProfile?.Account;
+        if (contract is null || providerAccount is null)
+        {
+            _logger.LogWarning(
+                "Skipping contract_signed notification: could not resolve the provider for contract #{Id}.",
+                contractId);
+            return;
+        }
+
+        var projectName = contract.ProjectWorking?.ProjectShopOwner?.Name ?? "the project";
+        var valueNote = contract.AgreedValue is { } value
+            ? $" ({FormatVnd(value)})"
+            : string.Empty;
+
+        // Số đợt là hệ quả nhìn thấy được ngay của lượt ký: chúng chỉ tồn tại sau khi hợp đồng
+        // 'confirmed'. Nói ra số lượng để provider biết có gì để đối chiếu, thay vì chỉ báo suông.
+        var batchCount = contract.PaymentBatches?.Count ?? 0;
+        var batchNote = batchCount > 0
+            ? $" {batchCount} payment batch(es) were created from the approved quotation's schedule; " +
+              "the shop owner transfers each one directly and you confirm receipt."
+            : string.Empty;
+
+        var scheduleNote = contract.ExecutionStartAt is { } start
+            ? $" Work is scheduled to start on {start:dd/MM/yyyy}" +
+              (contract.ExecutionEndAt is { } end ? $" and to finish by {end:dd/MM/yyyy}." : ".")
+            : string.Empty;
+
+        await CreateAndDispatchAsync(
+            providerAccount.Id, providerAccount.Email, NotificationTypes.ContractSigned,
+            title: "The shop owner signed the contract",
+            content: $"Contract \"{contract.Title}\"{valueNote} for project \"{projectName}\" has been signed " +
+                     $"and is now active.{scheduleNote}{batchNote}",
+            referenceType: ContractReference, referenceId: contract.Id);
+    }
+
     public async Task NotifyPaymentProofSubmittedAsync(Guid paymentBatchId)
     {
         var batch = await LoadPaymentBatchWithPartiesAsync(paymentBatchId);
@@ -682,6 +720,7 @@ public class NotificationService : INotificationService
     private const string ConstructionItemReference = "construction_item";
     private const string QuotationReference = "quotation";
     private const string PaymentBatchReference = "payment_batch";
+    private const string ContractReference = "contract";
 
     /// <summary>
     /// Tiền trong nội dung noti và email luôn viết theo kiểu Việt Nam ("1.500.000 VND").
@@ -724,6 +763,16 @@ public class NotificationService : INotificationService
         q?.Apply?.Post?.ProjectShopOwner?.Name ?? q?.ProjectWorking?.ProjectShopOwner?.Name;
 
     /// <summary>Nạp đợt thanh toán kèm hợp đồng → engagement → tài khoản hai bên.</summary>
+    private Task<Contract?> LoadContractWithPartiesAsync(Guid contractId) =>
+        _unitOfWork.GetRepository<Contract>().SingleOrDefaultAsync(
+            predicate: c => c.Id == contractId,
+            include: q => q
+                .Include(c => c.PaymentBatches)
+                .Include(c => c.ProjectWorking).ThenInclude(e => e.ProjectShopOwner)
+                    .ThenInclude(p => p.Owner).ThenInclude(o => o.Account)
+                .Include(c => c.ProjectWorking).ThenInclude(e => e.ServiceProviderProfile)
+                    .ThenInclude(p => p.Account));
+
     private Task<PaymentBatch?> LoadPaymentBatchWithPartiesAsync(Guid paymentBatchId) =>
         _unitOfWork.GetRepository<PaymentBatch>().SingleOrDefaultAsync(
             predicate: b => b.Id == paymentBatchId,

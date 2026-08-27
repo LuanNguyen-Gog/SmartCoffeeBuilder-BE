@@ -119,6 +119,15 @@ public interface INotificationService
     /// </summary>
     Task NotifyQuotationDecisionAsync(Guid quotationId, string decision);
 
+    // ── Hợp đồng (review 3) ──
+
+    /// <summary>
+    /// PROVIDER nhận noti khi owner ký hợp đồng bằng OTP. Lượt ký diễn ra hoàn toàn ở phía owner
+    /// (mã về hộp thư owner), nên không báo thì provider không biết hợp đồng đã có hiệu lực và các
+    /// đợt thanh toán đã được sinh.
+    /// </summary>
+    Task NotifyContractSignedAsync(Guid contractId);
+
     // ── Đợt thanh toán (review 3) ──
 
     /// <summary>PROVIDER nhận noti khi owner nộp minh chứng đã chuyển tiền cho một đợt.</summary>
