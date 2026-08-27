@@ -29,16 +29,19 @@ public class QuotationService : IQuotationService
     private readonly IGenericRepository<Quotation> _repository;
     private readonly IApplyService _applyService;
     private readonly IFileStorageService _fileStorage;
+    private readonly INotificationService _notificationService;
 
     public QuotationService(
         IUnitOfWork<SmartCafeBuilderContext> unitOfWork,
         IApplyService applyService,
-        IFileStorageService fileStorage)
+        IFileStorageService fileStorage,
+        INotificationService notificationService)
     {
         _unitOfWork = unitOfWork;
         _repository = unitOfWork.GetRepository<Quotation>();
         _applyService = applyService;
         _fileStorage = fileStorage;
+        _notificationService = notificationService;
     }
 
     // ───────────────────────── Đọc ─────────────────────────
@@ -223,6 +226,10 @@ public class QuotationService : IQuotationService
         _repository.Update(quotation);
         await _unitOfWork.CommitAsync();
 
+        // Sau CommitAsync: noti là best-effort và không được kéo lùi thao tác đã lưu. Trước đây
+        // không có noti nào cho báo giá nên owner chỉ biết mình có bản mới khi tự F5.
+        await _notificationService.NotifyQuotationSentAsync(quotation.Id);
+
         return QuotationResponse.From(quotation);
     }
 
@@ -273,6 +280,8 @@ public class QuotationService : IQuotationService
         _repository.Update(quotation);
         await _unitOfWork.CommitAsync();
 
+        await _notificationService.NotifyQuotationDecisionAsync(quotation.Id, "revision_requested");
+
         return QuotationResponse.From(quotation);
     }
 
@@ -292,6 +301,8 @@ public class QuotationService : IQuotationService
 
         _repository.Update(quotation);
         await _unitOfWork.CommitAsync();
+
+        await _notificationService.NotifyQuotationDecisionAsync(quotation.Id, "rejected");
 
         return QuotationResponse.From(quotation);
     }
@@ -340,6 +351,10 @@ public class QuotationService : IQuotationService
         {
             await _unitOfWork.CommitAsync();
         }
+
+        // Chỉ báo cho provider ĐƯỢC CHỌN. Các provider còn lại đã nhận 'application_rejected' từ
+        // ApplyService — thêm một noti 'quotation_rejected' nữa cho họ là nói hai lần cùng một tin.
+        await _notificationService.NotifyQuotationDecisionAsync(quotation.Id, "accepted");
 
         result.Quotation = QuotationResponse.From(await LoadWithDetailsAsync(id));
         return result;

@@ -101,4 +101,32 @@ public interface INotificationService
     /// </summary>
     /// <returns>true nếu vừa tạo noti; false nếu bỏ qua (đã báo gần đây, hoặc không resolve được owner).</returns>
     Task<bool> NotifyConstructionOverdueAsync(Guid constructionItemId, int renotifyAfterDays = 7);
+
+    // ── Báo giá (review 3) ──
+
+    /// <summary>
+    /// OWNER nhận noti khi provider phát hành một bản báo giá. Chỗ neo của báo giá quyết định
+    /// owner nào: qua hồ sơ ứng tuyển (Apply → Post → Project) hoặc qua lời mời trực tiếp
+    /// (ProjectWorking → Project).
+    /// </summary>
+    Task NotifyQuotationSentAsync(Guid quotationId);
+
+    /// <summary>
+    /// PROVIDER nhận noti khi owner phản hồi báo giá của mình.
+    /// <paramref name="decision"/> là một trong <c>accepted</c> | <c>rejected</c> |
+    /// <c>revision_requested</c> — truyền chuỗi thay vì bool vì đây là ba kết cục khác nhau,
+    /// không phải một cặp có/không.
+    /// </summary>
+    Task NotifyQuotationDecisionAsync(Guid quotationId, string decision);
+
+    // ── Đợt thanh toán (review 3) ──
+
+    /// <summary>PROVIDER nhận noti khi owner nộp minh chứng đã chuyển tiền cho một đợt.</summary>
+    Task NotifyPaymentProofSubmittedAsync(Guid paymentBatchId);
+
+    /// <summary>
+    /// OWNER nhận noti khi provider đối chiếu xong một đợt: <paramref name="confirmed"/> = true
+    /// (đã nhận đủ tiền) hoặc false (bác minh chứng, kèm lý do trong nội dung).
+    /// </summary>
+    Task NotifyPaymentBatchDecisionAsync(Guid paymentBatchId, bool confirmed);
 }
