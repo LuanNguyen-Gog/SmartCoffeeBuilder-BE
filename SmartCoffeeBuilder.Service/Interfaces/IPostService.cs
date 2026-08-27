@@ -7,15 +7,21 @@ namespace SmartCoffeeBuilder.Service.Interfaces;
 public interface IPostService
 {
     /// <summary>
-    /// Tìm/duyệt bài đăng. Provider thường lọc status=open, serviceKind theo capability.
+    /// Tìm/duyệt bài đăng.
     /// </summary>
+    /// <param name="accountId">
+    /// Người đang đăng nhập. Nếu là provider đã có hồ sơ, danh sách tự lọc theo
+    /// capability của họ (xem <c>ProviderCapability</c>) — designer không thấy
+    /// bài thi công và ngược lại. Owner/admin không bị lọc.
+    /// </param>
     Task<PaginationResponse<PostResponse>> GetAllAsync(
         int pageNumber = 1,
         int pageSize = 10,
         Guid? projectShopOwnerId = null,
         string? serviceKind = null,
         string? status = null,
-        string? search = null);
+        string? search = null,
+        Guid? accountId = null);
 
     Task<PostResponse> GetByIdAsync(Guid id);
     Task<PostResponse> CreateAsync(CreatePostRequest request);

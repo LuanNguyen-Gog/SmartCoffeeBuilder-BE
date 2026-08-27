@@ -135,10 +135,8 @@ public class ApplyService : IApplyService
             ?? throw new KeyNotFoundException("The signed-in account has no service provider profile — only providers can submit an application.");
 
         // Capability phải phù hợp service_kind của bài đăng (designer/constructor/both).
-        var capabilityMatches = provider.Capability == Capability.both
-            || (post.ServiceKind == ServiceKind.design && provider.Capability == Capability.designer)
-            || (post.ServiceKind == ServiceKind.construction && provider.Capability == Capability.constructor);
-        if (!capabilityMatches)
+        // Dùng chung luật với bộ lọc danh sách bài — xem ProviderCapability.
+        if (!ProviderCapability.CanApplyTo(provider.Capability, post.ServiceKind))
             throw new InvalidOperationException(
                 $"ServiceProviderProfile capability '{provider.Capability}' does not match the post service kind '{post.ServiceKind}'.");
 
