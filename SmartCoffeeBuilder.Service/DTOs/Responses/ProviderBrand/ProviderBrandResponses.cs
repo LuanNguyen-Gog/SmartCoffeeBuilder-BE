@@ -31,6 +31,13 @@ public class ProviderBrandResponse
     public string? Website { get; set; }
     public string? BrandStory { get; set; }
     public string? CompanyAddress { get; set; }
+
+    /// <summary>Toạ độ văn phòng / xưởng, hoặc <c>null</c> khi chưa ghim bản đồ. Luôn đi theo cặp.</summary>
+    public double? CompanyLatitude { get; set; }
+
+    /// <inheritdoc cref="CompanyLatitude"/>
+    public double? CompanyLongitude { get; set; }
+
     public int? FoundedYear { get; set; }
     public int? EmployeeCount { get; set; }
 
@@ -58,6 +65,8 @@ public class ProviderBrandResponse
         Website = p.Website,
         BrandStory = p.BrandStory,
         CompanyAddress = p.CompanyAddress,
+        CompanyLatitude = p.CompanyLatitude,
+        CompanyLongitude = p.CompanyLongitude,
         FoundedYear = p.FoundedYear,
         EmployeeCount = p.EmployeeCount,
         YearsExperience = p.YearsExperience,

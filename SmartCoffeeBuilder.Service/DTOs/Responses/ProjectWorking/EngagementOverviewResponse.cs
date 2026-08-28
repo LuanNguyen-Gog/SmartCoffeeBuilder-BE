@@ -9,6 +9,12 @@ public class OverviewProjectSummary
     public Guid Id { get; set; }
     public string Name { get; set; } = null!;
     public string Address { get; set; } = null!;
+
+    /// <summary>Toạ độ mặt bằng, null khi chưa ghim bản đồ. Luôn đi theo cặp.</summary>
+    public double? Latitude { get; set; }
+
+    /// <inheritdoc cref="Latitude"/>
+    public double? Longitude { get; set; }
     public decimal AreaM2 { get; set; }
     public decimal Budget { get; set; }
     public string Status { get; set; } = null!;
@@ -18,6 +24,8 @@ public class OverviewProjectSummary
         Id = p.Id,
         Name = p.Name,
         Address = p.Address,
+        Latitude = p.Latitude,
+        Longitude = p.Longitude,
         AreaM2 = p.AreaM2,
         Budget = p.Budget,
         Status = p.Status.ToString()

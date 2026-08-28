@@ -184,8 +184,15 @@ public class ApplyService : IApplyService
         if (application.Status != ApplicationStatus.pending)
             throw new InvalidOperationException($"The application is in status '{application.Status}'; it can only be edited while pending.");
 
+        if (request.ClearEstimatedDuration && request.EstimatedDurationDays.HasValue)
+            throw new ArgumentException(
+                "Send either an estimated duration or the request to clear it, not both.");
+
         if (request.Proposal != null) application.Proposal = request.Proposal;
-        if (request.EstimatedDurationDays.HasValue) application.EstimatedDurationDays = request.EstimatedDurationDays;
+
+        // Đây là partial update nên null = "đừng đụng tới"; xoá phải là ý định tường minh.
+        if (request.ClearEstimatedDuration) application.EstimatedDurationDays = null;
+        else if (request.EstimatedDurationDays.HasValue) application.EstimatedDurationDays = request.EstimatedDurationDays;
 
         application.UpdatedAt = DateTime.UtcNow;
         _repository.Update(application);

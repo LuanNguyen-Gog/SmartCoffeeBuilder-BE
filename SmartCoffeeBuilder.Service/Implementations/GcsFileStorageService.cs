@@ -28,6 +28,27 @@ public class GcsFileStorageService : IFileStorageService
     private static readonly string[] ImageExtensions = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
     private static readonly string[] DocumentExtensions = [".pdf", ".doc", ".docx", ".xls", ".xlsx"];
 
+    /// <summary>
+    /// MIME type suy ra từ phần mở rộng — nguồn tin cậy hơn header client gửi lên.
+    /// Phần mở rộng đã được kiểm ở <see cref="UploadAsync"/> trước khi tra bảng này, còn
+    /// <c>Content-Type</c> thì tuỳ client: <c>http.MultipartFile.fromBytes</c> của Dart không
+    /// truyền gì nên mọi ảnh từ app Flutter lên đây đều mang <c>application/octet-stream</c>,
+    /// và object lưu như vậy sẽ bị trình duyệt TẢI XUỐNG thay vì hiển thị.
+    /// </summary>
+    private static readonly Dictionary<string, string> ContentTypeByExtension = new()
+    {
+        [".jpg"] = "image/jpeg",
+        [".jpeg"] = "image/jpeg",
+        [".png"] = "image/png",
+        [".webp"] = "image/webp",
+        [".gif"] = "image/gif",
+        [".pdf"] = "application/pdf",
+        [".doc"] = "application/msword",
+        [".docx"] = "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        [".xls"] = "application/vnd.ms-excel",
+        [".xlsx"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    };
+
     private readonly string _bucketName;
     private readonly long _maxFileSizeBytes;
     private readonly Lazy<StorageClient> _client;
@@ -73,10 +94,17 @@ public class GcsFileStorageService : IFileStorageService
 
         var objectName = $"{safeFolder}/{DateTime.UtcNow:yyyy/MM}/{Guid.NewGuid():N}{extension}";
 
+        // Ưu tiên phần mở rộng: nó vừa được kiểm ở trên nên chắc chắn nằm trong danh sách cho phép,
+        // trong khi contentType là thứ client tự khai (và nhiều client không khai gì).
+        var resolvedContentType =
+            ContentTypeByExtension.TryGetValue(extension, out var byExtension) ? byExtension
+            : !string.IsNullOrWhiteSpace(contentType) ? contentType
+            : "application/octet-stream";
+
         var uploaded = await _client.Value.UploadObjectAsync(
             _bucketName,
             objectName,
-            string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType,
+            resolvedContentType,
             content);
 
         return new FileUploadResponse

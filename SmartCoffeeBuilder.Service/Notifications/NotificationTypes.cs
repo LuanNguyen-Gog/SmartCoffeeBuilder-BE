@@ -72,6 +72,43 @@ public static class NotificationTypes
     /// </summary>
     public const string ConstructionOverdue = "construction_overdue";
 
+    // ───────── Báo giá (review 3) ─────────
+
+    /// <summary>Gửi cho OWNER khi provider phát hành một bản báo giá (draft → sent).</summary>
+    public const string QuotationSent = "quotation_sent";
+
+    /// <summary>Gửi cho PROVIDER khi owner duyệt báo giá — đồng thời là chọn provider đó.</summary>
+    public const string QuotationAccepted = "quotation_accepted";
+
+    /// <summary>Gửi cho PROVIDER khi owner từ chối hẳn bản báo giá.</summary>
+    public const string QuotationRejected = "quotation_rejected";
+
+    /// <summary>Gửi cho PROVIDER khi owner yêu cầu một bản báo giá khác, kèm lý do.</summary>
+    public const string QuotationRevisionRequested = "quotation_revision_requested";
+
+    // ───────── Hợp đồng (review 3) ─────────
+
+    /// <summary>
+    /// Gửi cho PROVIDER khi owner ký hợp đồng bằng OTP. Provider không nhìn thấy lượt ký — mã gửi
+    /// về hộp thư owner và owner tự nhập — nên nếu không báo thì bên duy nhất biết hợp đồng đã có
+    /// hiệu lực lại là bên không phải bắt đầu thi công. Đây cũng là lúc các đợt thanh toán xuất hiện.
+    /// </summary>
+    public const string ContractSigned = "contract_signed";
+
+    // ───────── Đợt thanh toán (review 3) ─────────
+
+    /// <summary>
+    /// Gửi cho PROVIDER khi owner nộp minh chứng đã chuyển tiền cho một đợt.
+    /// Hệ thống KHÔNG giữ tiền — đây là tín hiệu để provider đối chiếu tài khoản rồi xác nhận.
+    /// </summary>
+    public const string PaymentProofSubmitted = "payment_proof_submitted";
+
+    /// <summary>Gửi cho OWNER khi provider xác nhận đã nhận đủ tiền của đợt.</summary>
+    public const string PaymentBatchConfirmed = "payment_batch_confirmed";
+
+    /// <summary>Gửi cho OWNER khi provider bác minh chứng — owner phải nộp lại.</summary>
+    public const string PaymentBatchRejected = "payment_batch_rejected";
+
     /// <summary>Tên file template email (không đuôi .html) tương ứng mỗi loại.</summary>
     public static string TemplateFor(string type) => type switch
     {
@@ -102,6 +139,14 @@ public static class NotificationTypes
         ProjectCompleted => "The project is complete - Smart Coffee Builder",
         ProjectCancelled => "The project was cancelled - Smart Coffee Builder",
         ConstructionOverdue => "A construction item is behind schedule - Smart Coffee Builder",
+        QuotationSent => "You have received a new quotation - Smart Coffee Builder",
+        QuotationAccepted => "Your quotation has been approved - Smart Coffee Builder",
+        QuotationRejected => "Your quotation was not selected - Smart Coffee Builder",
+        QuotationRevisionRequested => "The shop owner asked for a revised quotation - Smart Coffee Builder",
+        ContractSigned => "The shop owner signed the contract - Smart Coffee Builder",
+        PaymentProofSubmitted => "The shop owner submitted a payment proof - Smart Coffee Builder",
+        PaymentBatchConfirmed => "The provider confirmed your payment - Smart Coffee Builder",
+        PaymentBatchRejected => "The provider rejected your payment proof - Smart Coffee Builder",
         _ => "Notification - Smart Coffee Builder"
     };
 }

@@ -29,16 +29,19 @@ public class ContractService : IContractService
     private readonly IGenericRepository<Contract> _repository;
     private readonly IEmailService _emailService;
     private readonly IFileStorageService _fileStorage;
+    private readonly INotificationService _notificationService;
 
     public ContractService(
         IUnitOfWork<SmartCafeBuilderContext> unitOfWork,
         IEmailService emailService,
-        IFileStorageService fileStorage)
+        IFileStorageService fileStorage,
+        INotificationService notificationService)
     {
         _unitOfWork = unitOfWork;
         _repository = unitOfWork.GetRepository<Contract>();
         _emailService = emailService;
         _fileStorage = fileStorage;
+        _notificationService = notificationService;
     }
 
     public async Task<PaginationResponse<ContractResponse>> GetAllAsync(
@@ -321,6 +324,10 @@ public class ContractService : IContractService
         // Một SaveChanges → ký hợp đồng, mốc bắt đầu của engagement/dự án và các đợt thanh toán
         // sinh từ báo giá là atomic.
         await _unitOfWork.CommitAsync();
+
+        // Sau khi commit: lượt ký diễn ra hoàn toàn ở phía owner (mã OTP về hộp thư owner), nên
+        // provider không có cách nào biết hợp đồng đã có hiệu lực và đợt thanh toán đã sinh.
+        await _notificationService.NotifyContractSignedAsync(contract.Id);
 
         return ContractResponse.From(contract);
     }

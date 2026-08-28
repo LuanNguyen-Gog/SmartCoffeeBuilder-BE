@@ -42,6 +42,18 @@ public class ServiceProviderProfile
     /// <summary>Địa chỉ văn phòng / xưởng.</summary>
     public string? CompanyAddress { get; set; }
 
+    /// <summary>
+    /// Vị trí văn phòng / xưởng trên bản đồ, đi kèm <see cref="CompanyAddress"/>.
+    ///
+    /// Khác <c>ProviderServiceArea</c> (tỉnh/quận provider NHẬN việc — dùng để lọc): đây là nơi
+    /// doanh nghiệp thật sự đóng, để chủ quán ước lượng được khoảng cách tới mặt bằng của mình.
+    /// Ghim thì phải đủ cặp — xem <c>Service/Utils/GeoCoordinates.cs</c>.
+    /// </summary>
+    public double? CompanyLatitude { get; set; }
+
+    /// <inheritdoc cref="CompanyLatitude"/>
+    public double? CompanyLongitude { get; set; }
+
     /// <summary>Năm thành lập — khác <see cref="YearsExperience"/> do cá nhân tự khai.</summary>
     public int? FoundedYear { get; set; }
 

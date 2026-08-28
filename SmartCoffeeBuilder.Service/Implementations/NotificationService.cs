@@ -515,12 +515,273 @@ public class NotificationService : INotificationService
         return true;
     }
 
+    // ──────────────────────────── Báo giá (review 3) ────────────────────────────
+
+    public async Task NotifyQuotationSentAsync(Guid quotationId)
+    {
+        var quotation = await LoadQuotationWithPartiesAsync(quotationId);
+        var ownerAccount = OwnerAccountOf(quotation);
+        if (quotation is null || ownerAccount is null)
+        {
+            _logger.LogWarning(
+                "Skipping quotation_sent notification: could not resolve the owner for quotation #{Id}.", quotationId);
+            return;
+        }
+
+        var providerName = ProviderProfileOf(quotation)?.DisplayName ?? "A provider";
+        var projectName = ProjectNameOf(quotation) ?? "your project";
+
+        // Số tiền nằm ngay trong nội dung: đây là con số owner cần để quyết định có mở app hay
+        // không, và cũng là thứ duy nhất so sánh được giữa nhiều báo giá trong hộp thư.
+        var duration = quotation.EstimatedDurationDays is { } days
+            ? $" Estimated duration: {days} day(s)."
+            : string.Empty;
+
+        await CreateAndDispatchAsync(
+            ownerAccount.Id, ownerAccount.Email, NotificationTypes.QuotationSent,
+            title: $"New quotation from \"{providerName}\"",
+            content: $"\"{providerName}\" has sent quotation \"{quotation.Title}\" (v{quotation.Version}) " +
+                     $"for project \"{projectName}\". Total: {FormatVnd(quotation.TotalAmount)}.{duration} " +
+                     "Compare it with the other quotations, then approve the one you want — approving a " +
+                     "quotation also selects that provider for the project.",
+            referenceType: QuotationReference, referenceId: quotation.Id);
+    }
+
+    public async Task NotifyQuotationDecisionAsync(Guid quotationId, string decision)
+    {
+        var quotation = await LoadQuotationWithPartiesAsync(quotationId);
+        var providerAccount = ProviderProfileOf(quotation)?.Account;
+        if (quotation is null || providerAccount is null)
+        {
+            _logger.LogWarning(
+                "Skipping quotation decision notification: could not resolve the provider for quotation #{Id}.",
+                quotationId);
+            return;
+        }
+
+        var projectName = ProjectNameOf(quotation) ?? "the project";
+        var label = $"\"{quotation.Title}\" (v{quotation.Version})";
+
+        string type, title, content;
+        switch (decision)
+        {
+            case "accepted":
+                type = NotificationTypes.QuotationAccepted;
+                title = "Your quotation has been approved";
+                content = $"The shop owner approved quotation {label} for project \"{projectName}\" " +
+                          $"({FormatVnd(quotation.TotalAmount)}). The quotation is now locked and becomes the " +
+                          "basis of the contract; the payment batches are created once the contract is signed.";
+                break;
+
+            case "rejected":
+                type = NotificationTypes.QuotationRejected;
+                title = "Your quotation was not selected";
+                content = $"The shop owner rejected quotation {label} for project \"{projectName}\"." +
+                          ReasonSuffix(quotation.RejectReason);
+                break;
+
+            case "revision_requested":
+                type = NotificationTypes.QuotationRevisionRequested;
+                title = "The shop owner asked for a revised quotation";
+                content = $"The shop owner asked for a different version of quotation {label} " +
+                          $"for project \"{projectName}\".{ReasonSuffix(quotation.RevisionReason)} " +
+                          "Send a new version to stay in the running.";
+                break;
+
+            default:
+                // Gọi sai tên kết cục là lỗi lập trình, nhưng noti là best-effort nên chỉ log:
+                // không đáng để đánh hỏng thao tác nghiệp vụ đã commit xong.
+                _logger.LogWarning(
+                    "Skipping quotation decision notification for quotation #{Id}: unknown decision '{Decision}'.",
+                    quotationId, decision);
+                return;
+        }
+
+        await CreateAndDispatchAsync(
+            providerAccount.Id, providerAccount.Email, type, title, content,
+            referenceType: QuotationReference, referenceId: quotation.Id);
+    }
+
+    // ─────────────────────── Đợt thanh toán (review 3) ───────────────────────
+
+    public async Task NotifyContractSignedAsync(Guid contractId)
+    {
+        var contract = await LoadContractWithPartiesAsync(contractId);
+        var providerAccount = contract?.ProjectWorking?.ServiceProviderProfile?.Account;
+        if (contract is null || providerAccount is null)
+        {
+            _logger.LogWarning(
+                "Skipping contract_signed notification: could not resolve the provider for contract #{Id}.",
+                contractId);
+            return;
+        }
+
+        var projectName = contract.ProjectWorking?.ProjectShopOwner?.Name ?? "the project";
+        var valueNote = contract.AgreedValue is { } value
+            ? $" ({FormatVnd(value)})"
+            : string.Empty;
+
+        // Số đợt là hệ quả nhìn thấy được ngay của lượt ký: chúng chỉ tồn tại sau khi hợp đồng
+        // 'confirmed'. Nói ra số lượng để provider biết có gì để đối chiếu, thay vì chỉ báo suông.
+        var batchCount = contract.PaymentBatches?.Count ?? 0;
+        var batchNote = batchCount > 0
+            ? $" {batchCount} payment batch(es) were created from the approved quotation's schedule; " +
+              "the shop owner transfers each one directly and you confirm receipt."
+            : string.Empty;
+
+        var scheduleNote = contract.ExecutionStartAt is { } start
+            ? $" Work is scheduled to start on {start:dd/MM/yyyy}" +
+              (contract.ExecutionEndAt is { } end ? $" and to finish by {end:dd/MM/yyyy}." : ".")
+            : string.Empty;
+
+        await CreateAndDispatchAsync(
+            providerAccount.Id, providerAccount.Email, NotificationTypes.ContractSigned,
+            title: "The shop owner signed the contract",
+            content: $"Contract \"{contract.Title}\"{valueNote} for project \"{projectName}\" has been signed " +
+                     $"and is now active.{scheduleNote}{batchNote}",
+            referenceType: ContractReference, referenceId: contract.Id);
+    }
+
+    public async Task NotifyPaymentProofSubmittedAsync(Guid paymentBatchId)
+    {
+        var batch = await LoadPaymentBatchWithPartiesAsync(paymentBatchId);
+        var providerAccount = batch?.Contract?.ProjectWorking?.ServiceProviderProfile?.Account;
+        if (batch is null || providerAccount is null)
+        {
+            _logger.LogWarning(
+                "Skipping payment_proof_submitted notification: could not resolve the provider for payment batch #{Id}.",
+                paymentBatchId);
+            return;
+        }
+
+        var projectName = batch.Contract?.ProjectWorking?.ProjectShopOwner?.Name ?? "the project";
+        var itemNote = batch.ConstructionItem is { } item
+            ? $" It is linked to construction item \"{item.Name}\"."
+            : string.Empty;
+
+        await CreateAndDispatchAsync(
+            providerAccount.Id, providerAccount.Email, NotificationTypes.PaymentProofSubmitted,
+            title: $"Payment proof submitted for \"{batch.Name}\"",
+            content: $"The shop owner marked payment batch \"{batch.Name}\" " +
+                     $"({FormatVnd(batch.Amount)}) of project \"{projectName}\" as paid and submitted proof." +
+                     $"{itemNote} Please check your bank account, then confirm receipt or reject the proof " +
+                     "with a reason. The platform does not hold funds — this reconciliation is what closes the batch.",
+            referenceType: PaymentBatchReference, referenceId: batch.Id);
+    }
+
+    public async Task NotifyPaymentBatchDecisionAsync(Guid paymentBatchId, bool confirmed)
+    {
+        var batch = await LoadPaymentBatchWithPartiesAsync(paymentBatchId);
+        var ownerAccount = batch?.Contract?.ProjectWorking?.ProjectShopOwner?.Owner?.Account;
+        if (batch is null || ownerAccount is null)
+        {
+            _logger.LogWarning(
+                "Skipping payment batch decision notification: could not resolve the owner for payment batch #{Id}.",
+                paymentBatchId);
+            return;
+        }
+
+        var providerName = batch.Contract?.ProjectWorking?.ServiceProviderProfile?.DisplayName ?? "The provider";
+        var projectName = batch.Contract?.ProjectWorking?.ProjectShopOwner?.Name ?? "your project";
+
+        string type, title, content;
+        if (confirmed)
+        {
+            // Nói rõ hạng mục vừa được đánh dấu đã thanh toán: đó là hệ quả duy nhất nhìn thấy
+            // được của việc xác nhận, và cũng là câu trả lời cho yêu cầu review 3.
+            var itemNote = batch.ConstructionItem is { } item
+                ? $" Construction item \"{item.Name}\" is now marked as paid."
+                : string.Empty;
+
+            type = NotificationTypes.PaymentBatchConfirmed;
+            title = $"\"{providerName}\" confirmed your payment";
+            content = $"\"{providerName}\" confirmed receiving payment batch \"{batch.Name}\" " +
+                      $"({FormatVnd(batch.Amount)}) of project \"{projectName}\".{itemNote}";
+        }
+        else
+        {
+            type = NotificationTypes.PaymentBatchRejected;
+            title = $"\"{providerName}\" rejected your payment proof";
+            content = $"\"{providerName}\" rejected the proof for payment batch \"{batch.Name}\" " +
+                      $"({FormatVnd(batch.Amount)}) of project \"{projectName}\".{ReasonSuffix(batch.RejectReason)} " +
+                      "Please check the transfer and submit the proof again.";
+        }
+
+        await CreateAndDispatchAsync(
+            ownerAccount.Id, ownerAccount.Email, type, title, content,
+            referenceType: PaymentBatchReference, referenceId: batch.Id);
+    }
+
     // ──────────────────────────────── Helpers ────────────────────────────────
 
     /// <summary>ReferenceType cho FE deep-link — dùng tên BẢNG DB để đồng bộ với noti sẵn có.</summary>
     private const string EngagementReference = "project_provider";
     private const string ProjectReference = "project";
     private const string ConstructionItemReference = "construction_item";
+    private const string QuotationReference = "quotation";
+    private const string PaymentBatchReference = "payment_batch";
+    private const string ContractReference = "contract";
+
+    /// <summary>
+    /// Tiền trong nội dung noti và email luôn viết theo kiểu Việt Nam ("1.500.000 VND").
+    /// Cố định <c>vi-VN</c> chứ không theo culture của tiến trình: job Hangfire và request web chạy
+    /// dưới culture khác nhau, mà cùng một đợt thanh toán thì không được lúc thì "1.500.000" lúc
+    /// thì "1,500,000".
+    /// </summary>
+    private static string FormatVnd(decimal amount) =>
+        amount.ToString("#,##0", System.Globalization.CultureInfo.GetCultureInfo("vi-VN")) + " VND";
+
+    /// <summary>Ghép lý do vào cuối câu, hoặc chuỗi rỗng nếu bên kia không ghi lý do.</summary>
+    private static string ReasonSuffix(string? reason) =>
+        string.IsNullOrWhiteSpace(reason) ? string.Empty : $" Reason: \"{reason.Trim()}\".";
+
+    /// <summary>
+    /// Nạp báo giá kèm tài khoản hai bên. Báo giá neo vào ĐÚNG MỘT trong hai nhánh (hồ sơ ứng
+    /// tuyển hoặc lời mời trực tiếp) nên phải Include cả hai — nhánh không dùng trả về null.
+    /// </summary>
+    private Task<Quotation?> LoadQuotationWithPartiesAsync(Guid quotationId) =>
+        _unitOfWork.GetRepository<Quotation>().SingleOrDefaultAsync(
+            predicate: q => q.Id == quotationId,
+            include: q => q
+                .Include(x => x.Apply!).ThenInclude(a => a.Post).ThenInclude(p => p.ProjectShopOwner)
+                    .ThenInclude(pr => pr.Owner).ThenInclude(o => o.Account)
+                .Include(x => x.Apply!).ThenInclude(a => a.ServiceProviderProfile).ThenInclude(p => p.Account)
+                .Include(x => x.ProjectWorking!).ThenInclude(e => e.ProjectShopOwner)
+                    .ThenInclude(pr => pr.Owner).ThenInclude(o => o.Account)
+                .Include(x => x.ProjectWorking!).ThenInclude(e => e.ServiceProviderProfile).ThenInclude(p => p.Account));
+
+    /// <summary>Tài khoản chủ quán của báo giá, bất kể báo giá đi qua nhánh neo nào.</summary>
+    private static Account? OwnerAccountOf(Quotation? q) =>
+        q?.Apply?.Post?.ProjectShopOwner?.Owner?.Account
+        ?? q?.ProjectWorking?.ProjectShopOwner?.Owner?.Account;
+
+    /// <summary>Hồ sơ provider của báo giá, bất kể báo giá đi qua nhánh neo nào.</summary>
+    private static ServiceProviderProfile? ProviderProfileOf(Quotation? q) =>
+        q?.Apply?.ServiceProviderProfile ?? q?.ProjectWorking?.ServiceProviderProfile;
+
+    private static string? ProjectNameOf(Quotation? q) =>
+        q?.Apply?.Post?.ProjectShopOwner?.Name ?? q?.ProjectWorking?.ProjectShopOwner?.Name;
+
+    /// <summary>Nạp đợt thanh toán kèm hợp đồng → engagement → tài khoản hai bên.</summary>
+    private Task<Contract?> LoadContractWithPartiesAsync(Guid contractId) =>
+        _unitOfWork.GetRepository<Contract>().SingleOrDefaultAsync(
+            predicate: c => c.Id == contractId,
+            include: q => q
+                .Include(c => c.PaymentBatches)
+                .Include(c => c.ProjectWorking).ThenInclude(e => e.ProjectShopOwner)
+                    .ThenInclude(p => p.Owner).ThenInclude(o => o.Account)
+                .Include(c => c.ProjectWorking).ThenInclude(e => e.ServiceProviderProfile)
+                    .ThenInclude(p => p.Account));
+
+    private Task<PaymentBatch?> LoadPaymentBatchWithPartiesAsync(Guid paymentBatchId) =>
+        _unitOfWork.GetRepository<PaymentBatch>().SingleOrDefaultAsync(
+            predicate: b => b.Id == paymentBatchId,
+            include: q => q
+                .Include(b => b.ConstructionItem!)
+                .Include(b => b.Contract).ThenInclude(c => c.ProjectWorking).ThenInclude(e => e.ProjectShopOwner)
+                    .ThenInclude(p => p.Owner).ThenInclude(o => o.Account)
+                .Include(b => b.Contract).ThenInclude(c => c.ProjectWorking)
+                    .ThenInclude(e => e.ServiceProviderProfile).ThenInclude(p => p.Account));
 
     /// <summary>
     /// Dữ liệu chung của 3 noti huỷ-ngang-đồng-thuận: engagement, người nhận, và nhãn hiển thị

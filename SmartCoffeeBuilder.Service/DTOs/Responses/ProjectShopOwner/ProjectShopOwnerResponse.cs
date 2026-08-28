@@ -9,6 +9,16 @@ public class ProjectShopOwnerResponse
     public Guid OwnerId { get; set; }
     public string Name { get; set; } = null!;
     public string Address { get; set; } = null!;
+
+    /// <summary>
+    /// Toạ độ mặt bằng, hoặc <c>null</c> khi dự án chỉ có địa chỉ chữ. Luôn đi theo cặp: FE chỉ
+    /// cần kiểm tra một trong hai khác null là biết có vẽ được pin hay không.
+    /// </summary>
+    public double? Latitude { get; set; }
+
+    /// <inheritdoc cref="Latitude"/>
+    public double? Longitude { get; set; }
+
     public decimal AreaM2 { get; set; }
     public decimal Budget { get; set; }
     public string Status { get; set; } = null!;
@@ -55,6 +65,8 @@ public class ProjectShopOwnerResponse
             OwnerId = p.OwnerId,
             Name = p.Name,
             Address = p.Address,
+            Latitude = p.Latitude,
+            Longitude = p.Longitude,
             AreaM2 = p.AreaM2,
             Budget = p.Budget,
             Status = p.Status.ToString(),

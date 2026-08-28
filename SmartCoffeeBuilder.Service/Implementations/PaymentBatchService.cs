@@ -28,14 +28,17 @@ public class PaymentBatchService : IPaymentBatchService
     private readonly IUnitOfWork<SmartCafeBuilderContext> _unitOfWork;
     private readonly IGenericRepository<PaymentBatch> _repository;
     private readonly IFileStorageService _fileStorage;
+    private readonly INotificationService _notificationService;
 
     public PaymentBatchService(
         IUnitOfWork<SmartCafeBuilderContext> unitOfWork,
-        IFileStorageService fileStorage)
+        IFileStorageService fileStorage,
+        INotificationService notificationService)
     {
         _unitOfWork = unitOfWork;
         _repository = unitOfWork.GetRepository<PaymentBatch>();
         _fileStorage = fileStorage;
+        _notificationService = notificationService;
     }
 
     // ───────────────────────── Đọc ─────────────────────────
@@ -115,6 +118,10 @@ public class PaymentBatchService : IPaymentBatchService
         _repository.Update(batch);
         await _unitOfWork.CommitAsync();
 
+        // Không có noti thì provider chỉ biết có tiền về khi tự mở màn thanh toán — mà đợt chỉ
+        // đóng được khi provider đối chiếu, nên im lặng ở đây là chặn luôn cả luồng.
+        await _notificationService.NotifyPaymentProofSubmittedAsync(batch.Id);
+
         return PaymentBatchResponse.From(await LoadWithDetailsAsync(id));
     }
 
@@ -140,6 +147,8 @@ public class PaymentBatchService : IPaymentBatchService
 
         await _unitOfWork.CommitAsync();
 
+        await _notificationService.NotifyPaymentBatchDecisionAsync(batch.Id, confirmed: true);
+
         return PaymentBatchResponse.From(await LoadWithDetailsAsync(id));
     }
 
@@ -159,6 +168,8 @@ public class PaymentBatchService : IPaymentBatchService
 
         _repository.Update(batch);
         await _unitOfWork.CommitAsync();
+
+        await _notificationService.NotifyPaymentBatchDecisionAsync(batch.Id, confirmed: false);
 
         return PaymentBatchResponse.From(await LoadWithDetailsAsync(id));
     }
