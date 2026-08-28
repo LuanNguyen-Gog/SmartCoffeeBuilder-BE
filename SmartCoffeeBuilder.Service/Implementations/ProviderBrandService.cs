@@ -6,6 +6,7 @@ using SmartCoffeeBuilder.Repository.Models.Enums;
 using SmartCoffeeBuilder.Service.DTOs.Requests.ProviderBrand;
 using SmartCoffeeBuilder.Service.DTOs.Responses.ProviderBrand;
 using SmartCoffeeBuilder.Service.Interfaces;
+using SmartCoffeeBuilder.Service.Utils;
 using Entities = SmartCoffeeBuilder.Repository.Models;
 
 namespace SmartCoffeeBuilder.Service.Implementations;
@@ -59,6 +60,24 @@ public class ProviderBrandService : IProviderBrandService
         if (request.Website != null) provider.Website = request.Website;
         if (request.BrandStory != null) provider.BrandStory = request.BrandStory;
         if (request.CompanyAddress != null) provider.CompanyAddress = request.CompanyAddress;
+
+        if (request.ClearCompanyCoordinates)
+        {
+            if (request.CompanyLatitude.HasValue || request.CompanyLongitude.HasValue)
+                throw new ArgumentException(
+                    "ClearCompanyCoordinates cannot be combined with a new latitude/longitude — " +
+                    "send one or the other.");
+
+            provider.CompanyLatitude = null;
+            provider.CompanyLongitude = null;
+        }
+        else if (request.CompanyLatitude.HasValue || request.CompanyLongitude.HasValue)
+        {
+            GeoCoordinates.EnsurePairValid(
+                request.CompanyLatitude, request.CompanyLongitude, "the company address");
+            provider.CompanyLatitude = request.CompanyLatitude;
+            provider.CompanyLongitude = request.CompanyLongitude;
+        }
 
         // File cũ bị thay thì dọn object trên bucket SAU khi DB commit.
         string? replacedLogo = null, replacedCover = null, replacedVideo = null;

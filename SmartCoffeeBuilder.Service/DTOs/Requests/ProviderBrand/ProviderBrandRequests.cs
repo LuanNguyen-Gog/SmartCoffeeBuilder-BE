@@ -30,6 +30,21 @@ public class UpdateProviderBrandRequest
     [MaxLength(500)]
     public string? CompanyAddress { get; set; }
 
+    /// <summary>
+    /// Toạ độ văn phòng / xưởng khi provider ghim trên bản đồ. Gửi cả hai để cập nhật, bỏ trống
+    /// để giữ nguyên, hoặc <see cref="ClearCompanyCoordinates"/> để gỡ ghim.
+    /// </summary>
+    public double? CompanyLatitude { get; set; }
+
+    /// <inheritdoc cref="CompanyLatitude"/>
+    public double? CompanyLongitude { get; set; }
+
+    /// <summary>
+    /// Gỡ ghim bản đồ của địa chỉ công ty. Cần cờ riêng vì <c>null</c> ở đây đã mang nghĩa
+    /// "không đụng tới trường này".
+    /// </summary>
+    public bool ClearCompanyCoordinates { get; set; }
+
     public int? FoundedYear { get; set; }
     public int? EmployeeCount { get; set; }
 }

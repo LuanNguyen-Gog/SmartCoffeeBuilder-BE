@@ -6,6 +6,16 @@ public class PostResponse
     public Guid ProjectShopOwnerId { get; set; }
     public string? ProjectName { get; set; }
     public string? ProjectAddress { get; set; }
+
+    /// <summary>
+    /// Toạ độ mặt bằng, để marketplace vẽ được pin / ảnh bản đồ mà không phải geocode lại từ
+    /// chuỗi địa chỉ ở mỗi thẻ. <c>null</c> khi chủ quán chưa ghim bản đồ.
+    /// </summary>
+    public double? ProjectLatitude { get; set; }
+
+    /// <inheritdoc cref="ProjectLatitude"/>
+    public double? ProjectLongitude { get; set; }
+
     public decimal? ProjectBudget { get; set; }
     public decimal? ProjectAreaM2 { get; set; }
     public string ServiceKind { get; set; } = null!;
@@ -27,6 +37,8 @@ public class PostResponse
         ProjectShopOwnerId = p.ProjectShopOwnerId,
         ProjectName = p.ProjectShopOwner?.Name,
         ProjectAddress = p.ProjectShopOwner?.Address,
+        ProjectLatitude = p.ProjectShopOwner?.Latitude,
+        ProjectLongitude = p.ProjectShopOwner?.Longitude,
         ProjectBudget = p.ProjectShopOwner?.Budget,
         ProjectAreaM2 = p.ProjectShopOwner?.AreaM2,
         ServiceKind = p.ServiceKind.ToString(),

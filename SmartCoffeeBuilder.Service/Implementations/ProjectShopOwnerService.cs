@@ -89,11 +89,15 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
             throw new UnauthorizedAccessException(
                 "A project can only be created for the shop owner profile of the signed-in account.");
 
+        GeoCoordinates.EnsurePairValid(request.Latitude, request.Longitude, "the project address");
+
         var project = new ProjectShopOwner
         {
             OwnerId = owner.Id,
             Name = request.Name,
             Address = request.Address,
+            Latitude = request.Latitude,
+            Longitude = request.Longitude,
             AreaM2 = request.AreaM2,
             Budget = request.Budget,
             Status = ProjectStatus.briefed,
@@ -113,13 +117,36 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
         await EnsureOwnerAsync(accountId, project, "edit the project");
 
         // Dự án đã đóng thì không sửa nội dung nữa.
+        var movesPin = request.Latitude.HasValue || request.Longitude.HasValue || request.ClearCoordinates;
+
         if (project.Status is ProjectStatus.completed or ProjectStatus.cancelled
-            && (request.Name != null || request.Address != null || request.AreaM2.HasValue || request.Budget.HasValue))
+            && (request.Name != null || request.Address != null || request.AreaM2.HasValue
+                || request.Budget.HasValue || movesPin))
             throw new InvalidOperationException(
                 $"The project is in status '{project.Status}' — its details can no longer be edited.");
 
         if (request.Name != null) project.Name = request.Name;
         if (request.Address != null) project.Address = request.Address;
+
+        // Gỡ ghim trước, rồi mới ghim lại. Gửi kèm cả hai là mâu thuẫn, nên chặn thẳng thay vì
+        // âm thầm chọn một bên — client đang hiểu sai API và cần biết điều đó.
+        if (request.ClearCoordinates)
+        {
+            if (request.Latitude.HasValue || request.Longitude.HasValue)
+                throw new ArgumentException(
+                    "ClearCoordinates cannot be combined with a new latitude/longitude — " +
+                    "send one or the other.");
+
+            project.Latitude = null;
+            project.Longitude = null;
+        }
+        else if (request.Latitude.HasValue || request.Longitude.HasValue)
+        {
+            GeoCoordinates.EnsurePairValid(request.Latitude, request.Longitude, "the project address");
+            project.Latitude = request.Latitude;
+            project.Longitude = request.Longitude;
+        }
+
         if (request.AreaM2.HasValue) project.AreaM2 = request.AreaM2.Value;
         if (request.Budget.HasValue) project.Budget = request.Budget.Value;
 
