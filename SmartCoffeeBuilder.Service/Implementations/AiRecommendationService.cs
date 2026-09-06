@@ -358,8 +358,27 @@ public class AiRecommendationService : IAiRecommendationService
     /// </summary>
     private async Task EnsureAiAccessAsync(string userId)
     {
-        // TODO(rào tạm): Đang mở khoá AI cho MỌI account để FE test luồng/UI ổn định.
-        // Bỏ dòng return dưới đây để bật lại gate phí nền tảng (owner phải có subscription active).
+        // ┌──────────────────────────────────────────────────────────────────────────────┐
+        // │ NỢ KỸ THUẬT — PAYWALL AI ĐANG TẮT (rà lại 06/09/2026, vẫn còn nợ)            │
+        // └──────────────────────────────────────────────────────────────────────────────┘
+        // Toàn bộ gate bên dưới bị vô hiệu bởi dòng `return` này: MỌI account đang dùng AI
+        // miễn phí, tức nguồn thu duy nhất của sản phẩm hiện không chặn được ai.
+        //
+        // KHÔNG bật lại được ngay, vì bật lên là owner mất tính năng mà không có đường mua:
+        //   1. App owner (Flutter) chưa có màn thanh toán nào. Chữ "subscription" không xuất
+        //      hiện một lần nào trong CafeBuilder/lib; pages/package_details_page.dart tuy đã
+        //      được route ở main.dart:75 nhưng là UI tĩnh (đúng 2 import, không gọi service),
+        //      và GET /api/payments/plans không có FE owner nào gọi.
+        //      (payment_batches_page.dart là minh chứng chuyển khoản của hợp đồng — không liên quan.)
+        //   2. Bên provider web có gọi /payments/plans nhưng luồng đứt ở bước redirect:
+        //      components/payments/plan-grid.tsx chỉ toast.success rồi dừng, không dùng
+        //      checkoutUrl mà CreatePaymentResponse trả về → không ai sang được payOS.
+        //   3. GET /payments/status, /payments/subscriptions/me[/active], POST /payments/cancel
+        //      chưa FE nào gọi → mua xong cũng không màn nào hiện ra là đã mua.
+        //
+        // ĐIỀU KIỆN ĐỂ ĐÓNG NỢ NÀY: nối xong (1) và (2) rồi mới xoá dòng `return` + cặp
+        // #pragma CS0162 bên dưới. Xoá trước khi có màn mua = khoá tính năng bán hàng chính
+        // ngay trước buổi bảo vệ.
         return;
 #pragma warning disable CS0162 // Unreachable code detected
         if (!Guid.TryParse(userId, out var accountId))

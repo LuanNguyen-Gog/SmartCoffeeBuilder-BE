@@ -345,7 +345,7 @@ public class QuotationService : IQuotationService
             // để dùng lại nguyên luật giữ chỗ dự án, đóng bài đăng, từ chối hồ sơ còn lại và bắn
             // notification. Hai service dùng chung IUnitOfWork (scoped) nên CommitAsync bên trong
             // lưu luôn phần thay đổi báo giá ở trên — một transaction, không có trạng thái nửa vời.
-            result.Engagement = await _applyService.AcceptAsync(quotation.ApplyId.Value);
+            result.Engagement = await _applyService.AcceptAsync(accountId, quotation.ApplyId.Value);
         }
         else
         {

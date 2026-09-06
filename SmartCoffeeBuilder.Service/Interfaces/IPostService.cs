@@ -24,9 +24,17 @@ public interface IPostService
         Guid? accountId = null);
 
     Task<PostResponse> GetByIdAsync(Guid id);
-    Task<PostResponse> CreateAsync(CreatePostRequest request);
-    Task<PostResponse> UpdateAsync(Guid id, UpdatePostRequest request);
-    Task DeleteAsync(Guid id);
+    /// <param name="accountId">Người đang đăng nhập — dự án trong body phải thuộc chính họ.</param>
+    Task<PostResponse> CreateAsync(Guid accountId, CreatePostRequest request);
+
+    /// <param name="accountId">
+    /// Người đang đăng nhập. Bài đăng phải thuộc chủ quán của account này — role gate
+    /// "owner,admin" không phân biệt được owner A với owner B.
+    /// </param>
+    Task<PostResponse> UpdateAsync(Guid accountId, Guid id, UpdatePostRequest request);
+
+    /// <param name="accountId">Người đang đăng nhập — xem <see cref="UpdateAsync"/>.</param>
+    Task DeleteAsync(Guid accountId, Guid id);
 
     /// <summary>
     /// [HANGFIRE JOB] Bài 'open' đã qua submission_deadline → 'closed', và mọi hồ sơ còn 'pending'

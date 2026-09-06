@@ -25,6 +25,7 @@ public class IssueService : IIssueService
     }
 
     public async Task<PaginationResponse<IssueResponse>> GetAllAsync(
+        Guid accountId,
         int pageNumber = 1, int pageSize = 10,
         Guid? projectWorkingId = null, Guid? constructionItemId = null, string? status = null)
     {
@@ -36,11 +37,17 @@ public class IssueService : IIssueService
             st = parsed;
         }
 
+        // Lọc TRONG query (null = admin, xem tất cả) — lọc sau khi lấy về sẽ làm sai TotalItems.
+        var visibleEngagementIds = await EngagementAuthorization
+            .GetVisibleEngagementIdsAsync(_unitOfWork, accountId);
+
         var query = _repository
             .GetQueryable(
                 e => (projectWorkingId == null || e.ProjectWorkingId == projectWorkingId)
                      && (constructionItemId == null || e.ConstructionItemId == constructionItemId)
-                     && (st == null || e.Status == st),
+                     && (st == null || e.Status == st)
+                     && (visibleEngagementIds == null
+                         || visibleEngagementIds.Contains(e.ProjectWorkingId)),
                 include: q => q.Include(e => e.IssueType))
             .OrderByDescending(e => e.CreatedAt);
 
@@ -51,21 +58,21 @@ public class IssueService : IIssueService
             paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
-    public async Task<IssueResponse> GetByIdAsync(Guid id)
+    public async Task<IssueResponse> GetByIdAsync(Guid accountId, Guid id)
     {
-        var issue = await _repository.SingleOrDefaultAsync(
-            predicate: e => e.Id == id,
-            include: q => q.Include(e => e.IssueType))
-            ?? throw new KeyNotFoundException($"No issue found with id {id}.");
-
+        var issue = await LoadAuthorizedAsync(accountId, id, "read this issue");
         return IssueResponse.From(issue);
     }
 
-    public async Task<IssueResponse> CreateAsync(CreateIssueRequest request)
+    public async Task<IssueResponse> CreateAsync(Guid accountId, CreateIssueRequest request)
     {
         var engagement = await _unitOfWork.GetRepository<ProjectWorking>()
             .SingleOrDefaultAsync(predicate: e => e.Id == request.ProjectWorkingId)
             ?? throw new KeyNotFoundException($"No project provider found with id {request.ProjectWorkingId}.");
+
+        var actor = await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, engagement.Id);
+        EngagementAuthorization.EnsureActor(
+            actor, "raise an issue", EngagementActor.Owner, EngagementActor.Provider);
 
         var issueType = await _unitOfWork.GetRepository<IssueType>()
             .SingleOrDefaultAsync(predicate: t => t.Id == request.IssueTypeId)
@@ -78,13 +85,6 @@ public class IssueService : IIssueService
                 ?? throw new KeyNotFoundException($"No construction item found with id {request.ConstructionItemId}.");
             if (item.ProjectWorkingId != engagement.Id)
                 throw new InvalidOperationException("The construction item must belong to the same engagement as the issue.");
-        }
-
-        if (request.CreatedBy != null)
-        {
-            _ = await _unitOfWork.GetRepository<Account>()
-                .SingleOrDefaultAsync(predicate: a => a.Id == request.CreatedBy)
-                ?? throw new KeyNotFoundException($"No account found with id {request.CreatedBy}.");
         }
 
         var issue = new Issue
@@ -100,7 +100,9 @@ public class IssueService : IIssueService
             ConfirmImage = await _fileStorage.NormalizeForStorageAsync(request.ConfirmImage, "confirmImage"),
             EstimateAt = request.EstimateAt,
             Status = IssueStatus.open,
-            CreatedBy = request.CreatedBy,
+            // Ép CreatedBy = người đang đăng nhập — không tin tưởng giá trị client gửi lên.
+            // request.CreatedBy giữ lại trong DTO cho tương thích ngược nhưng bị bỏ qua.
+            CreatedBy = accountId,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -112,12 +114,9 @@ public class IssueService : IIssueService
         return IssueResponse.From(issue);
     }
 
-    public async Task<IssueResponse> UpdateAsync(Guid id, UpdateIssueRequest request)
+    public async Task<IssueResponse> UpdateAsync(Guid accountId, Guid id, UpdateIssueRequest request)
     {
-        var issue = await _repository.SingleOrDefaultAsync(
-            predicate: e => e.Id == id,
-            include: q => q.Include(e => e.IssueType))
-            ?? throw new KeyNotFoundException($"No issue found with id {id}.");
+        var issue = await LoadAuthorizedAsync(accountId, id, "edit this issue");
 
         if (issue.Status == IssueStatus.closed)
             throw new InvalidOperationException("This issue is already 'closed' — it can no longer be edited.");
@@ -163,15 +162,12 @@ public class IssueService : IIssueService
         return IssueResponse.From(issue);
     }
 
-    public async Task<IssueResponse> UpdateStatusAsync(Guid id, UpdateIssueStatusRequest request)
+    public async Task<IssueResponse> UpdateStatusAsync(Guid accountId, Guid id, UpdateIssueStatusRequest request)
     {
         if (!Enum.TryParse<IssueStatus>(request.Status, ignoreCase: true, out var target))
             throw new ArgumentException($"Status '{request.Status}' is not valid. Allowed: open, in_progress, resolved, closed.");
 
-        var issue = await _repository.SingleOrDefaultAsync(
-            predicate: e => e.Id == id,
-            include: q => q.Include(e => e.IssueType))
-            ?? throw new KeyNotFoundException($"No issue found with id {id}.");
+        var issue = await LoadAuthorizedAsync(accountId, id, "change the status of this issue");
 
         // open → in_progress → resolved → closed (chỉ tiến, không lùi).
         var allowed = issue.Status switch
@@ -207,5 +203,24 @@ public class IssueService : IIssueService
         await _fileStorage.TryDeleteAsync(issue.IssueImage);
         if (issue.ConfirmImage != issue.IssueImage)
             await _fileStorage.TryDeleteAsync(issue.ConfirmImage);
+    }
+
+    /// <summary>
+    /// Nạp issue rồi kiểm người gọi có thuộc engagement neo nó không. Gộp một chỗ vì cả ba
+    /// endpoint lẻ (đọc / sửa / đổi trạng thái) đều cần đúng cặp thao tác này.
+    /// </summary>
+    private async Task<Issue> LoadAuthorizedAsync(Guid accountId, Guid id, string action)
+    {
+        var issue = await _repository.SingleOrDefaultAsync(
+            predicate: e => e.Id == id,
+            include: q => q.Include(e => e.IssueType))
+            ?? throw new KeyNotFoundException($"No issue found with id {id}.");
+
+        var actor = await EngagementAuthorization.ResolveActorAsync(
+            _unitOfWork, accountId, issue.ProjectWorkingId);
+        EngagementAuthorization.EnsureActor(
+            actor, action, EngagementActor.Owner, EngagementActor.Provider);
+
+        return issue;
     }
 }

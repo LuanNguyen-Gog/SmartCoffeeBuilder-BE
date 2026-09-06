@@ -64,8 +64,17 @@ public class ServiceProviderProfileService : IServiceProviderProfileService
         return response;
     }
 
-    public async Task<ServiceProviderProfileResponse> CreateAsync(CreateServiceProviderProfileRequest request)
+    public async Task<ServiceProviderProfileResponse> CreateAsync(
+        Guid accountId, CreateServiceProviderProfileRequest request)
     {
+        // Như ShopOwnerService.CreateAsync: giữ request.AccountId cho hợp đồng API, nhưng chỉ
+        // nhận khi trùng token. Hồ sơ provider mang capability + verified — để client tự khai
+        // account là mở đường dựng hồ sơ trên tài khoản chưa onboarding của người khác.
+        if (request.AccountId != accountId
+            && !await ResourceOwnership.IsAdminAsync(_unitOfWork, accountId))
+            throw new UnauthorizedAccessException(
+                "A service provider profile can only be created for the signed-in account.");
+
         var account = await _unitOfWork.GetRepository<AccountEntity>()
             .SingleOrDefaultAsync(predicate: a => a.Id == request.AccountId && a.DeletedAt == null)
             ?? throw new KeyNotFoundException($"No account found with id {request.AccountId}.");
@@ -105,11 +114,18 @@ public class ServiceProviderProfileService : IServiceProviderProfileService
         return ServiceProviderProfileResponse.From(provider);
     }
 
-    public async Task<ServiceProviderProfileResponse> UpdateAsync(Guid id, UpdateServiceProviderProfileRequest request)
+    public async Task<ServiceProviderProfileResponse> UpdateAsync(
+        Guid accountId, Guid id, UpdateServiceProviderProfileRequest request)
     {
         var provider = await _repository.GetByIdAsync(id);
         if (provider == null || provider.DeletedAt != null)
             throw new KeyNotFoundException($"No service provider found with id {id}.");
+
+        // Một lần hỏi role, dùng cho cả hai check bên dưới.
+        var isAdmin = await ResourceOwnership.IsAdminAsync(_unitOfWork, accountId);
+        if (!isAdmin && provider.AccountId != accountId)
+            throw new UnauthorizedAccessException(
+                "This service provider profile belongs to another account — only its owner may edit it.");
 
         if (request.DisplayName != null) provider.DisplayName = request.DisplayName;
 
@@ -131,7 +147,16 @@ public class ServiceProviderProfileService : IServiceProviderProfileService
         if (request.CompanyTaxCode != null) provider.CompanyTaxCode = request.CompanyTaxCode;
         if (request.YearsExperience.HasValue) provider.YearsExperience = request.YearsExperience;
         if (request.PortfolioHeadline != null) provider.PortfolioHeadline = request.PortfolioHeadline;
-        if (request.IsVerified.HasValue) provider.IsVerified = request.IsVerified.Value;
+
+        // Cờ verified là dấu admin đã duyệt chứng chỉ — provider tự bật được thì huy hiệu
+        // vô nghĩa. Bỏ qua im lặng sẽ khiến FE tưởng đã lưu, nên báo lỗi thẳng.
+        if (request.IsVerified.HasValue)
+        {
+            if (!isAdmin)
+                throw new UnauthorizedAccessException(
+                    "Only an admin may change the verified flag of a provider profile.");
+            provider.IsVerified = request.IsVerified.Value;
+        }
 
         provider.UpdatedAt = DateTime.UtcNow;
         _repository.Update(provider);

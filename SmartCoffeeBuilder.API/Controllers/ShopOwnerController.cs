@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartCoffeeBuilder.Service.DTOs.Requests.ShopOwner;
 using SmartCoffeeBuilder.Service.Interfaces;
+using SmartCoffeeBuilder.Service.Utils;
 
 namespace SmartCoffeeBuilder.API.Controllers;
 
@@ -35,7 +36,7 @@ public class ShopOwnerController : ControllerBase
     [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Create([FromBody] CreateShopOwnerRequest request)
     {
-        var result = await _shopOwnerService.CreateAsync(request);
+        var result = await _shopOwnerService.CreateAsync(User.GetAccountId(), request);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
@@ -43,7 +44,7 @@ public class ShopOwnerController : ControllerBase
     [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateShopOwnerRequest request)
     {
-        var result = await _shopOwnerService.UpdateAsync(id, request);
+        var result = await _shopOwnerService.UpdateAsync(User.GetAccountId(), id, request);
         return Ok(result);
     }
 

@@ -7,19 +7,31 @@ namespace SmartCoffeeBuilder.Service.Interfaces;
 
 public interface IProjectWorkingService
 {
+    /// <summary>
+    /// Danh sách engagement. Chỉ trả về engagement mà account này là một bên — owner của dự án
+    /// hoặc provider của engagement; admin thấy tất cả.
+    /// </summary>
+    /// <remarks>
+    /// Lọc TRONG query chứ không lọc sau (TotalItems sẽ sai). Response có kèm cả hợp đồng
+    /// (<c>Include(e =&gt; e.Contracts)</c>) nên để hở là lộ thẳng dữ liệu hợp đồng dự án khác.
+    /// </remarks>
     Task<PaginationResponse<ProjectWorkingResponse>> GetAllAsync(
+        Guid accountId,
         int pageNumber = 1, int pageSize = 10,
         Guid? projectShopOwnerId = null, Guid? serviceProviderProfileId = null, string? status = null);
 
     /// <summary>
     /// Lọc engagement theo NHIỀU trạng thái cùng lúc (statuses = csv, vd "requested,accepted").
     /// Bỏ trống statuses = lấy tất cả. Thêm lọc theo contractType (design | construction | both).
+    /// Cùng luật hiển thị với <see cref="GetAllAsync"/>.
     /// </summary>
     Task<PaginationResponse<ProjectWorkingResponse>> FilterAsync(
+        Guid accountId,
         int pageNumber = 1, int pageSize = 10, string? statuses = null,
         Guid? projectShopOwnerId = null, Guid? serviceProviderProfileId = null, string? contractType = null);
 
-    Task<ProjectWorkingResponse> GetByIdAsync(Guid id);
+    /// <summary>Chi tiết một engagement — chỉ owner của dự án, provider của engagement, hoặc admin.</summary>
+    Task<ProjectWorkingResponse> GetByIdAsync(Guid accountId, Guid id);
 
     /// <summary>Owner gửi lời mời thuê trực tiếp — engagement tạo với status=requested (application_id=null).</summary>
     Task<ProjectWorkingResponse> CreateDirectRequestAsync(

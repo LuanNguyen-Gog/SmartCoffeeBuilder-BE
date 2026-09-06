@@ -10,6 +10,13 @@ public class ChangeOrderResponse
     public Guid ProjectWorkingId { get; set; }
     public Guid? DesignId { get; set; }
     public Guid? ConstructionItemId { get; set; }
+
+    /// <summary>
+    /// Tên hạng mục thi công khoản này neo vào — null khi khoản không gắn hạng mục nào.
+    /// Không có nó thì FE cầm mỗi GUID, phải tra thêm một lượt mới nói được "phát sinh này
+    /// thuộc hạng mục nào", nên màn hình toàn hiện phát sinh trôi nổi.
+    /// </summary>
+    public string? ConstructionItemName { get; set; }
     public string Kind { get; set; } = null!;
     public string Title { get; set; } = null!;
     public string Reason { get; set; } = null!;
@@ -59,6 +66,7 @@ public class ChangeOrderResponse
         ProjectWorkingId = e.ProjectWorkingId,
         DesignId = e.DesignId,
         ConstructionItemId = e.ConstructionItemId,
+        ConstructionItemName = e.ConstructionItem?.Name,
         Kind = e.Kind.ToString(),
         Title = e.Title,
         Reason = e.Reason,

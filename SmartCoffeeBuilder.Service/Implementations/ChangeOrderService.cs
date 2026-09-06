@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using SmartCoffeeBuilder.Repository.DBContext;
 using SmartCoffeeBuilder.Repository.Interfaces;
 using SmartCoffeeBuilder.Repository.Models;
@@ -45,8 +46,11 @@ public class ChangeOrderService : IChangeOrderService
         var st = ParseStatusFilter(status);
 
         var query = _repository
-            .GetQueryable(c => c.ProjectWorkingId == projectWorkingId
-                               && (st == null || c.Status == st))
+            .GetQueryable(
+                c => c.ProjectWorkingId == projectWorkingId
+                     && (st == null || c.Status == st),
+                // Nạp hạng mục để trả kèm TÊN — FE cần nói "phát sinh này thuộc hạng mục nào".
+                include: q => q.Include(c => c.ConstructionItem))
             .OrderByDescending(c => c.CreatedAt);
 
         var paged = await query.ToPaginationResponseAsync(pageNumber, pageSize);
@@ -81,7 +85,7 @@ public class ChangeOrderService : IChangeOrderService
         if (request.Amount < 0)
             throw new ArgumentException("The change order amount cannot be negative.");
 
-        await EnsureReferencesBelongToEngagementAsync(
+        var anchorName = await EnsureReferencesBelongToEngagementAsync(
             request.ProjectWorkingId, request.DesignId, request.ConstructionItemId);
 
         var now = DateTime.UtcNow;
@@ -104,7 +108,11 @@ public class ChangeOrderService : IChangeOrderService
         await _repository.InsertAsync(order);
         await _unitOfWork.CommitAsync();
 
-        return ChangeOrderResponse.From(order);
+        // Điền tên vào response: entity vừa dựng trong bộ nhớ nên navigation rỗng, không set thì
+        // màn hình vừa lập xong không hiện neo cho tới lượt refetch.
+        var created = ChangeOrderResponse.From(order);
+        created.ConstructionItemName = anchorName;
+        return created;
     }
 
     public async Task<ChangeOrderResponse> UpdateAsync(
@@ -140,19 +148,30 @@ public class ChangeOrderService : IChangeOrderService
         }
         if (request.Kind != null) order.Kind = ParseKind(request.Kind);
 
+        // null = không đổi neo, giữ tên navigation đã nạp từ LoadAsync.
+        string? renamedAnchor = null;
+
         if (request.DesignId.HasValue || request.ConstructionItemId.HasValue)
         {
-            await EnsureReferencesBelongToEngagementAsync(
+            var newAnchorName = await EnsureReferencesBelongToEngagementAsync(
                 order.ProjectWorkingId, request.DesignId, request.ConstructionItemId);
             if (request.DesignId.HasValue) order.DesignId = request.DesignId;
-            if (request.ConstructionItemId.HasValue) order.ConstructionItemId = request.ConstructionItemId;
+            if (request.ConstructionItemId.HasValue)
+            {
+                order.ConstructionItemId = request.ConstructionItemId;
+                renamedAnchor = newAnchorName;
+            }
         }
 
         order.UpdatedAt = DateTime.UtcNow;
         _repository.Update(order);
         await _unitOfWork.CommitAsync();
 
-        return ChangeOrderResponse.From(order);
+        var updated = ChangeOrderResponse.From(order);
+        // Navigation từ LoadAsync vẫn trỏ hạng mục CŨ — không ghi đè thì response trả tên cũ
+        // dù id đã đổi.
+        if (renamedAnchor != null) updated.ConstructionItemName = renamedAnchor;
+        return updated;
     }
 
     public async Task<ChangeOrderResponse> AcceptAsync(Guid accountId, Guid id) =>
@@ -307,7 +326,9 @@ public class ChangeOrderService : IChangeOrderService
     }
 
     private async Task<Entities.ChangeOrder> LoadAsync(Guid id) =>
-        await _repository.SingleOrDefaultAsync(predicate: c => c.Id == id)
+        await _repository.SingleOrDefaultAsync(
+            predicate: c => c.Id == id,
+            include: q => q.Include(c => c.ConstructionItem))
         ?? throw new KeyNotFoundException($"No change order found with id {id}.");
 
     /// <summary>
@@ -326,13 +347,17 @@ public class ChangeOrderService : IChangeOrderService
             .GroupBy(b => b.ChangeOrderId!.Value)
             .ToDictionary(g => g.Key, g => g.OrderBy(b => b.CreatedAt).First());
     }
-
     /// <summary>
     /// Design / hạng mục gắn kèm phải thuộc CHÍNH engagement này — nếu không thì khoản phát sinh
-    /// trỏ sang dự án của người khác và mọi báo cáo chi phí cộng nhầm chỗ.
+    /// trỏ sang dự án của người khác và mọi báo cáo chi phí cộng nhầm chỗ. Trả về TÊN hạng mục
+    /// để người gọi điền vào response.
+    ///
+    /// Trả tên chứ KHÔNG trả entity: repository trả bản ghi không tracked, gán nó vào navigation
+    /// của khoản mới khiến EF tưởng đang chèn thêm một hạng mục và ném 23505 duplicate key trên
+    /// pk_construction_items.
     /// </summary>
     /// <exception cref="ArgumentException">Tham chiếu thuộc engagement khác (HTTP 400).</exception>
-    private async Task EnsureReferencesBelongToEngagementAsync(
+    private async Task<string?> EnsureReferencesBelongToEngagementAsync(
         Guid projectWorkingId, Guid? designId, Guid? constructionItemId)
     {
         if (designId is Guid did)
@@ -342,12 +367,16 @@ public class ChangeOrderService : IChangeOrderService
             if (!ok) throw new ArgumentException($"Design {did} does not belong to this engagement.");
         }
 
-        if (constructionItemId is Guid cid)
-        {
-            var ok = await _unitOfWork.GetRepository<ConstructionItem>()
-                .CountAsync(c => c.Id == cid && c.ProjectWorkingId == projectWorkingId) > 0;
-            if (!ok) throw new ArgumentException($"Construction item {cid} does not belong to this engagement.");
-        }
+        if (constructionItemId is not Guid cid) return null;
+
+        // Chiếu thẳng ra tên: cùng một lượt đi DB, vừa kiểm được vừa lấy được thứ cần.
+        var name = (await _unitOfWork.GetRepository<ConstructionItem>().GetListAsync(
+                selector: c => c.Name,
+                predicate: c => c.Id == cid && c.ProjectWorkingId == projectWorkingId))
+            .FirstOrDefault();
+
+        return name ?? throw new ArgumentException(
+            $"Construction item {cid} does not belong to this engagement.");
     }
 
     private static void EnsureIsRequester(Entities.ChangeOrder order, EngagementActor actor, string action)

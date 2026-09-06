@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartCoffeeBuilder.Service.DTOs.Requests.ServiceProviderProfile;
 using SmartCoffeeBuilder.Service.Interfaces;
+using SmartCoffeeBuilder.Service.Utils;
 
 namespace SmartCoffeeBuilder.API.Controllers;
 
@@ -45,7 +46,7 @@ public class ServiceProviderProfileController : ControllerBase
     [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> Create([FromBody] CreateServiceProviderProfileRequest request)
     {
-        var result = await _serviceProviderProfileService.CreateAsync(request);
+        var result = await _serviceProviderProfileService.CreateAsync(User.GetAccountId(), request);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
@@ -53,7 +54,7 @@ public class ServiceProviderProfileController : ControllerBase
     [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateServiceProviderProfileRequest request)
     {
-        var result = await _serviceProviderProfileService.UpdateAsync(id, request);
+        var result = await _serviceProviderProfileService.UpdateAsync(User.GetAccountId(), id, request);
         return Ok(result);
     }
 

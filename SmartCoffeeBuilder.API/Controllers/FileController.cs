@@ -79,11 +79,40 @@ public class FileController : ControllerBase
         return File(file.Content, file.ContentType); // không set fileDownloadName → hiển thị inline
     }
 
-    /// <summary>Xoá file theo objectName trả về lúc upload (ví dụ: issues/2026/07/abc.png).</summary>
+    /// <summary>
+    /// Xoá file theo objectName trả về lúc upload — CHỈ file do chính tài khoản này upload.
+    ///
+    /// Không có bảng file riêng, nhưng cũng không cần: <c>GcsFileStorageService.UploadAsync</c>
+    /// luôn sinh khoá dạng <c>{role}/{accountId}/{yyyy}/{MM}/{guid}{ext}</c>, nên hai đoạn đầu
+    /// CHÍNH LÀ chủ file. Trước đây endpoint này chỉ có <c>[Authorize]</c> trần: bất kỳ tài khoản
+    /// nào cũng xoá được mọi object trong bucket theo tên, mà tên thì lộ ra trong response (ảnh
+    /// thiết kế, minh chứng thanh toán, file hợp đồng).
+    /// </summary>
     [HttpDelete]
     public async Task<IActionResult> Delete([FromQuery] string objectName)
     {
+        EnsureOwnUpload(objectName);
         await _fileStorageService.DeleteAsync(objectName);
         return NoContent();
+    }
+
+    /// <exception cref="UnauthorizedAccessException">File thuộc tài khoản khác (HTTP 401).</exception>
+    private void EnsureOwnUpload(string objectName)
+    {
+        if (string.IsNullOrWhiteSpace(objectName))
+            throw new ArgumentException("objectName cannot be empty.");
+
+        // Chặn leo thư mục: tiền tố khớp rồi vẫn có thể "../" ngược ra ngoài.
+        if (objectName.Contains(".."))
+            throw new ArgumentException("objectName must not contain path traversal segments.");
+
+        if (string.Equals(User.FindFirstValue(ClaimTypes.Role), "admin", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        // safeFolder được hạ chữ thường lúc upload nên so không phân biệt hoa thường.
+        var prefix = GetUploaderFolderPath() + "/";
+        if (!objectName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            throw new UnauthorizedAccessException(
+                "This file was uploaded by another account — only its uploader (or an admin) may delete it.");
     }
 }

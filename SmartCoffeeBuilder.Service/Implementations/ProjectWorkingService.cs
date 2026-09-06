@@ -36,6 +36,7 @@ public class ProjectWorkingService : IProjectWorkingService
     }
 
     public async Task<PaginationResponse<ProjectWorkingResponse>> GetAllAsync(
+        Guid accountId,
         int pageNumber = 1, int pageSize = 10,
         Guid? projectShopOwnerId = null, Guid? serviceProviderProfileId = null, string? status = null)
     {
@@ -47,10 +48,16 @@ public class ProjectWorkingService : IProjectWorkingService
             st = parsed;
         }
 
+        // Quyền xem đi THẲNG VÀO QUERY — response kèm Contracts, lọc sau sẽ vừa lộ vừa sai TotalItems.
+        var isAdmin = await ResourceOwnership.IsAdminAsync(_unitOfWork, accountId);
+
         var query = _repository
             .GetQueryable(
                 e => e.ProjectShopOwner.DeletedAt == null            // ẩn engagement của dự án đã xoá mềm
                      && e.ServiceProviderProfile.DeletedAt == null    // hoặc của provider đã xoá mềm
+                     && (isAdmin
+                         || e.ProjectShopOwner.Owner.AccountId == accountId
+                         || e.ServiceProviderProfile.AccountId == accountId)
                      && (projectShopOwnerId == null || e.ProjectShopOwnerId == projectShopOwnerId)
                      && (serviceProviderProfileId == null || e.ServiceProviderProfileId == serviceProviderProfileId)
                      && (st == null || e.Status == st),
@@ -67,6 +74,7 @@ public class ProjectWorkingService : IProjectWorkingService
     }
 
     public async Task<PaginationResponse<ProjectWorkingResponse>> FilterAsync(
+        Guid accountId,
         int pageNumber = 1, int pageSize = 10, string? statuses = null,
         Guid? projectShopOwnerId = null, Guid? serviceProviderProfileId = null, string? contractType = null)
     {
@@ -81,10 +89,16 @@ public class ProjectWorkingService : IProjectWorkingService
             kind = parsedKind;
         }
 
+        // Quyền xem đi THẲNG VÀO QUERY — response kèm Contracts, lọc sau sẽ vừa lộ vừa sai TotalItems.
+        var isAdmin = await ResourceOwnership.IsAdminAsync(_unitOfWork, accountId);
+
         var query = _repository
             .GetQueryable(
                 e => e.ProjectShopOwner.DeletedAt == null
                      && e.ServiceProviderProfile.DeletedAt == null
+                     && (isAdmin
+                         || e.ProjectShopOwner.Owner.AccountId == accountId
+                         || e.ServiceProviderProfile.AccountId == accountId)
                      && (projectShopOwnerId == null || e.ProjectShopOwnerId == projectShopOwnerId)
                      && (serviceProviderProfileId == null || e.ServiceProviderProfileId == serviceProviderProfileId)
                      && (kind == null || e.ContractType == kind)
@@ -117,16 +131,21 @@ public class ProjectWorkingService : IProjectWorkingService
         return result;
     }
 
-    public async Task<ProjectWorkingResponse> GetByIdAsync(Guid id)
+    public async Task<ProjectWorkingResponse> GetByIdAsync(Guid accountId, Guid id)
     {
         var engagement = await _repository.SingleOrDefaultAsync(
             predicate: e => e.Id == id
                             && e.ProjectShopOwner.DeletedAt == null
                             && e.ServiceProviderProfile.DeletedAt == null,
-            include: q => q.Include(e => e.ProjectShopOwner)
+            // ThenInclude(Owner) BẮT BUỘC: ResolveActorAsync đọc
+            // engagement.ProjectShopOwner.Owner.AccountId, thiếu nó thì chính chủ cũng bị 401.
+            include: q => q.Include(e => e.ProjectShopOwner).ThenInclude(p => p.Owner)
                            .Include(e => e.ServiceProviderProfile)
                            .Include(e => e.Contracts))
             ?? throw new KeyNotFoundException($"No project provider found with id {id}.");
+
+        // Ném 401 nếu không phải bên nào — response có kèm Contracts nên không để lọt.
+        _ = await ResolveActorAsync(accountId, engagement);
 
         return ProjectWorkingResponse.From(engagement);
     }

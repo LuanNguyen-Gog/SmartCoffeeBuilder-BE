@@ -25,14 +25,12 @@ public class CommentService : ICommentService
         CommentTargetType targetType, Guid targetId, Guid currentAccountId,
         int pageNumber = 1, int pageSize = 20)
     {
-        // Thread của design/construction_item nằm sẵn trong một engagement nên vẫn để mở như cũ.
-        // Thread BÁO GIÁ thì không: nhiều provider cùng nộp báo giá vào một bài đăng, để mở thì
-        // đối thủ chỉ cần đoán id là đọc được cả cuộc mặc cả giá.
-        if (targetType == CommentTargetType.quotation)
-        {
-            var parties = await ResolvePartiesAsync(targetType, targetId);
-            await EnsureCanCommentAsync(parties, currentAccountId);
-        }
+        // Rào MỌI loại thread, không riêng báo giá. Thread design / construction_item cũng neo
+        // vào một engagement cụ thể: để mở thì ai đăng nhập cũng đọc được toàn bộ trao đổi của
+        // hai bên, chỉ cần đoán id. ResolvePartiesAsync đã xử lý đủ ba target type nên đọc và
+        // ghi dùng chung một luật — trước đây chỉ CreateAsync được rào, GetAll thì không.
+        var parties = await ResolvePartiesAsync(targetType, targetId);
+        await EnsureCanCommentAsync(parties, currentAccountId);
 
         var query = _repository
             .GetQueryable(
