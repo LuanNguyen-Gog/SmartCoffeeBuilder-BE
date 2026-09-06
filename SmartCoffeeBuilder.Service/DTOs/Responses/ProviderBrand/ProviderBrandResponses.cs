@@ -48,6 +48,13 @@ public class ProviderBrandResponse
     public decimal AvgRating { get; set; }
     public int ReviewCount { get; set; }
 
+    /// <summary>
+    /// Điểm trung bình theo từng tiêu chí (chuỗi dimension → điểm). Chỉ populate khi GetAsync
+    /// (đường đơn lẻ). Dimension đầy đủ: <c>progress</c> / <c>quality</c> / <c>communication</c> /
+    /// <c>cost</c> / <c>professionalism</c>.
+    /// </summary>
+    public Dictionary<string, decimal> DimensionAverages { get; set; } = new();
+
     public List<ProviderSocialLinkResponse> SocialLinks { get; set; } = new();
     public List<ProviderServiceAreaResponse> ServiceAreas { get; set; } = new();
     public List<ProviderCertificateResponse> Certificates { get; set; } = new();

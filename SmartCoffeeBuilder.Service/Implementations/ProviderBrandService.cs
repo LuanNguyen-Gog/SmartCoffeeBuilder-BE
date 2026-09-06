@@ -35,8 +35,27 @@ public class ProviderBrandService : IProviderBrandService
         _fileStorage = fileStorage;
     }
 
-    public async Task<ProviderBrandResponse> GetAsync(Guid serviceProviderProfileId) =>
-        ProviderBrandResponse.From(await LoadGraphAsync(serviceProviderProfileId));
+    public async Task<ProviderBrandResponse> GetAsync(Guid serviceProviderProfileId)
+    {
+        var provider = await LoadGraphAsync(serviceProviderProfileId);
+
+        // Đường đơn lẻ thì FE render trang thương hiệu — nhúng dimension averages luôn để khỏi
+        // phải gọi thêm /api/reviews/providers/{id}/summary. Các endpoint ghi (UpdateBrandAsync,
+        // AddSocialLinkAsync…) trả response KHÔNG có DimensionAverages vì chỉ đụng tới một
+        // phần nhỏ của hồ sơ, gọi thêm query review cho response đó là phí.
+        var response = ProviderBrandResponse.From(provider);
+        response.DimensionAverages = (await LoadDimensionAveragesAsync(provider.Id)).DimensionAverages;
+        return response;
+    }
+
+    private async Task<ProviderRatingAggregate> LoadDimensionAveragesAsync(Guid serviceProviderProfileId)
+    {
+        var reviews = await _unitOfWork.GetRepository<Review>().GetListAsync(
+            predicate: r => r.ProjectWorking.ServiceProviderProfileId == serviceProviderProfileId,
+            include: q => q.Include(r => r.ReviewScores));
+
+        return ProviderRatingAggregator.Aggregate(reviews);
+    }
 
     public async Task<ProviderBrandResponse> UpdateBrandAsync(
         Guid accountId, Guid serviceProviderProfileId, UpdateProviderBrandRequest request)

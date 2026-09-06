@@ -20,6 +20,14 @@ public class ServiceProviderProfileResponse
     /// <summary>Số đánh giá đã nhận — đồng bộ cùng AvgRating bởi ReviewService (review 1.1).</summary>
     public int ReviewCount { get; set; }
 
+    /// <summary>
+    /// Điểm trung bình theo từng tiêu chí (chuỗi dimension → điểm). Chỉ populate ở
+    /// <c>GetByIdAsync</c> (một profile); <c>GetAllAsync</c> trả rỗng để list không phình payload.
+    /// Dimension đầy đủ: <c>progress</c> / <c>quality</c> / <c>communication</c> / <c>cost</c> /
+    /// <c>professionalism</c>.
+    /// </summary>
+    public Dictionary<string, decimal> DimensionAverages { get; set; } = new();
+
     // ── Thương hiệu (review 1.1) ────────────────────────────────────────────
     public string? LogoUrl { get; set; }
     public string? LogoViewUrl { get; set; }

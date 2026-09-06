@@ -62,22 +62,17 @@ public class ReviewService : IReviewService
             predicate: r => r.ProjectWorking.ServiceProviderProfileId == serviceProviderProfileId,
             include: q => q.Include(r => r.ReviewScores));
 
-        var summary = new ProviderRatingSummaryResponse
+        var aggregate = ProviderRatingAggregator.Aggregate(reviews);
+
+        return new ProviderRatingSummaryResponse
         {
             ServiceProviderProfileId = serviceProviderProfileId,
-            ReviewCount = reviews.Count
+            ReviewCount = aggregate.ReviewCount,
+            // DTO summary dùng decimal (không nullable) — đã có review thì mới có giá trị, không
+            // có review thì để 0 (provider mới chưa được chấm).
+            AverageRating = aggregate.AverageRating ?? 0m,
+            DimensionAverages = aggregate.DimensionAverages
         };
-
-        if (reviews.Count > 0)
-        {
-            summary.AverageRating = Math.Round(reviews.Average(r => r.OverallRating), 2);
-            summary.DimensionAverages = reviews
-                .SelectMany(r => r.ReviewScores)
-                .GroupBy(s => s.Dimension)
-                .ToDictionary(g => g.Key.ToString(), g => Math.Round((decimal)g.Average(s => s.Score), 2));
-        }
-
-        return summary;
     }
 
     public async Task<ReviewResponse> CreateAsync(Guid accountId, CreateReviewRequest request)

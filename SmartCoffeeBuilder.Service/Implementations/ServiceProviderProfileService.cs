@@ -6,6 +6,7 @@ using SmartCoffeeBuilder.Service.ApiResponse;
 using SmartCoffeeBuilder.Service.DTOs.Requests.ServiceProviderProfile;
 using SmartCoffeeBuilder.Service.DTOs.Responses.ServiceProviderProfile;
 using SmartCoffeeBuilder.Service.Interfaces;
+using SmartCoffeeBuilder.Service.Utils;
 using ServiceProviderProfileEntity = SmartCoffeeBuilder.Repository.Models.ServiceProviderProfile;
 using AccountEntity = SmartCoffeeBuilder.Repository.Models.Account;
 
@@ -56,7 +57,11 @@ public class ServiceProviderProfileService : IServiceProviderProfileService
         var provider = await _repository.SingleOrDefaultAsync(predicate: p => p.Id == id && p.DeletedAt == null)
             ?? throw new KeyNotFoundException($"No service provider found with id {id}.");
 
-        return ServiceProviderProfileResponse.From(provider);
+        // Đường đơn lẻ thì FE render trang profile — nhúng dimension averages luôn để khỏi phải
+        // gọi thêm /api/reviews/providers/{id}/summary. GetAllAsync bỏ qua bước này để list giữ gọn.
+        var response = ServiceProviderProfileResponse.From(provider);
+        response.DimensionAverages = (await LoadDimensionAveragesAsync(id)).DimensionAverages;
+        return response;
     }
 
     public async Task<ServiceProviderProfileResponse> CreateAsync(CreateServiceProviderProfileRequest request)
@@ -151,5 +156,18 @@ public class ServiceProviderProfileService : IServiceProviderProfileService
         provider.DeletedAt = DateTime.UtcNow;
         _repository.Update(provider);
         await _unitOfWork.CommitAsync();
+    }
+
+    /// <summary>
+    /// Lấy reviews của provider qua ProjectWorking để gộp dimension averages. Chỉ gọi từ đường
+    /// đơn lẻ (<see cref="GetByIdAsync"/>) — GetAllAsync bỏ qua để list không tốn query thêm.
+    /// </summary>
+    private async Task<ProviderRatingAggregate> LoadDimensionAveragesAsync(Guid serviceProviderProfileId)
+    {
+        var reviews = await _unitOfWork.GetRepository<Repository.Models.Review>().GetListAsync(
+            predicate: r => r.ProjectWorking.ServiceProviderProfileId == serviceProviderProfileId,
+            include: q => q.Include(r => r.ReviewScores));
+
+        return ProviderRatingAggregator.Aggregate(reviews);
     }
 }
