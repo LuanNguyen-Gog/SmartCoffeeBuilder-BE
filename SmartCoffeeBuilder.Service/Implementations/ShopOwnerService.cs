@@ -6,6 +6,7 @@ using SmartCoffeeBuilder.Service.ApiResponse;
 using SmartCoffeeBuilder.Service.DTOs.Requests.ShopOwner;
 using SmartCoffeeBuilder.Service.DTOs.Responses.ShopOwner;
 using SmartCoffeeBuilder.Service.Interfaces;
+using SmartCoffeeBuilder.Service.Utils;
 
 namespace SmartCoffeeBuilder.Service.Implementations;
 
@@ -40,8 +41,16 @@ public class ShopOwnerService : IShopOwnerService
         return ShopOwnerResponse.From(shopOwner);
     }
 
-    public async Task<ShopOwnerResponse> CreateAsync(CreateShopOwnerRequest request)
+    public async Task<ShopOwnerResponse> CreateAsync(Guid accountId, CreateShopOwnerRequest request)
     {
+        // request.AccountId giữ lại để không đổi hợp đồng API, nhưng CHỈ chấp nhận khi trùng tài
+        // khoản đang đăng nhập — client tự khai thì ai cũng dựng hồ sơ chủ quán trên account của
+        // người khác (chỉ chặn được nhờ account đó chưa có hồ sơ, tức cướp bước onboarding).
+        if (request.AccountId != accountId
+            && !await ResourceOwnership.IsAdminAsync(_unitOfWork, accountId))
+            throw new UnauthorizedAccessException(
+                "A shop owner profile can only be created for the signed-in account.");
+
         var account = await _unitOfWork.GetRepository<Account>()
             .SingleOrDefaultAsync(predicate: a => a.Id == request.AccountId && a.DeletedAt == null)
             ?? throw new KeyNotFoundException($"No account found with id {request.AccountId}.");
@@ -70,10 +79,13 @@ public class ShopOwnerService : IShopOwnerService
         return ShopOwnerResponse.From(shopOwner);
     }
 
-    public async Task<ShopOwnerResponse> UpdateAsync(Guid id, UpdateShopOwnerRequest request)
+    public async Task<ShopOwnerResponse> UpdateAsync(Guid accountId, Guid id, UpdateShopOwnerRequest request)
     {
         var shopOwner = await _repository.GetByIdAsync(id)
             ?? throw new KeyNotFoundException($"No shop owner found with id {id}.");
+
+        await ResourceOwnership.EnsureOwnerAsync(
+            _unitOfWork, shopOwner.AccountId, accountId, "shop owner profile", "edit it");
 
         if (request.FullName != null) shopOwner.FullName = request.FullName;
         if (request.ShopName != null) shopOwner.ShopName = request.ShopName;

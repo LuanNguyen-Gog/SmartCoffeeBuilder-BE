@@ -29,6 +29,7 @@ public class ApplyService : IApplyService
     }
 
     public async Task<PaginationResponse<ApplyResponse>> GetAllAsync(
+        Guid accountId,
         int pageNumber = 1, int pageSize = 10,
         Guid? postId = null, Guid? serviceProviderProfileId = null, string? status = null)
     {
@@ -40,10 +41,18 @@ public class ApplyService : IApplyService
             st = parsed;
         }
 
+        // Quyền xem đi THẲNG VÀO QUERY, không lọc sau khi lấy về (TotalItems sẽ sai).
+        // Proposal + EstimatedDurationDays là nội dung chào thầu: để hở thì provider chỉ cần đổi
+        // postId là đọc được bài của đối thủ — đúng thứ C5 đã bịt ở thread comment báo giá.
+        var isAdmin = await ResourceOwnership.IsAdminAsync(_unitOfWork, accountId);
+
         var query = _repository
             .GetQueryable(
                 a => a.ServiceProviderProfile.DeletedAt == null      // ẩn hồ sơ của provider đã xoá mềm
                      && a.Post.ProjectShopOwner.DeletedAt == null     // và của bài thuộc dự án đã xoá mềm
+                     && (isAdmin
+                         || a.ServiceProviderProfile.AccountId == accountId
+                         || a.Post.ProjectShopOwner.Owner.AccountId == accountId)
                      && (postId == null || a.PostId == postId)
                      && (serviceProviderProfileId == null || a.ServiceProviderProfileId == serviceProviderProfileId)
                      && (st == null || a.Status == st),
@@ -57,8 +66,10 @@ public class ApplyService : IApplyService
             paged.TotalItems, paged.PageNumber, paged.PageSize);
     }
 
-    public async Task<ApplyResponse> GetByIdAsync(Guid id)
+    public async Task<ApplyResponse> GetByIdAsync(Guid accountId, Guid id)
     {
+        await EnsurePartyAsync(accountId, id);
+
         var application = await _repository.SingleOrDefaultAsync(
             predicate: a => a.Id == id
                             && a.ServiceProviderProfile.DeletedAt == null
@@ -174,8 +185,10 @@ public class ApplyService : IApplyService
         return ApplyResponse.From(application);
     }
 
-    public async Task<ApplyResponse> UpdateProposalAsync(Guid id, UpdateApplyRequest request)
+    public async Task<ApplyResponse> UpdateProposalAsync(Guid accountId, Guid id, UpdateApplyRequest request)
     {
+        await EnsureApplicantAsync(accountId, id, "edit its proposal");
+
         var application = await _repository.SingleOrDefaultAsync(
             predicate: a => a.Id == id,
             include: q => q.Include(a => a.Post).Include(a => a.ServiceProviderProfile))
@@ -201,8 +214,10 @@ public class ApplyService : IApplyService
         return ApplyResponse.From(application);
     }
 
-    public async Task<ProjectWorkingResponse> AcceptAsync(Guid id)
+    public async Task<ProjectWorkingResponse> AcceptAsync(Guid accountId, Guid id)
     {
+        await EnsurePostOwnerAsync(accountId, id, "accept it");
+
         var application = await _repository.SingleOrDefaultAsync(
             predicate: a => a.Id == id,
             include: q => q.Include(a => a.Post).ThenInclude(p => p.ProjectShopOwner).Include(a => a.ServiceProviderProfile))
@@ -282,8 +297,10 @@ public class ApplyService : IApplyService
         return ProjectWorkingResponse.From(engagement);
     }
 
-    public async Task<ApplyResponse> RejectAsync(Guid id)
+    public async Task<ApplyResponse> RejectAsync(Guid accountId, Guid id)
     {
+        await EnsurePostOwnerAsync(accountId, id, "reject it");
+
         var application = await _repository.SingleOrDefaultAsync(
             predicate: a => a.Id == id,
             include: q => q.Include(a => a.Post).Include(a => a.ServiceProviderProfile))
@@ -318,8 +335,10 @@ public class ApplyService : IApplyService
         ProjectSlotRules.EnsureSlotFree(activeKinds, wanted, action);
     }
 
-    public async Task WithdrawAsync(Guid id)
+    public async Task WithdrawAsync(Guid accountId, Guid id)
     {
+        await EnsureApplicantAsync(accountId, id, "withdraw it");
+
         var application = await _repository.GetByIdAsync(id)
             ?? throw new KeyNotFoundException($"No application found with id {id}.");
 
@@ -328,5 +347,54 @@ public class ApplyService : IApplyService
 
         _repository.Delete(application);
         await _unitOfWork.CommitAsync();
+    }
+
+    /// <summary>
+    /// Hai đầu account của một hồ sơ ứng tuyển. Dùng projection lấy đúng 2 cột thay vì nạp cả
+    /// graph — cùng cách <c>CommentService.LoadApplyPartiesAsync</c> và
+    /// <c>EngagementAuthorization</c> đang làm.
+    /// </summary>
+    private sealed record ApplyParties(Guid OwnerAccountId, Guid ProviderAccountId);
+
+    private async Task<ApplyParties> LoadPartiesAsync(Guid applyId) =>
+        (await _unitOfWork.GetRepository<Apply>().GetListAsync(
+            selector: a => new ApplyParties(
+                a.Post.ProjectShopOwner.Owner.AccountId,
+                a.ServiceProviderProfile.AccountId),
+            predicate: a => a.Id == applyId))
+        .FirstOrDefault()
+        ?? throw new KeyNotFoundException($"No application found with id {applyId}.");
+
+    /// <summary>Chỉ chủ CỦA BÀI ĐĂNG (hoặc admin) — dùng cho accept/reject.</summary>
+    private async Task EnsurePostOwnerAsync(Guid accountId, Guid applyId, string action)
+    {
+        var parties = await LoadPartiesAsync(applyId);
+        if (parties.OwnerAccountId == accountId) return;
+        if (await ResourceOwnership.IsAdminAsync(_unitOfWork, accountId)) return;
+
+        throw new UnauthorizedAccessException(
+            $"Only the owner of the post this application was submitted to may {action}.");
+    }
+
+    /// <summary>Chỉ provider ĐÃ NỘP hồ sơ đó (hoặc admin) — dùng cho sửa proposal/rút hồ sơ.</summary>
+    private async Task EnsureApplicantAsync(Guid accountId, Guid applyId, string action)
+    {
+        var parties = await LoadPartiesAsync(applyId);
+        if (parties.ProviderAccountId == accountId) return;
+        if (await ResourceOwnership.IsAdminAsync(_unitOfWork, accountId)) return;
+
+        throw new UnauthorizedAccessException(
+            $"Only the provider who submitted this application may {action}.");
+    }
+
+    /// <summary>Một trong hai bên (hoặc admin) — dùng cho đọc chi tiết.</summary>
+    private async Task EnsurePartyAsync(Guid accountId, Guid applyId)
+    {
+        var parties = await LoadPartiesAsync(applyId);
+        if (parties.OwnerAccountId == accountId || parties.ProviderAccountId == accountId) return;
+        if (await ResourceOwnership.IsAdminAsync(_unitOfWork, accountId)) return;
+
+        throw new UnauthorizedAccessException(
+            "This application belongs to another provider and another post — you cannot read it.");
     }
 }

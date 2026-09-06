@@ -27,14 +27,14 @@ public class ApplyController : ControllerBase
         [FromQuery] Guid? serviceProviderProfileId = null,
         [FromQuery] string? status = null)
     {
-        var result = await _applyService.GetAllAsync(pageNumber, pageSize, postId, serviceProviderProfileId, status);
+        var result = await _applyService.GetAllAsync(User.GetAccountId(), pageNumber, pageSize, postId, serviceProviderProfileId, status);
         return Ok(result);
     }
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id)
     {
-        var result = await _applyService.GetByIdAsync(id);
+        var result = await _applyService.GetByIdAsync(User.GetAccountId(), id);
         return Ok(result);
     }
 
@@ -58,7 +58,7 @@ public class ApplyController : ControllerBase
     [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> UpdateProposal(Guid id, [FromBody] UpdateApplyRequest request)
     {
-        var result = await _applyService.UpdateProposalAsync(id, request);
+        var result = await _applyService.UpdateProposalAsync(User.GetAccountId(), id, request);
         return Ok(result);
     }
 
@@ -67,7 +67,7 @@ public class ApplyController : ControllerBase
     [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Accept(Guid id)
     {
-        var result = await _applyService.AcceptAsync(id);
+        var result = await _applyService.AcceptAsync(User.GetAccountId(), id);
         return Ok(result);
     }
 
@@ -76,7 +76,7 @@ public class ApplyController : ControllerBase
     [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Reject(Guid id)
     {
-        var result = await _applyService.RejectAsync(id);
+        var result = await _applyService.RejectAsync(User.GetAccountId(), id);
         return Ok(result);
     }
 
@@ -85,7 +85,7 @@ public class ApplyController : ControllerBase
     [Authorize(Roles = "provider,admin")]
     public async Task<IActionResult> Withdraw(Guid id)
     {
-        await _applyService.WithdrawAsync(id);
+        await _applyService.WithdrawAsync(User.GetAccountId(), id);
         return NoContent();
     }
 }

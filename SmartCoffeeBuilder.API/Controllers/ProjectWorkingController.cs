@@ -33,7 +33,7 @@ public class ProjectWorkingController : ControllerBase
         [FromQuery] Guid? serviceProviderProfileId = null,
         [FromQuery] string? status = null)
     {
-        var result = await _projectWorkingService.GetAllAsync(pageNumber, pageSize, projectShopOwnerId, serviceProviderProfileId, status);
+        var result = await _projectWorkingService.GetAllAsync(User.GetAccountId(), pageNumber, pageSize, projectShopOwnerId, serviceProviderProfileId, status);
         return Ok(result);
     }
 
@@ -52,14 +52,14 @@ public class ProjectWorkingController : ControllerBase
         [FromQuery] string? contractType = null)
     {
         var result = await _projectWorkingService.FilterAsync(
-            pageNumber, pageSize, statuses, projectShopOwnerId, serviceProviderProfileId, contractType);
+            User.GetAccountId(), pageNumber, pageSize, statuses, projectShopOwnerId, serviceProviderProfileId, contractType);
         return Ok(result);
     }
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id)
     {
-        var result = await _projectWorkingService.GetByIdAsync(id);
+        var result = await _projectWorkingService.GetByIdAsync(User.GetAccountId(), id);
         return Ok(result);
     }
 

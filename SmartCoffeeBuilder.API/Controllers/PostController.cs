@@ -54,7 +54,7 @@ public class PostController : ControllerBase
     [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Create([FromBody] CreatePostRequest request)
     {
-        var result = await _postService.CreateAsync(request);
+        var result = await _postService.CreateAsync(User.GetAccountId(), request);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
@@ -62,7 +62,7 @@ public class PostController : ControllerBase
     [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdatePostRequest request)
     {
-        var result = await _postService.UpdateAsync(id, request);
+        var result = await _postService.UpdateAsync(User.GetAccountId(), id, request);
         return Ok(result);
     }
 
@@ -70,7 +70,7 @@ public class PostController : ControllerBase
     [Authorize(Roles = "owner,admin")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        await _postService.DeleteAsync(id);
+        await _postService.DeleteAsync(User.GetAccountId(), id);
         return NoContent();
     }
 }

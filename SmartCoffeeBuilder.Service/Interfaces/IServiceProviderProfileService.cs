@@ -14,7 +14,14 @@ public interface IServiceProviderProfileService
         int pageNumber = 1, int pageSize = 10,
         string? capability = null, bool? isVerified = null, string? search = null);
     Task<ServiceProviderProfileResponse> GetByIdAsync(Guid id);
-    Task<ServiceProviderProfileResponse> CreateAsync(CreateServiceProviderProfileRequest request);
-    Task<ServiceProviderProfileResponse> UpdateAsync(Guid id, UpdateServiceProviderProfileRequest request);
+    /// <param name="accountId">Người đang đăng nhập — chỉ dựng hồ sơ cho chính account này.</param>
+    Task<ServiceProviderProfileResponse> CreateAsync(
+        Guid accountId, CreateServiceProviderProfileRequest request);
+    /// <param name="accountId">
+    /// Người đang đăng nhập. Hồ sơ phải là của chính account này; riêng <c>IsVerified</c>
+    /// chỉ admin đổi được.
+    /// </param>
+    Task<ServiceProviderProfileResponse> UpdateAsync(
+        Guid accountId, Guid id, UpdateServiceProviderProfileRequest request);
     Task DeleteAsync(Guid id);
 }

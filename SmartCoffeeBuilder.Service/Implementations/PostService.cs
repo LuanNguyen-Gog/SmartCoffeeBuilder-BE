@@ -90,11 +90,17 @@ public class PostService : IPostService
         return PostResponse.From(post);
     }
 
-    public async Task<PostResponse> CreateAsync(CreatePostRequest request)
+    public async Task<PostResponse> CreateAsync(Guid accountId, CreatePostRequest request)
     {
-        var project = await _unitOfWork.GetRepository<ProjectShopOwner>()
-            .SingleOrDefaultAsync(predicate: p => p.Id == request.ProjectShopOwnerId && p.DeletedAt == null)
+        var project = await _unitOfWork.GetRepository<ProjectShopOwner>().SingleOrDefaultAsync(
+            predicate: p => p.Id == request.ProjectShopOwnerId && p.DeletedAt == null,
+            include: q => q.Include(p => p.Owner))
             ?? throw new KeyNotFoundException($"No project found with id {request.ProjectShopOwnerId}.");
+
+        // Bài đăng phải nằm trên dự án CỦA CHÍNH mình. Role gate "owner,admin" cho mọi owner qua,
+        // nên thiếu bước này thì owner A đăng tuyển thầu trên dự án của owner B.
+        await ResourceOwnership.EnsureOwnerAsync(
+            _unitOfWork, project.Owner.AccountId, accountId, "project", "post a recruitment ad on it");
 
         if (project.Status is ProjectStatus.completed or ProjectStatus.cancelled)
             throw new InvalidOperationException(
@@ -127,12 +133,15 @@ public class PostService : IPostService
         return PostResponse.From(post);
     }
 
-    public async Task<PostResponse> UpdateAsync(Guid id, UpdatePostRequest request)
+    public async Task<PostResponse> UpdateAsync(Guid accountId, Guid id, UpdatePostRequest request)
     {
         var post = await _repository.SingleOrDefaultAsync(
             predicate: p => p.Id == id,
-            include: q => q.Include(p => p.ProjectShopOwner))
+            include: q => q.Include(p => p.ProjectShopOwner).ThenInclude(ps => ps.Owner))
             ?? throw new KeyNotFoundException($"No post found with id {id}.");
+
+        await ResourceOwnership.EnsureOwnerAsync(
+            _unitOfWork, post.ProjectShopOwner.Owner.AccountId, accountId, "post", "edit it");
 
         if (request.Title != null) post.Title = request.Title;
         if (request.Description != null) post.Description = request.Description;
@@ -168,10 +177,15 @@ public class PostService : IPostService
         return PostResponse.From(post);
     }
 
-    public async Task DeleteAsync(Guid id)
+    public async Task DeleteAsync(Guid accountId, Guid id)
     {
-        var post = await _repository.GetByIdAsync(id)
+        var post = await _repository.SingleOrDefaultAsync(
+            predicate: p => p.Id == id,
+            include: q => q.Include(p => p.ProjectShopOwner).ThenInclude(ps => ps.Owner))
             ?? throw new KeyNotFoundException($"No post found with id {id}.");
+
+        await ResourceOwnership.EnsureOwnerAsync(
+            _unitOfWork, post.ProjectShopOwner.Owner.AccountId, accountId, "post", "delete it");
 
         _repository.Delete(post);
         await _unitOfWork.CommitAsync();
