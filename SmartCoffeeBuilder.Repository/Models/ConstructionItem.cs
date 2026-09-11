@@ -57,11 +57,23 @@ public class ConstructionItem
     /// payment_batches — cột này chỉ để FE khỏi phải join mỗi lần vẽ danh sách hạng mục.
     /// </summary>
     public bool IsPaid { get; set; }
+
+    /// <summary>
+    /// Mẫu quy trình đã sinh ra hạng mục này (null = gõ tay). Chỉ là VẾT NGUỒN, không phải liên
+    /// kết sống: áp mẫu vẫn là copy một lần, sửa mẫu về sau không đụng tới hạng mục đã sinh.
+    ///
+    /// Có cột này thì chủ quán mới trả lời được câu hỏi review 3 đặt ra — "nhà thầu đang theo quy
+    /// trình nào" — mà trước đây chỉ phía nhà thầu biết: ApplyAsync chép hạng mục xong là quên
+    /// luôn mẫu gốc. Mẫu bị xoá thì cột về null (SetNull), kế hoạch đã sinh vẫn còn nguyên.
+    /// </summary>
+    public Guid? SourceTemplateId { get; set; }
+
     public Guid? CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
     public ProjectWorking ProjectWorking { get; set; } = null!;
+    public ConstructionTemplate? SourceTemplate { get; set; }
     public ConstructionItem? Parent { get; set; }
     public ICollection<ConstructionItem> Children { get; set; } = new List<ConstructionItem>();
     public Account? CreatedByAccount { get; set; }

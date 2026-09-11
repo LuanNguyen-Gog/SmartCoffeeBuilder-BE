@@ -178,14 +178,41 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
-// CORS — tạm thời allow all vì chưa chốt origin của FE web/mobile.
-// Khi FE ổn định, thay bằng WithOrigins(...) cụ thể.
+// CORS — chốt theo origin FE (10/09/2026, đóng nợ "CORS allow all" ở CLAUDE.md mục C).
+//
+// Danh sách đọc từ cấu hình `Cors:AllowedOrigins` (mảng chuỗi) để đổi được lúc deploy mà không
+// phải build lại; bỏ trống thì rơi về đúng hai FE đang chạy thật — cùng host với PayOs:ReturnUrl
+// và PayOs:MobileReturnUrl, nên hai chỗ này lệch nhau là biết ngay có origin chưa khai.
+//
+// Lưu ý: app mobile native KHÔNG gửi header Origin nên không bị CORS chi phối; luật này chỉ áp
+// cho provider web (Next.js) và bản Flutter web của app chủ quán.
+var configuredOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+
+var allowedOrigins = configuredOrigins.Length > 0
+    ? configuredOrigins
+    : [
+        "https://ai-coffee-shop-builder-p76q.vercel.app",  // provider web (Next.js)
+        "https://project-d9f1553a-255e-41c1-961.web.app",  // owner app (Flutter web)
+      ];
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
-        policy.AllowAnyOrigin()
+    options.AddPolicy("FrontEnds", policy =>
+    {
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyMethod()
-              .AllowAnyHeader());
+              .AllowAnyHeader();
+
+        // Dev: mở thêm mọi cổng localhost/127.0.0.1 — Vite, Next và `flutter run -d chrome`
+        // đổi cổng mỗi lần chạy nên liệt kê cứng là chặn nhầm chính máy dev.
+        if (builder.Environment.IsDevelopment())
+        {
+            policy.SetIsOriginAllowed(origin =>
+                Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+                && (uri.IsLoopback || allowedOrigins.Contains(origin)));
+        }
+    });
 });
 
 // Global exception handler
@@ -287,7 +314,7 @@ if (app.Environment.IsDevelopment())
     app.UseHangfireDashboard("/hangfire");
 }
 
-app.UseCors("AllowAll");
+app.UseCors("FrontEnds");
 
 app.UseAuthentication();
 app.UseAuthorization();

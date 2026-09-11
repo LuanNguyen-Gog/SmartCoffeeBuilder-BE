@@ -136,15 +136,30 @@ public class DailyLogService : IDailyLogService
             requireActiveEngagement: true, EngagementActor.Provider);
 
         // Đổi chỗ neo thì phải neo lại trong CÙNG engagement — không cho chuyển nhật ký sang dự án khác.
-        if (request.ConstructionItemId != null || request.ConstructionTaskId != null)
+        //
+        // Chỗ neo được xử lý như MỘT KHỐI, chỉ dựa trên những gì người gọi thực sự gửi:
+        //   - không gửi field nào  → giữ nguyên;
+        //   - gửi null tường minh  → gỡ liên kết (trước đây `request.X ?? log.X` đọc null thành
+        //     "giữ nguyên" nên không có cách nào gỡ);
+        //   - gửi task mà không gửi hạng mục → hạng mục SUY RA từ task, không đem hạng mục cũ ra so
+        //     (trước đây so với hạng mục cũ nên câu lỗi nhắc một id mà người dùng không hề gửi).
+        if (request.HasConstructionItemId || request.HasConstructionTaskId)
         {
-            var anchor = await ResolveAnchorAsync(
-                log.ProjectWorkingId,
-                request.ConstructionItemId ?? log.ConstructionItemId,
-                request.ConstructionTaskId ?? log.ConstructionTaskId);
+            if (request.ConstructionItemId == null && request.ConstructionTaskId == null)
+            {
+                log.ConstructionItemId = null;
+                log.ConstructionTaskId = null;
+            }
+            else
+            {
+                var anchor = await ResolveAnchorAsync(
+                    log.ProjectWorkingId,
+                    request.ConstructionItemId,
+                    request.ConstructionTaskId);
 
-            log.ConstructionItemId = anchor.ConstructionItemId;
-            log.ConstructionTaskId = anchor.ConstructionTaskId;
+                log.ConstructionItemId = anchor.ConstructionItemId;
+                log.ConstructionTaskId = anchor.ConstructionTaskId;
+            }
         }
 
         if (request.LogDate is DateOnly date)

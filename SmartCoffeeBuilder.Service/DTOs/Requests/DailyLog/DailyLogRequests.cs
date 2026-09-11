@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace SmartCoffeeBuilder.Service.DTOs.Requests.DailyLog;
 
@@ -56,8 +57,35 @@ public class CreateDailyLogRequest
 /// </summary>
 public class UpdateDailyLogRequest
 {
-    public Guid? ConstructionItemId { get; set; }
-    public Guid? ConstructionTaskId { get; set; }
+    private Guid? _constructionItemId;
+    private Guid? _constructionTaskId;
+
+    /// <summary>
+    /// Hạng mục neo nhật ký. Gửi <c>null</c> TƯỜNG MINH = gỡ liên kết; bỏ hẳn field = giữ nguyên.
+    /// System.Text.Json chỉ gọi setter khi field CÓ MẶT trong payload, kể cả khi giá trị là null —
+    /// nhờ vậy phân biệt được hai ý định mà kiểu <c>Guid?</c> tự nó không diễn đạt được.
+    /// </summary>
+    public Guid? ConstructionItemId
+    {
+        get => _constructionItemId;
+        set { _constructionItemId = value; HasConstructionItemId = true; }
+    }
+
+    /// <summary>Task neo nhật ký. Cùng quy ước null tường minh như <see cref="ConstructionItemId"/>.</summary>
+    public Guid? ConstructionTaskId
+    {
+        get => _constructionTaskId;
+        set { _constructionTaskId = value; HasConstructionTaskId = true; }
+    }
+
+    /// <summary>True khi payload CÓ field constructionItemId (kể cả giá trị null).</summary>
+    [JsonIgnore]
+    public bool HasConstructionItemId { get; private set; }
+
+    /// <summary>True khi payload CÓ field constructionTaskId (kể cả giá trị null).</summary>
+    [JsonIgnore]
+    public bool HasConstructionTaskId { get; private set; }
+
     public DateOnly? LogDate { get; set; }
     public string? WorkDone { get; set; }
     public string? IssueNote { get; set; }

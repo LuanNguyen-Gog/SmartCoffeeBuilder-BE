@@ -422,6 +422,11 @@ public class SmartCafeBuilderContext : DbContext
                 .HasForeignKey(x => x.ParentId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.CreatedByAccount).WithMany()
                 .HasForeignKey(x => x.CreatedBy).OnDelete(DeleteBehavior.SetNull);
+            // Vết nguồn của hạng mục sinh từ mẫu. SetNull chứ không Cascade: xoá một mẫu dùng lại
+            // được KHÔNG được phép cuốn theo kế hoạch thi công của những dự án đã áp nó.
+            e.HasOne(x => x.SourceTemplate).WithMany()
+                .HasForeignKey(x => x.SourceTemplateId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => x.SourceTemplateId);
         });
 
         modelBuilder.Entity<ConstructionTask>(e =>

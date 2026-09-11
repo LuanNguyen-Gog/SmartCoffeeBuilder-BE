@@ -35,6 +35,12 @@ public class AuthService : IAuthService
         if (!Enum.TryParse<AccountRole>(request.Role, ignoreCase: true, out var role))
             throw new ArgumentException($"Role '{request.Role}' is not valid. Allowed: owner, provider, admin.");
 
+        // Quyền admin phải được CẤP, không được tự khai: endpoint này là public nên
+        // nhận thẳng request.Role đồng nghĩa ai cũng tự dựng được tài khoản admin.
+        // Tài khoản admin tạo qua khu vực admin (AccountService), không qua đây.
+        if (role == AccountRole.admin)
+            throw new ArgumentException("The 'admin' role cannot be self-assigned. Administrators are created from the admin area.");
+
         var account = new Account
         {
             Email = request.Email,
@@ -59,6 +65,10 @@ public class AuthService : IAuthService
         if (!BCrypt.Net.BCrypt.Verify(request.Password, account.PasswordHash))
             throw new UnauthorizedAccessException("Incorrect email or password.");
 
+        // Kiểm tra trạng thái SAU khi verify mật khẩu: đặt trước thì phản hồi khác nhau
+        // giữa "email không tồn tại" và "email tồn tại nhưng bị khoá" ⇒ lộ email nào có thật.
+        EnsureCanSignIn(account);
+
         return await IssueTokensAsync(account);
     }
 
@@ -73,9 +83,28 @@ public class AuthService : IAuthService
         if (stored.Account is null || stored.Account.DeletedAt != null)
             throw new UnauthorizedAccessException("The refresh token is not valid.");
 
+        // Khoá tài khoản phải chặn được cả đường gia hạn, không thì token cũ vẫn đẻ token mới mãi.
+        EnsureCanSignIn(stored.Account);
+
         await _authRepository.RevokeRefreshTokenAsync(stored);
 
         return await IssueTokensAsync(stored.Account);
+    }
+
+    /// <summary>
+    /// Chặn đăng nhập / gia hạn phiên với tài khoản đã bị admin khoá.
+    /// Gọi SAU khi đã verify mật khẩu (xem chú thích ở LoginAsync).
+    /// </summary>
+    private static void EnsureCanSignIn(Account account)
+    {
+        if (account.Status == AccountStatus.active) return;
+
+        throw new UnauthorizedAccessException(account.Status switch
+        {
+            AccountStatus.banned => "This account has been banned. Contact the administrator.",
+            AccountStatus.inactive => "This account has been deactivated. Contact the administrator.",
+            _ => "This account is not active yet."
+        });
     }
 
     public async Task LogoutAsync(RefreshTokenRequest request)

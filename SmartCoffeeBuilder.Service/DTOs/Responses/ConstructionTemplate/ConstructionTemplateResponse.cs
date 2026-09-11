@@ -80,3 +80,38 @@ public class ApplyTemplateResponse
     public int CreatedTasks { get; set; }
     public DateOnly PlannedFinishAt { get; set; }
 }
+
+/// <summary>
+/// Một mẫu quy trình ĐÃ ĐƯỢC ÁP vào một engagement, nhìn từ phía dự án.
+///
+/// Đây là bản TÓM TẮT, không phải <see cref="ConstructionTemplateResponse"/>: chủ quán cần biết
+/// nhà thầu đang chạy theo quy trình nào và quy trình đó phủ những hạng mục nào trong dự án CỦA
+/// MÌNH — chứ không phải toàn bộ mẫu gốc, vốn là bí quyết nghề nhà thầu dùng lại cho khách khác.
+/// Các mốc dưới đây vì thế đọc từ construction_items đã sinh, không đọc từ mẫu.
+/// </summary>
+public class AppliedConstructionTemplateResponse
+{
+    public Guid ConstructionTemplateId { get; set; }
+    public Guid ProjectWorkingId { get; set; }
+    public string Name { get; set; } = null!;
+    public string? Description { get; set; }
+    public string ServiceKind { get; set; } = null!;
+
+    /// <summary>true = mẫu chuẩn của hệ thống; false = mẫu riêng nhà thầu tự dựng.</summary>
+    public bool IsPublic { get; set; }
+
+    /// <summary>Số hạng mục gốc (parent_id = null) trong dự án sinh ra từ mẫu này.</summary>
+    public int AppliedItemCount { get; set; }
+
+    /// <summary>Số hạng mục trong đó đã nghiệm thu xong — để vẽ thanh tiến độ của cả quy trình.</summary>
+    public int CompletedItemCount { get; set; }
+
+    /// <summary>Mốc nhà thầu bấm áp mẫu (created_at của lứa hạng mục đầu tiên).</summary>
+    public DateTime AppliedAt { get; set; }
+
+    public DateOnly? PlannedStartAt { get; set; }
+    public DateOnly? PlannedFinishAt { get; set; }
+
+    /// <summary>Tên các hạng mục sinh ra từ mẫu, theo đúng thứ tự kế hoạch.</summary>
+    public List<string> ItemNames { get; set; } = new();
+}
