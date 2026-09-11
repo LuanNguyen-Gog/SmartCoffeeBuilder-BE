@@ -181,6 +181,22 @@ public class AccountService : IAccountService
         account.Status = parsedStatus;
         account.UpdatedAt = DateTime.UtcNow;
         _repository.Update(account);
+
+        // Khoá tài khoản mà không thu hồi refresh token thì phiên đang mở vẫn tự gia hạn:
+        // AuthService chặn được lần đăng nhập sau, nhưng người đang online thì không.
+        if (parsedStatus != AccountStatus.active)
+        {
+            var tokenRepository = _unitOfWork.GetRepository<RefreshToken>();
+            var active = await tokenRepository.GetListAsync(
+                predicate: rt => rt.AccountId == id && rt.RevokedAt == null);
+
+            foreach (var token in active)
+            {
+                token.RevokedAt = DateTime.UtcNow;
+                tokenRepository.Update(token);
+            }
+        }
+
         await _unitOfWork.CommitAsync();
 
         return AccountResponse.From(account);

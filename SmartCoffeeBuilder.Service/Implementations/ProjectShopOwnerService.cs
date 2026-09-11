@@ -39,16 +39,18 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
     }
 
     public async Task<PaginationResponse<ProjectShopOwnerResponse>> GetAllAsync(
-        Guid accountId, int pageNumber = 1, int pageSize = 10, Guid? ownerId = null)
+        Guid accountId, int pageNumber = 1, int pageSize = 10, Guid? ownerId = null, string? status = null)
     {
         // ownerId là bộ lọc do client tự khai nên không rào được gì. Quyền xem đi thẳng vào query
         // để TotalItems của phân trang cũng đúng theo góc nhìn người gọi (xem EnsureVisibleAsync).
         var isAdmin = await IsAdminAsync(accountId);
+        var statusFilter = ParseStatus(status);
 
         var query = _repository
             .GetQueryable(
                 p => p.DeletedAt == null
                      && (ownerId == null || p.OwnerId == ownerId)
+                     && (statusFilter == null || p.Status == statusFilter)
                      && (isAdmin
                          || p.Owner.AccountId == accountId
                          || p.ProjectWorkings.Any(e => e.ServiceProviderProfile.AccountId == accountId
@@ -65,6 +67,20 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
         return new PaginationResponse<ProjectShopOwnerResponse>(
             paged.Items.Select(ProjectShopOwnerResponse.From),
             paged.TotalItems, paged.PageNumber, paged.PageSize);
+    }
+
+    /// <summary>
+    /// Đọc bộ lọc status của danh sách dự án. Giá trị lạ phải ném 400 chứ không im lặng bỏ qua:
+    /// trước đây endpoint không khai tham số này nên mọi giá trị đều trả về đủ danh sách,
+    /// màn Project Overview bên admin lọc kiểu gì cũng ra như nhau.
+    /// </summary>
+    private static ProjectStatus? ParseStatus(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        if (!Enum.TryParse<ProjectStatus>(value, ignoreCase: true, out var status))
+            throw new ArgumentException(
+                $"Status '{value}' is not valid. Allowed: briefed, in_progress, completed, cancelled.");
+        return status;
     }
 
     public async Task<ProjectShopOwnerResponse> GetByIdAsync(Guid accountId, Guid id)

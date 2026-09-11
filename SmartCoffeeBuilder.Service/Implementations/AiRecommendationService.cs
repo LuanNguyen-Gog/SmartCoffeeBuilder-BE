@@ -359,28 +359,21 @@ public class AiRecommendationService : IAiRecommendationService
     private async Task EnsureAiAccessAsync(string userId)
     {
         // ┌──────────────────────────────────────────────────────────────────────────────┐
-        // │ NỢ KỸ THUẬT — PAYWALL AI ĐANG TẮT (rà lại 06/09/2026, vẫn còn nợ)            │
+        // │ PAYWALL AI — ĐÃ BẬT 10/09/2026 (đóng nợ kỹ thuật ghi ở CLAUDE.md mục C)      │
         // └──────────────────────────────────────────────────────────────────────────────┘
-        // Toàn bộ gate bên dưới bị vô hiệu bởi dòng `return` này: MỌI account đang dùng AI
-        // miễn phí, tức nguồn thu duy nhất của sản phẩm hiện không chặn được ai.
+        // Trước đây hàm này mở đầu bằng `return;` nên MỌI account dùng AI miễn phí. Lý do giữ
+        // tắt là owner sẽ mất tính năng mà không có đường mua; hai điều kiện đóng nợ nay đã đủ:
+        //   1. App owner (Flutter): luồng mua đã chạy đủ — pages/subscription_checkout_page.dart
+        //      gọi PaymentService.getPlans → createSubscriptionPayment → launchUrl(checkoutUrl),
+        //      và pages/profile_tab.dart đã có mục "Subscription Plan" làm cửa vào (10/09/2026).
+        //      Trước đó lối vào duy nhất là banner nâng cấp trong màn báo cáo thiết kế AI.
+        //   2. Provider web: components/payments/plan-grid.tsx đã dùng checkoutUrl và
+        //      window.location.assign để sang payOS (sửa 09/09/2026).
+        //   3. Trạng thái sau khi mua đọc được: GET /payments/subscriptions/me/active có
+        //      SubscriptionService.refreshFromServer bên owner gọi.
         //
-        // KHÔNG bật lại được ngay, vì bật lên là owner mất tính năng mà không có đường mua:
-        //   1. App owner (Flutter) chưa có màn thanh toán nào. Chữ "subscription" không xuất
-        //      hiện một lần nào trong CafeBuilder/lib; pages/package_details_page.dart tuy đã
-        //      được route ở main.dart:75 nhưng là UI tĩnh (đúng 2 import, không gọi service),
-        //      và GET /api/payments/plans không có FE owner nào gọi.
-        //      (payment_batches_page.dart là minh chứng chuyển khoản của hợp đồng — không liên quan.)
-        //   2. Bên provider web có gọi /payments/plans nhưng luồng đứt ở bước redirect:
-        //      components/payments/plan-grid.tsx chỉ toast.success rồi dừng, không dùng
-        //      checkoutUrl mà CreatePaymentResponse trả về → không ai sang được payOS.
-        //   3. GET /payments/status, /payments/subscriptions/me[/active], POST /payments/cancel
-        //      chưa FE nào gọi → mua xong cũng không màn nào hiện ra là đã mua.
-        //
-        // ĐIỀU KIỆN ĐỂ ĐÓNG NỢ NÀY: nối xong (1) và (2) rồi mới xoá dòng `return` + cặp
-        // #pragma CS0162 bên dưới. Xoá trước khi có màn mua = khoá tính năng bán hàng chính
-        // ngay trước buổi bảo vệ.
-        return;
-#pragma warning disable CS0162 // Unreachable code detected
+        // Lưu ý khi demo: gate chỉ chặn Role=owner KHÔNG có subscription 'active' còn hạn.
+        // Tài khoản dùng để demo AI phải mua gói trước, nếu không sẽ bị chặn ngay trên sân khấu.
         if (!Guid.TryParse(userId, out var accountId))
             throw new UnauthorizedAccessException("The account id in the token is not valid.");
 
@@ -400,7 +393,6 @@ public class AiRecommendationService : IAiRecommendationService
             throw new InvalidOperationException(
                 "Free-plan accounts cannot use the AI design feature. " +
                 "Please purchase a subscription plan (GET /api/payments/plans) to unlock it.");
-#pragma warning restore CS0162
     }
 
     private static List<string>? ParseJsonList(string? json)

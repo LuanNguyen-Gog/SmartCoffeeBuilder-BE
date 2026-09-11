@@ -10,7 +10,7 @@ public interface IProjectShopOwnerService
     /// Chỉ trả dự án người gọi tham gia (chủ dự án / provider có engagement) hoặc đang mở thầu
     /// công khai; admin thấy tất cả. Lọc trong query để phân trang đúng.
     /// </summary>
-    Task<PaginationResponse<ProjectShopOwnerResponse>> GetAllAsync(Guid accountId, int pageNumber = 1, int pageSize = 10, Guid? ownerId = null);
+    Task<PaginationResponse<ProjectShopOwnerResponse>> GetAllAsync(Guid accountId, int pageNumber = 1, int pageSize = 10, Guid? ownerId = null, string? status = null);
     Task<ProjectShopOwnerResponse> GetByIdAsync(Guid accountId, Guid id);
 
     /// <summary>

@@ -65,6 +65,19 @@ public class ConstructionTemplateController : ControllerBase
     }
 
     /// <summary>
+    /// Các mẫu quy trình đã được áp vào một dự án cụ thể. Khác <c>GET /api/construction-templates</c>
+    /// (thư viện mẫu của nhà thầu) ở chỗ nó nhìn từ phía DỰ ÁN, nên CHỦ QUÁN cũng gọi được —
+    /// review 3: "add thêm template cho quá trình thi công" thì bên thuê phải xem được quy trình.
+    /// </summary>
+    [HttpGet("applied/{projectWorkingId:guid}")]
+    public async Task<IActionResult> GetApplied(Guid projectWorkingId)
+    {
+        var result = await _constructionTemplateService.GetAppliedAsync(
+            User.GetAccountId(), projectWorkingId);
+        return Ok(result);
+    }
+
+    /// <summary>
     /// Sắp lại thứ tự hạng mục trong mẫu (kéo thả trên FE). Gửi TOÀN BỘ id theo thứ tự mong muốn.
     /// Chỉ tác giả mẫu hoặc admin. Không ảnh hưởng dự án đã áp mẫu trước đó — áp mẫu là copy một lần.
     /// </summary>

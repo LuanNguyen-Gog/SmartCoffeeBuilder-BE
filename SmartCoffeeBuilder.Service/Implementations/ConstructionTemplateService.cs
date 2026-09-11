@@ -235,6 +235,10 @@ public class ConstructionTemplateService : IConstructionTemplateService
                 StartAt = itemStart,
                 EstimateAt = itemEnd,
                 Status = ItemStatus.pending,
+                // Vết nguồn: hạng mục này ra đời từ mẫu nào. Chép xong mà không ghi lại thì phía
+                // chủ quán không có cách nào biết nhà thầu đang chạy theo quy trình gì — kế hoạch
+                // trông y hệt như gõ tay. Vẫn là copy một lần: sửa mẫu về sau không đụng vào đây.
+                SourceTemplateId = template.Id,
                 CreatedBy = accountId,
                 CreatedAt = now,
                 UpdatedAt = now
@@ -286,6 +290,63 @@ public class ConstructionTemplateService : IConstructionTemplateService
                 ? cursor
                 : items.Max(i => i.EstimateAt ?? cursor)
         };
+    }
+
+    /// <summary>
+    /// Đọc NGƯỢC vết nguồn: những mẫu nào đã được áp vào engagement này, và mỗi mẫu phủ những
+    /// hạng mục nào của kế hoạch.
+    ///
+    /// Gom theo <c>SourceTemplateId</c> chứ không trả về một mẫu duy nhất, vì áp mẫu là NỐI THÊM —
+    /// nhà thầu áp mẫu "Phần thô" rồi áp tiếp "Hoàn thiện" là chuyện bình thường, và chủ quán cần
+    /// thấy đủ cả hai.
+    ///
+    /// Mẫu đã bị xoá thì FK về null nên rơi khỏi danh sách, còn các hạng mục nó sinh ra vẫn nằm
+    /// nguyên trong kế hoạch (SetNull) — mất tên quy trình, không mất tiến độ.
+    /// </summary>
+    public async Task<List<AppliedConstructionTemplateResponse>> GetAppliedAsync(
+        Guid accountId, Guid projectWorkingId)
+    {
+        // KHÔNG dùng EnsureVisible ở đây: luật public/của-chính-mình là luật của THƯ VIỆN mẫu.
+        // Ở màn dự án, thứ quyết định quyền xem là "có phải một bên của engagement không" —
+        // nếu không thì chủ quán chẳng bao giờ nhìn được mẫu riêng mà nhà thầu vừa áp cho mình.
+        await EngagementAuthorization.ResolveActorAsync(_unitOfWork, accountId, projectWorkingId);
+
+        // Chỉ hạng mục GỐC (ParentId = null): mẫu sinh ra hạng mục cấp một, việc con nằm ở
+        // construction_tasks. Đếm cả cấp con sẽ thổi phồng AppliedItemCount.
+        var items = await _unitOfWork.GetRepository<ConstructionItem>().GetListAsync(
+            predicate: i => i.ProjectWorkingId == projectWorkingId
+                            && i.ParentId == null
+                            && i.SourceTemplateId != null,
+            include: q => q.Include(i => i.SourceTemplate!));
+
+        return [.. items
+            .GroupBy(i => i.SourceTemplateId!.Value)
+            .Select(group =>
+            {
+                var ordered = group.OrderBy(i => i.SortOrder).ThenBy(i => i.CreatedAt).ToList();
+                var template = ordered[0].SourceTemplate!;
+
+                return new AppliedConstructionTemplateResponse
+                {
+                    ConstructionTemplateId = template.Id,
+                    ProjectWorkingId = projectWorkingId,
+                    Name = template.Name,
+                    Description = template.Description,
+                    ServiceKind = template.ServiceKind.ToString(),
+                    IsPublic = template.IsPublic,
+                    AppliedItemCount = ordered.Count,
+                    CompletedItemCount = ordered.Count(i => i.Status == ItemStatus.completed),
+                    // Mốc áp mẫu = lúc lứa hạng mục đó được tạo; ApplyAsync đặt cùng một `now`
+                    // cho cả lứa nên Min ở đây là chính mốc bấm nút.
+                    AppliedAt = ordered.Min(i => i.CreatedAt),
+                    // Mốc kế hoạch đọc từ hạng mục THẬT, không đọc từ EstimateDays của mẫu: sau khi
+                    // áp, nhà thầu còn kéo lịch, nên con số của mẫu không còn đúng với dự án nữa.
+                    PlannedStartAt = ordered.Where(i => i.StartAt != null).Select(i => i.StartAt).Min(),
+                    PlannedFinishAt = ordered.Where(i => i.EstimateAt != null).Select(i => i.EstimateAt).Max(),
+                    ItemNames = [.. ordered.Select(i => i.Name)]
+                };
+            })
+            .OrderBy(r => r.AppliedAt)];
     }
 
     // ───────────────────────── Helper ─────────────────────────

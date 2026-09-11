@@ -23,6 +23,13 @@ public interface IConstructionTemplateService
     Task<ApplyTemplateResponse> ApplyAsync(Guid accountId, Guid id, ApplyConstructionTemplateRequest request);
 
     /// <summary>
+    /// Các mẫu quy trình đã được áp vào một engagement — đọc ngược từ vết nguồn trên
+    /// construction_items. CẢ HAI BÊN của engagement đều xem được: review 3 yêu cầu chủ quán
+    /// nhìn thấy nhà thầu đang chạy theo quy trình nào.
+    /// </summary>
+    Task<List<AppliedConstructionTemplateResponse>> GetAppliedAsync(Guid accountId, Guid projectWorkingId);
+
+    /// <summary>
     /// Sắp lại thứ tự hạng mục trong mẫu — chỉ tác giả mẫu (hoặc admin). Nhận toàn bộ danh sách.
     /// </summary>
     Task<ConstructionTemplateResponse> ReorderItemsAsync(

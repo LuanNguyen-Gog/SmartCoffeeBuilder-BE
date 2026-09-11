@@ -22,9 +22,10 @@ public class ProjectShopOwnerController : ControllerBase
     public async Task<IActionResult> GetAll(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
-        [FromQuery] Guid? ownerId = null)
+        [FromQuery] Guid? ownerId = null,
+        [FromQuery] string? status = null)
     {
-        var result = await _projectShopOwnerService.GetAllAsync(User.GetAccountId(), pageNumber, pageSize, ownerId);
+        var result = await _projectShopOwnerService.GetAllAsync(User.GetAccountId(), pageNumber, pageSize, ownerId, status);
         return Ok(result);
     }
 
