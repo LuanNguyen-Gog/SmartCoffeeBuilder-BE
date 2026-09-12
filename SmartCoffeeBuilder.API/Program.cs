@@ -192,8 +192,10 @@ var configuredOrigins = builder.Configuration
 var allowedOrigins = configuredOrigins.Length > 0
     ? configuredOrigins
     : [
-        "https://ai-coffee-shop-builder-p76q.vercel.app",  // provider web (Next.js)
-        "https://project-d9f1553a-255e-41c1-961.web.app",  // owner app (Flutter web)
+        "https://ai-coffee-shop-builder-p76q.vercel.app",         // provider web (Next.js)
+        "https://cafe-builder-provider.vercel.app",               // provider web (domain dang dung)
+        "https://project-c9eeff73-5757-418b-b6a.web.app",         // owner app (Flutter web)
+        "https://project-c9eeff73-5757-418b-b6a.firebaseapp.com", // owner app (domain phu cua Hosting)
       ];
 
 builder.Services.AddCors(options =>
