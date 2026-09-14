@@ -178,40 +178,27 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
-// CORS — chốt theo origin FE (10/09/2026, đóng nợ "CORS allow all" ở CLAUDE.md mục C).
+// CORS — mở cho mọi origin (13/09/2026).
 //
-// Danh sách đọc từ cấu hình `Cors:AllowedOrigins` (mảng chuỗi) để đổi được lúc deploy mà không
-// phải build lại; bỏ trống thì rơi về đúng hai FE đang chạy thật — cùng host với PayOs:ReturnUrl
-// và PayOs:MobileReturnUrl, nên hai chỗ này lệch nhau là biết ngay có origin chưa khai.
+// Đổi lại "allow all" theo yêu cầu vận hành sau khi migrate sang project GCP mới: danh sách
+// cứng ở đây trỏ vào project cũ đã xoá, và mỗi lần FE đổi domain (Vercel preview, Firebase
+// Hosting channel, `flutter run -d chrome` random cổng) lại phải deploy lại BE mới gỡ được
+// chặn. Chốt lại allowlist khi các domain FE đã ổn định.
+//
+// An toàn được ở đây vì API KHÔNG dùng cookie/session: xác thực là JWT Bearer đặt tay vào
+// header, nên trang lạ gọi sang cũng không đọc được token của người dùng. Hệ quả: KHÔNG
+// được thêm .AllowCredentials() — ASP.NET Core ném exception ngay lúc startup nếu đi kèm
+// AllowAnyOrigin(), và nếu sau này chuyển sang cookie thì phải quay lại allowlist trước.
 //
 // Lưu ý: app mobile native KHÔNG gửi header Origin nên không bị CORS chi phối; luật này chỉ áp
 // cho provider web (Next.js) và bản Flutter web của app chủ quán.
-var configuredOrigins = builder.Configuration
-    .GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
-
-var allowedOrigins = configuredOrigins.Length > 0
-    ? configuredOrigins
-    : [
-        "https://ai-coffee-shop-builder-p76q.vercel.app",  // provider web (Next.js)
-        "https://project-d9f1553a-255e-41c1-961.web.app",  // owner app (Flutter web)
-      ];
-
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontEnds", policy =>
     {
-        policy.WithOrigins(allowedOrigins)
+        policy.AllowAnyOrigin()
               .AllowAnyMethod()
               .AllowAnyHeader();
-
-        // Dev: mở thêm mọi cổng localhost/127.0.0.1 — Vite, Next và `flutter run -d chrome`
-        // đổi cổng mỗi lần chạy nên liệt kê cứng là chặn nhầm chính máy dev.
-        if (builder.Environment.IsDevelopment())
-        {
-            policy.SetIsOriginAllowed(origin =>
-                Uri.TryCreate(origin, UriKind.Absolute, out var uri)
-                && (uri.IsLoopback || allowedOrigins.Contains(origin)));
-        }
     });
 });
 
