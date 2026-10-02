@@ -34,8 +34,9 @@ public class OverviewProjectSummary
 
 /// <summary>
 /// Tổng quan dự án cho provider sau bước AI — nội dung theo contract_type:
-/// - Engagement có design (design/both): brief + các kết quả AI đã hoàn tất.
-/// - Engagement chỉ construction: xem bản vẽ đã 'approved' của bên design (không xem AI plan).
+/// - Mọi engagement: các kết quả AI đã hoàn tất (từ 02/10/2026 bên thi công cũng nhận).
+/// - Engagement có design (design/both): thêm brief.
+/// - Engagement chỉ construction: thêm bản vẽ đã 'approved' của bên design.
 /// </summary>
 public class EngagementOverviewResponse
 {
@@ -47,7 +48,7 @@ public class EngagementOverviewResponse
     /// <summary>Brief của owner — chỉ engagement có design; null nếu project chưa có brief.</summary>
     public DesignBriefResponse? Brief { get; set; }
 
-    /// <summary>Kết quả AI (state=completed) — chỉ engagement có design.</summary>
+    /// <summary>Kết quả AI (state=completed) của dự án — mọi contract_type.</summary>
     public List<AiRecommendationResponse>? AiRecommendations { get; set; }
 
     /// <summary>Bản vẽ đã 'approved' của project — chỉ engagement construction-only.</summary>

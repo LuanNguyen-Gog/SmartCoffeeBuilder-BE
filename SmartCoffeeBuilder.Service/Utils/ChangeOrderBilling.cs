@@ -84,4 +84,47 @@ public static class ChangeOrderBilling
         await batches.InsertAsync(batch);
         return batch;
     }
+
+    /// <summary>
+    /// Bù đợt cho các khoản phát sinh hai bên đã duyệt TRƯỚC khi hợp đồng được ký (sửa 02/10/2026).
+    /// <see cref="TryCreateBatchAsync"/> bỏ qua chúng vì lúc duyệt chưa có hợp đồng để ghi nợ — và
+    /// trước đây ký xong cũng không ai quay lại, nên khoản đã duyệt nằm mãi ngoài màn thanh toán.
+    /// Gọi từ <c>ContractService.ConfirmOtpAsync</c> trong CÙNG transaction với việc ký: hợp đồng
+    /// chưa commit nên <paramref name="contractId"/> và <paramref name="firstSortOrder"/> phải truyền
+    /// vào (đợt của báo giá cũng chỉ mới nằm trong change tracker).
+    /// </summary>
+    /// <returns>Số đợt vừa dựng.</returns>
+    public static async Task<int> BillApprovedBeforeSigningAsync(
+        IUnitOfWork<SmartCafeBuilderContext> unitOfWork, Guid contractId, Guid projectWorkingId, int firstSortOrder)
+    {
+        var orders = await unitOfWork.GetRepository<ChangeOrder>().GetListAsync(
+            predicate: o => o.ProjectWorkingId == projectWorkingId
+                            && o.Status == ChangeOrderStatus.accepted
+                            && o.Amount > 0m
+                            && !o.PaymentBatches.Any(),
+            orderBy: q => q.OrderBy(o => o.RespondedAt).ThenBy(o => o.CreatedAt));
+
+        if (orders.Count == 0) return 0;
+
+        var now = DateTime.UtcNow;
+        var sortOrder = firstSortOrder;
+        var created = orders.Select(order => new PaymentBatch
+        {
+            ContractId = contractId,
+            ConstructionItemId = order.ConstructionItemId,
+            // Khoản đã nằm trong DB (đọc AsNoTracking) ⇒ gán FK, KHÔNG gán navigation: gán entity
+            // không tracked vào navigation làm EF insert lại nó và ném 23505 duplicate key.
+            ChangeOrderId = order.Id,
+            SortOrder = sortOrder++,
+            Name = order.Title,
+            Amount = order.Amount,
+            Note = $"Approved change order. Reason: {order.Reason}",
+            Status = PaymentBatchStatus.pending,
+            CreatedAt = now,
+            UpdatedAt = now
+        }).ToList();
+
+        await unitOfWork.GetRepository<PaymentBatch>().InsertRangeAsync(created);
+        return created.Count;
+    }
 }

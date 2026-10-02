@@ -149,6 +149,14 @@ public class PaymentBatchService : IPaymentBatchService
 
         await _notificationService.NotifyPaymentBatchDecisionAsync(batch.Id, confirmed: true);
 
+        // Đợt cuối được xác nhận có thể là mảnh ghép cuối để đóng dự án (PaymentSettlementRules) —
+        // nhắc owner. NotifyProjectReadyToCloseAsync tự xét đủ điều kiện, chưa đủ thì im lặng.
+        var projectId = await _repository.SingleOrDefaultAsync(
+            selector: b => b.Contract.ProjectWorking.ProjectShopOwnerId,
+            predicate: b => b.Id == batch.Id);
+        if (projectId != Guid.Empty)
+            await _notificationService.NotifyProjectReadyToCloseAsync(projectId);
+
         return PaymentBatchResponse.From(await LoadWithDetailsAsync(id));
     }
 

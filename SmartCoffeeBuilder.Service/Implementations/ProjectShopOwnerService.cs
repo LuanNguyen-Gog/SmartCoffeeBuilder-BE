@@ -218,6 +218,11 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
         var blocker = ProjectClosureRules.FindBlocker(project.ProjectWorkings, signedEngagementIds);
         if (blocker != null) throw new InvalidOperationException(blocker);
 
+        // Mọi đợt thanh toán đã được provider xác nhận và không còn phát sinh nào chờ quyết định.
+        // Nghiệm thu từng engagement đã đòi điều này, nhưng phát sinh/đợt có thể sinh SAU nghiệm thu
+        // (vd. khoản phát sinh lập muộn) — chốt lại ở đây.
+        await PaymentSettlementRules.EnsureProjectSettledAsync(_unitOfWork, project.Id, "close the project");
+
         var completedEngagements = project.ProjectWorkings
             .Where(e => e.Status == ProviderStatus.completed)
             .ToList();
@@ -325,6 +330,9 @@ public class ProjectShopOwnerService : IProjectShopOwnerService
         if (project.Status == ProjectStatus.in_progress)
             throw new InvalidOperationException(
                 "The project is 'in_progress' — accept it (POST /complete) or cancel it (POST /cancel) before deleting.");
+
+        // Xoá là mất luôn vết các đợt thanh toán — không cho xoá khi còn đợt owner chưa trả xong.
+        await PaymentSettlementRules.EnsureProjectSettledAsync(_unitOfWork, project.Id, "delete the project");
 
         project.DeletedAt = DateTime.UtcNow;
         _repository.Update(project);

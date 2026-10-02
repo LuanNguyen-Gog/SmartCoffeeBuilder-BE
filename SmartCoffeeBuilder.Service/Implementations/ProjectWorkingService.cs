@@ -509,6 +509,12 @@ public class ProjectWorkingService : IProjectWorkingService
             // Designer được nghiệm thu và nhận review ngay khi bản vẽ duyệt, không phải chờ công
             // trình xây xong. Ràng buộc "đủ cả hai phía" nằm ở bước đóng dự án (ProjectClosureRules).
             await EnsureDeliverablesReadyAsync(engagement, "accept the work yet");
+
+            // Mọi loại hình (design, thi công, both): trả xong mới nghiệm thu (chốt 02/10/2026) —
+            // mọi đợt đã được provider XÁC NHẬN và không còn phát sinh nào chờ quyết định. Thi công
+            // cũng vậy: đợt "nghiệm thu bàn giao" phải trả trước khi bấm nghiệm thu.
+            await PaymentSettlementRules.EnsureEngagementSettledAsync(
+                _unitOfWork, engagement.Id, "accept the work");
         }
 
         engagement.Status = target;
@@ -637,18 +643,21 @@ public class ProjectWorkingService : IProjectWorkingService
             ProjectShopOwner = OverviewProjectSummary.From(engagement.ProjectShopOwner)
         };
 
+        // Kết quả AI đã hoàn tất (bước AI của owner) — cho MỌI phạm vi, kể cả bên thi công: ảnh
+        // phối cảnh là ý đồ chung của dự án, constructor cần xem để thi công đúng tinh thần
+        // (chốt 02/10/2026). Trước đây chỉ bên design nhận nên constructor thấy trang trống.
+        var recommendations = await _unitOfWork.GetRepository<AiRecommendation>().GetListAsync(
+            predicate: r => r.Brief.ProjectShopOwnerId == engagement.ProjectShopOwnerId && r.State == "completed",
+            orderBy: q => q.OrderByDescending(r => r.CreatedAt));
+        overview.AiRecommendations = recommendations.Select(AiRecommendationResponse.From).ToList();
+
         if (engagement.ContractType is ServiceKind.design or ServiceKind.both)
         {
-            // Bên design: brief + các kết quả AI đã hoàn tất (bước AI của owner).
+            // Bên design: brief.
             var brief = await _unitOfWork.GetRepository<DesignBrief>().SingleOrDefaultAsync(
                 predicate: b => b.ProjectShopOwnerId == engagement.ProjectShopOwnerId,
                 orderBy: q => q.OrderByDescending(b => b.CreatedAt));
             overview.Brief = brief != null ? DesignBriefResponse.From(brief) : null;
-
-            var recommendations = await _unitOfWork.GetRepository<AiRecommendation>().GetListAsync(
-                predicate: r => r.Brief.ProjectShopOwnerId == engagement.ProjectShopOwnerId && r.State == "completed",
-                orderBy: q => q.OrderByDescending(r => r.CreatedAt));
-            overview.AiRecommendations = recommendations.Select(AiRecommendationResponse.From).ToList();
         }
         else
         {

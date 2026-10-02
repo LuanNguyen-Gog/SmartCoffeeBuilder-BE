@@ -409,6 +409,10 @@ public class NotificationService : INotificationService
 
         if (ProjectClosureRules.FindBlocker(project.ProjectWorkings, signedEngagementIds) != null) return;
 
+        // Còn đợt thanh toán chưa xác nhận / phát sinh chờ quyết định thì CompleteAsync sẽ từ chối —
+        // đừng mời owner đóng.
+        if ((await PaymentSettlementRules.FindForProjectAsync(_unitOfWork, projectShopOwnerId)).Any) return;
+
         var completedCount = project.ProjectWorkings.Count(e => e.Status == ProviderStatus.completed);
 
         var ownerAccount = project.Owner?.Account;

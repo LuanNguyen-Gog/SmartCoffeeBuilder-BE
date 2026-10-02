@@ -200,9 +200,47 @@ public class ConstructionTaskService : IConstructionTaskService
         task.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(task);
+
+        // Việc con đã chạy thì mốc chứa nó đang chạy (sửa 02/10/2026): trước đây mốc đứng mãi ở
+        // 'pending' tới khi provider tự bấm đổi mốc, nên owner lọc "In Progress" luôn trống dù công
+        // trường đang làm. Chỉ tự BẮT ĐẦU, không tự đóng: đóng mốc còn phải qua checklist nghiệm thu
+        // (ConstructionItemService.UpdateStatusAsync) nên vẫn là bước provider chủ động.
+        await StartMilestoneIfPendingAsync(task.ConstructionItem);
+
         await _unitOfWork.CommitAsync();
 
         return ConstructionTaskResponse.From(task);
+    }
+
+    /// <summary>
+    /// Đưa mốc (và mốc cha, cây tối đa 2 cấp) từ 'pending' sang 'in_progress', đóng luôn mốc bắt đầu
+    /// thực tế như khi provider tự bấm. Chỉ ghi vào change tracker — caller commit.
+    /// </summary>
+    private async Task StartMilestoneIfPendingAsync(ConstructionItem milestone)
+    {
+        var items = _unitOfWork.GetRepository<ConstructionItem>();
+        var now = DateTime.UtcNow;
+
+        if (milestone.Status == ItemStatus.pending)
+        {
+            milestone.Status = ItemStatus.in_progress;
+            milestone.ActualStartAt ??= VietnamTime.Today;
+            milestone.UpdatedAt = now;
+            items.Update(milestone);
+        }
+
+        if (milestone.ParentId is Guid parentId)
+        {
+            var parent = await items.SingleOrDefaultAsync(
+                predicate: c => c.Id == parentId && c.Status == ItemStatus.pending);
+            if (parent != null)
+            {
+                parent.Status = ItemStatus.in_progress;
+                parent.ActualStartAt ??= VietnamTime.Today;
+                parent.UpdatedAt = now;
+                items.Update(parent);
+            }
+        }
     }
 
     public async Task DeleteAsync(Guid accountId, Guid id)

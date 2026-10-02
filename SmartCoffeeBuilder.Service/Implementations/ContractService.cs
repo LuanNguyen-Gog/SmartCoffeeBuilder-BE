@@ -8,6 +8,7 @@ using SmartCoffeeBuilder.Service.ApiResponse;
 using SmartCoffeeBuilder.Service.DTOs.Requests.Contract;
 using SmartCoffeeBuilder.Service.DTOs.Responses.Contract;
 using SmartCoffeeBuilder.Service.Interfaces;
+using SmartCoffeeBuilder.Service.Utils;
 
 namespace SmartCoffeeBuilder.Service.Implementations;
 
@@ -97,8 +98,13 @@ public class ContractService : IContractService
 
         // Hợp đồng dựng từ báo giá đã duyệt: giá trị lấy thẳng từ tổng báo giá, KHÔNG nhận số
         // provider gửi lên (review 3: "các field sau lấy từ báo giá và không cho phép provider
-        // thay đổi"). Không gửi quotationId thì vẫn đi luồng lập tay cũ.
-        var quotation = await LoadAcceptedQuotationAsync(request.QuotationId, engagement);
+        // thay đổi"). Không gửi quotationId thì BE tự tìm bản đã duyệt của engagement (02/10/2026):
+        // đợt thanh toán chia từ báo giá, nên hợp đồng lập tay lệch tổng là các đợt không cộng ra
+        // giá trị hợp đồng — và hợp đồng không gắn báo giá thì không sinh đợt nào. Chỉ khi
+        // engagement hoàn toàn không có báo giá mới còn đi luồng lập tay cũ.
+        var quotation = request.QuotationId != null
+            ? await LoadAcceptedQuotationAsync(request.QuotationId, engagement)
+            : await FindAcceptedQuotationAsync(engagement);
 
         // Thời gian thực hiện: nhận từ request, và nếu chỉ có ngày bắt đầu thì suy ngày kết thúc
         // từ estimated_duration_days của báo giá đã duyệt — con số đó chính là cam kết owner đã
@@ -138,6 +144,9 @@ public class ContractService : IContractService
     ///
     /// Guard soi theo cặp (project, provider) chứ không chỉ engagement hiện tại: cùng một cặp có thể
     /// còn engagement cũ mang hợp đồng chưa đóng, và về mặt pháp lý đó vẫn là hợp đồng giữa hai bên đó.
+    /// CỐ Ý tính cả engagement đã huỷ ngang (chốt với chủ dự án 02/10/2026): đã ký hợp đồng rồi huỷ
+    /// giữa chừng thì KHÔNG được ký lại hợp đồng mới với cùng provider trên dự án đó — đúng thực tế.
+    /// Đừng "sửa" bằng cách lọc theo trạng thái engagement.
     /// </summary>
     /// <exception cref="InvalidOperationException">Đã có hợp đồng còn hiệu lực (HTTP 409).</exception>
     private async Task EnsureNoActiveContractAsync(ProjectWorking engagement)
@@ -319,7 +328,12 @@ public class ContractService : IContractService
 
         _repository.Update(contract);
         MarkEngagementStarted(engagement);
-        await GeneratePaymentBatchesAsync(contract);
+        var nextSortOrder = await GeneratePaymentBatchesAsync(contract);
+
+        // Khoản phát sinh đã duyệt từ trước khi ký giờ mới có hợp đồng để thành đợt thu — xếp sau
+        // các đợt của báo giá, giống phát sinh duyệt sau khi ký.
+        await ChangeOrderBilling.BillApprovedBeforeSigningAsync(
+            _unitOfWork, contract.Id, contract.ProjectWorkingId, nextSortOrder);
 
         // Một SaveChanges → ký hợp đồng, mốc bắt đầu của engagement/dự án và các đợt thanh toán
         // sinh từ báo giá là atomic.
@@ -456,26 +470,66 @@ public class ContractService : IContractService
     }
 
     /// <summary>
+    /// Báo giá đã duyệt của engagement khi provider không chỉ định — bản version cao nhất, qua
+    /// cả hai chỗ neo (hồ sơ ứng tuyển mà engagement sinh ra từ đó, hoặc chính engagement).
+    /// Trả null khi engagement không có báo giá nào: luồng lập hợp đồng tay vẫn mở cho đường mời
+    /// trực tiếp không qua báo giá.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// Có báo giá nhưng chưa được owner duyệt (draft/sent/revision_requested) — lập tay lúc này là
+    /// tạo ra hợp đồng lệch giá với báo giá sắp được duyệt (HTTP 409).
+    /// </exception>
+    private async Task<Quotation?> FindAcceptedQuotationAsync(ProjectWorking engagement)
+    {
+        var engagementId = engagement.Id;
+        var applyId = engagement.ApplyId;
+        var repo = _unitOfWork.GetRepository<Quotation>();
+
+        var accepted = await repo.SingleOrDefaultAsync(
+            predicate: q => q.Status == QuotationStatus.accepted
+                            && (q.ProjectWorkingId == engagementId || (applyId != null && q.ApplyId == applyId)),
+            orderBy: q => q.OrderByDescending(x => x.Version));
+        if (accepted != null) return accepted;
+
+        var pending = await repo.SingleOrDefaultAsync(
+            predicate: q => (q.Status == QuotationStatus.draft
+                             || q.Status == QuotationStatus.sent
+                             || q.Status == QuotationStatus.revision_requested)
+                            && (q.ProjectWorkingId == engagementId || (applyId != null && q.ApplyId == applyId)),
+            orderBy: q => q.OrderByDescending(x => x.Version));
+        if (pending != null)
+            throw new InvalidOperationException(pending.Status == QuotationStatus.draft
+                ? $"Quotation v{pending.Version} ('{pending.Title}') is still a draft — send it and wait for the shop owner to approve it. " +
+                  "The contract is built from the approved quotation so its value and payment instalments match."
+                : $"Quotation v{pending.Version} ('{pending.Title}') is still waiting for the shop owner's approval — " +
+                  "the contract is built from the approved quotation so its value and payment instalments match.");
+
+        return null;
+    }
+
+    /// <summary>
     /// Ký xong thì cam kết "30% khi ký, 40% khi duyệt concept…" trong báo giá trở thành các đợt
     /// thanh toán thật để hai bên theo dõi (review 3). Chỉ ghi vào change tracker — caller commit
     /// chung transaction với việc ký.
     ///
     /// Không có báo giá nguồn thì không sinh gì: hợp đồng lập tay không có cơ sở nào để chia đợt.
     /// </summary>
-    private async Task GeneratePaymentBatchesAsync(Contract contract)
+    /// <returns>Số thứ tự cho đợt tiếp theo (đợt phát sinh xếp sau các đợt của báo giá).</returns>
+    private async Task<int> GeneratePaymentBatchesAsync(Contract contract)
     {
-        if (contract.QuotationId == null) return;
+        const int firstSortOrder = 1;
+        if (contract.QuotationId == null) return firstSortOrder;
 
         // Ký lại (hoặc chạy lại luồng) không được đẻ thêm đợt trùng.
-        var alreadyGenerated = await _unitOfWork.GetRepository<PaymentBatch>()
-            .CountAsync(b => b.ContractId == contract.Id) > 0;
-        if (alreadyGenerated) return;
+        var existingSort = await _unitOfWork.GetRepository<PaymentBatch>().GetListAsync(
+            selector: b => b.SortOrder, predicate: b => b.ContractId == contract.Id);
+        if (existingSort.Count > 0) return existingSort.Max() + 1;
 
         var terms = await _unitOfWork.GetRepository<QuotationPaymentTerm>().GetListAsync(
             predicate: t => t.QuotationId == contract.QuotationId,
             orderBy: q => q.OrderBy(t => t.SortOrder));
 
-        if (terms.Count == 0) return;
+        if (terms.Count == 0) return firstSortOrder;
 
         var now = DateTime.UtcNow;
         var batches = terms.Select(term => new PaymentBatch
@@ -493,6 +547,7 @@ public class ContractService : IContractService
         }).ToList();
 
         await _unitOfWork.GetRepository<PaymentBatch>().InsertRangeAsync(batches);
+        return batches.Max(b => b.SortOrder) + 1;
     }
 
     /// <summary>Nạp engagement kèm project + owner cho luồng ký hợp đồng (một lần cho cả request).</summary>

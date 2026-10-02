@@ -53,12 +53,24 @@ public class QuotationService : IQuotationService
         var st = ParseStatus(status);
         var isAdmin = await IsAdminAsync(accountId);
 
+        // "Báo giá của một engagement" = báo giá neo thẳng vào nó + báo giá neo vào hồ sơ ứng tuyển
+        // mà nó sinh ra từ đó (sửa 02/10/2026). Bản thắng thầu giữ chỗ neo hồ sơ vĩnh viễn
+        // (ck_quotations_anchor), còn báo giá lập SAU khi hồ sơ đã được nhận phải neo vào engagement
+        // (hồ sơ 'accepted' không nhận báo giá mới) — đọc một nhánh là thiếu nửa còn lại.
+        var originApplyId = projectWorkingId == null
+            ? null
+            : await _unitOfWork.GetRepository<ProjectWorking>().SingleOrDefaultAsync(
+                selector: e => e.ApplyId,
+                predicate: e => e.Id == projectWorkingId);
+
         // Lọc quyền NGAY TRONG query (không lấy về rồi ẩn): phân trang mới đếm đúng theo góc nhìn
         // người gọi. Hai nhánh neo kiểm riêng vì mỗi báo giá chỉ có đúng một nhánh khác null.
         var query = _repository
             .GetQueryable(
                 q => (applyId == null || q.ApplyId == applyId)
-                     && (projectWorkingId == null || q.ProjectWorkingId == projectWorkingId)
+                     && (projectWorkingId == null
+                         || q.ProjectWorkingId == projectWorkingId
+                         || (originApplyId != null && q.ApplyId == originApplyId))
                      && (postId == null || (q.Apply != null && q.Apply.PostId == postId))
                      && (st == null || q.Status == st)
                      && (isAdmin
@@ -331,7 +343,23 @@ public class QuotationService : IQuotationService
 
         var result = new AcceptQuotationResponse();
 
-        if (quotation.ApplyId != null)
+        if (quotation.ApplyId != null && quotation.Apply!.Status == ApplicationStatus.accepted)
+        {
+            // Hồ sơ đã được nhận TRƯỚC khi báo giá được duyệt — owner bấm nhận thẳng hồ sơ, hoặc
+            // provider gửi báo giá sau khi đã trúng. Engagement đã có sẵn: duyệt lúc này chỉ CHỐT
+            // GIÁ để hợp đồng dựng được từ báo giá (giá trị + đợt thanh toán khớp nhau), không đi
+            // lại ApplyService (nó chỉ nhận hồ sơ 'pending' nên sẽ ném 409). Trước 02/10/2026 báo
+            // giá kiểu này kẹt vĩnh viễn ở 'sent'.
+            var applyId = quotation.ApplyId.Value;
+            var engagementOpen = await _unitOfWork.GetRepository<ProjectWorking>().CountAsync(
+                e => e.ApplyId == applyId && e.Status == ProviderStatus.accepted) > 0;
+            if (!engagementOpen)
+                throw new InvalidOperationException(
+                    "The engagement this quotation belongs to is no longer active — there is nothing left to price.");
+
+            await _unitOfWork.CommitAsync();
+        }
+        else if (quotation.ApplyId != null)
         {
             // Báo giá của các provider KHÁC trên cùng bài đăng cũng hết hiệu lực, vì hồ sơ của họ
             // sắp bị từ chối theo luật giữ chỗ dự án. Đánh dấu TRƯỚC khi gọi ApplyService để mọi
@@ -621,7 +649,7 @@ public class QuotationService : IQuotationService
     {
         var scope = await LoadScopeAsync(applyId, projectWorkingId);
 
-        var open = await _repository.SingleOrDefaultAsync(
+        var candidates = await _repository.GetListAsync(
             predicate: q => (q.ApplyId != null
                                 ? q.Apply!.Post.ProjectShopOwnerId == scope.ProjectShopOwnerId
                                   && q.Apply!.ServiceProviderProfileId == scope.ServiceProviderProfileId
@@ -632,7 +660,31 @@ public class QuotationService : IQuotationService
                             && (q.Status == QuotationStatus.draft
                                 || q.Status == QuotationStatus.sent
                                 || q.Status == QuotationStatus.accepted),
-            orderBy: q => q.OrderByDescending(x => x.Version));
+            orderBy: q => q.OrderByDescending(x => x.Version),
+            include: q => q.Include(x => x.Apply!).Include(x => x.ProjectWorking!));
+
+        // Chỉ báo giá của một hợp tác CÒN SỐNG mới chiếm phần việc (sửa 02/10/2026). Hợp tác đã
+        // huỷ ngang / nghiệm thu / bị từ chối là chuyện đã đóng: owner mời lại đúng provider đó
+        // cho cùng loại hình thì engagement mới phải báo giá lại được — trước đây bản 'accepted'
+        // của engagement cũ chặn vĩnh viễn ("v1 has already been approved").
+        // Neo hồ sơ: sống khi hồ sơ còn chờ xét, hoặc engagement mở từ hồ sơ đó còn sống.
+        var applyIds = candidates
+            .Where(q => q.ApplyId != null && q.Apply!.Status == ApplicationStatus.accepted)
+            .Select(q => q.ApplyId!.Value)
+            .Distinct()
+            .ToList();
+        var liveApplyIds = applyIds.Count == 0
+            ? new HashSet<Guid>()
+            : (await _unitOfWork.GetRepository<ProjectWorking>().GetListAsync(
+                selector: e => e.ApplyId!.Value,
+                predicate: e => e.ApplyId != null
+                                && applyIds.Contains(e.ApplyId.Value)
+                                && (e.Status == ProviderStatus.requested || e.Status == ProviderStatus.accepted)))
+              .ToHashSet();
+
+        var open = candidates.FirstOrDefault(q => q.ProjectWorking != null
+            ? q.ProjectWorking.Status is ProviderStatus.requested or ProviderStatus.accepted
+            : q.Apply!.Status == ApplicationStatus.pending || liveApplyIds.Contains(q.ApplyId!.Value));
 
         if (open is null) return;
 
@@ -649,10 +701,19 @@ public class QuotationService : IQuotationService
 
     private async Task<int> NextVersionAsync(Guid? applyId, Guid? projectWorkingId)
     {
+        // Báo giá neo engagement nối tiếp số version của báo giá neo ở hồ sơ gốc — cùng một phần
+        // việc thì không có hai "v1" (xem ghi chú ở GetAllAsync).
+        var originApplyId = projectWorkingId == null
+            ? null
+            : await _unitOfWork.GetRepository<ProjectWorking>().SingleOrDefaultAsync(
+                selector: e => e.ApplyId,
+                predicate: e => e.Id == projectWorkingId);
+
         var versions = await _repository.GetListAsync(
             selector: q => q.Version,
             predicate: q => (applyId != null && q.ApplyId == applyId)
-                            || (projectWorkingId != null && q.ProjectWorkingId == projectWorkingId));
+                            || (projectWorkingId != null && q.ProjectWorkingId == projectWorkingId)
+                            || (originApplyId != null && q.ApplyId == originApplyId));
 
         return versions.Count == 0 ? 1 : versions.Max() + 1;
     }
